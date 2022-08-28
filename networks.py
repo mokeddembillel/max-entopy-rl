@@ -1,12 +1,9 @@
 import numpy as np
-import scipy.signal
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
-import math
-import torch.autograd as autograd
-import torch.optim as optim
+
 
 
 def mlp(sizes, activation, output_activation=nn.Identity):
@@ -28,38 +25,36 @@ class MLPQFunction(nn.Module):
         return torch.squeeze(q, -1) # Critical to ensure q has right shape.
 
 
+class MLPSquashedGaussian(nn.Module):
 
-
-
-class SquashedGaussianMLPActor(nn.Module):
-
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit, num_svgd_particles):#, wandb):
+    def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit, num_particles, log_std_min, log_std_max):#, wandb):
         super().__init__()
         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.act_limit = act_limit
-        self.num_svgd_particles = num_svgd_particles
-        #self.wandb = wandb
+        self.num_particles = num_particles
+        self.log_std_min = log_std_min
+        self.log_std_max = log_std_max
 
-    def forward(self, obs, deterministic=False, with_logprob=True, num_svgd_particles=None):#, wandb=None):
-        if num_svgd_particles is None:
-            num_svgd_particles = self.num_svgd_particles
-        
-        #print('***************obs: ', obs.size() )
+    def forward(self, obs):
         net_out = self.net(obs)
-        self.mu = self.mu_layer(net_out)
+        mu = self.mu_layer(net_out)
         log_std = self.log_std_layer(net_out)
-        log_std = torch.clamp(log_std, LOG_STD_MIN, LOG_STD_MAX)
-        self.std = torch.exp(log_std)
+        log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
+        std = torch.exp(log_std)
+        return mu, std
 
-        #print('mu: ', self.mu)
-        #print('std: ',self.std)
-        # Pre-squash distribution and sample
+
+    def act(self, obs, deterministic, with_logprob):#, wandb=None):
+        if num_particles is None:
+            num_particles = self.num_particles
+        
+        mu, sigma = self.forward(obs)
+
         pi_distribution = Normal(self.mu, self.std)
         
         if deterministic:
-            # Only used for evaluating policy at test time.
             pi_action = self.mu
         else:
             pi_action = pi_distribution.rsample()
@@ -68,13 +63,11 @@ class SquashedGaussianMLPActor(nn.Module):
             logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
             logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
             
-            #print(logp_pi)
-            if num_svgd_particles>0:
-                logp_pi = logp_pi.view(-1,num_svgd_particles).mean(-1)
+            if num_particles>0:
+                logp_pi = logp_pi.view(-1,num_particles).mean(-1)
         else:
             logp_pi = None
         
-        #import pdb; pdb.set_trace()
         pi_action = torch.tanh(pi_action)
         pi_action = self.act_limit * pi_action
 
