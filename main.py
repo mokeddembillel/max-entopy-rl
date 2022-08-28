@@ -1,6 +1,6 @@
 import argparse
 from envs.multigoal_env import MultiGoalEnv
-from utils import setup_logger_kwargs
+from spinup_utils import setup_logger_kwargs
 import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
