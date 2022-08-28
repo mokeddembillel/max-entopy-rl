@@ -1,14 +1,14 @@
 import argparse
-from spinup.algos.pytorch.sac.env_multigoal import MultiGoalEnv
-from spinup.algos.pytorch.sac.utils import setup_logger_kwargs
+from envs.multigoal_env import MultiGoalEnv
+from utils import setup_logger_kwargs
 import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
-from spinup.algos.pytorch.sac.env_multigoal import MultiGoalEnv
+from envs.multigoal_env import MultiGoalEnv
 import numpy as np
 import gym
 from datetime import datetime
-from spinup.algos.pytorch.sac.core import MaxEntrRL
+from core import MaxEntrRL
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
