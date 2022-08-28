@@ -1,3 +1,6 @@
+import torch.nn as nn
+
+
 LOG_STD_MAX = 2
 LOG_STD_MIN = -20
 
@@ -13,9 +16,7 @@ class Actor(nn.Module):
 
 
 class ActorCritic(nn.Module):
-
-    def __init__(self, observation_space, action_space, num_svgd_particles, num_svgd_steps, svgd_lr, sac_version, device, hidden_sizes=(256,256),
-                 activation=nn.ELU, writer=None):
+    def __init__(self, observation_space, action_space, device , hidden_sizes=(256,256), activation=nn.ELU, actor_kwargs=dict()):
         super().__init__()
         obs_dim = observation_space.shape[0]
         act_dim = action_space.shape[0]
