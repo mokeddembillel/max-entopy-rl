@@ -27,15 +27,13 @@ class MLPQFunction(nn.Module):
 
 class MLPSquashedGaussian(nn.Module):
 
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation, act_limit, num_particles, log_std_min, log_std_max):#, wandb):
+    def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
         super().__init__()
         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
-        self.act_limit = act_limit
-        self.num_particles = num_particles
-        self.log_std_min = log_std_min
-        self.log_std_max = log_std_max
+        self.log_std_min = 2
+        self.log_std_max = -20
 
     def forward(self, obs):
         net_out = self.net(obs)
@@ -46,32 +44,7 @@ class MLPSquashedGaussian(nn.Module):
         return mu, std
 
 
-    def act(self, obs, deterministic, with_logprob):#, wandb=None):
-        if num_particles is None:
-            num_particles = self.num_particles
-        
-        mu, sigma = self.forward(obs)
-
-        pi_distribution = Normal(self.mu, self.std)
-        
-        if deterministic:
-            pi_action = self.mu
-        else:
-            pi_action = pi_distribution.rsample()
-        
-        if with_logprob:
-            logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
-            logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
-            
-            if num_particles>0:
-                logp_pi = logp_pi.view(-1,num_particles).mean(-1)
-        else:
-            logp_pi = None
-        
-        pi_action = torch.tanh(pi_action)
-        pi_action = self.act_limit * pi_action
-
-        return pi_action.reshape(-1,pi_action.size()[-1]), logp_pi
+    
 
 
 
