@@ -3,9 +3,6 @@ import itertools
 import numpy as np
 import torch 
 from torch.optim import Adam
-import random
-import time
-import math
 from datetime import datetime
 from utils import utils
 from spinup.utils.logx import EpochLogger

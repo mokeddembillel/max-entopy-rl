@@ -26,18 +26,6 @@ class AdamOptim():
         self.lr = lr
     
     def step(self, t, x, dx, itr=None): 
-        
         dx = dx.view(x.size())
-        ''' 
-        self.m_dx = self.beta1*self.m_dx + (1-self.beta1)*dx
-        self.v_dx = self.beta2*self.v_dx + (1-self.beta2)*(dx**2)
-        
-        ## bias correction
-        m_dx_corr = self.m_dx/(1-self.beta1**t)
-        v_dx_corr = self.v_dx/(1-self.beta2**t)
-        
-        x = x + self.lr*(m_dx_corr/(torch.sqrt(v_dx_corr)+self.epsilon)) 
-        '''
         x = x + self.lr * dx
-        
         return x
