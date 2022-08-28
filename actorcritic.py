@@ -22,7 +22,7 @@ class ActorCritic(nn.Module):
 
         self.q1 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
         self.q2 = MLPQFunction(obs_dim, act_dim, hidden_sizes, activation)
-        self.pi = dict_actors[actor_kwargs.actor](actor_kwargs)
+        self.pi = dict_actors[actor_kwargs.actor](**actor_kwargs)
 
     def forward(self, obs):
     	self.pi.act(obs)
