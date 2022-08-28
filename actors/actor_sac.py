@@ -1,6 +1,6 @@
 
 
-class SAC_ACTOR():
+class ActorSac():
     def __init__(self):
         
         

@@ -75,7 +75,7 @@ class MaxEntrRL():
         # Bellman backup for Q functions
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.actor.num_particles,1).view(-1,o2.size()[-1])
-        a2, logp_a2 = self.ac.act()
+        a2, logp_a2 = self.ac.act(o2)
 
         with torch.no_grad(): 
             # Target Q-values
@@ -105,7 +105,7 @@ class MaxEntrRL():
         o = data['obs']
         o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.actor.num_particles,1).view(-1,o.size()[-1])
         
-        a, logp_pi = ac.act(o)
+        a, logp_pi = self.ac.act(o)
         
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.actor.num_particles).mean(-1)

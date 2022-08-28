@@ -29,7 +29,7 @@ class RBF(torch.nn.Module):
         kappa_grad = -2. * (diff * gamma) * kappa
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
-class SVGD_ACTOR():
+class ActorSvgd():
     def __init__(self):
         self.K = RBF()
 
@@ -103,7 +103,7 @@ class SVGD_ACTOR():
         plot = False 
         return a, logp, phi(a)  
 
-    def act():
+    def act(self, obs):
         obs = obs.view(-1,1,obs.size()[-1]).repeat(1,self.num_svgd_particles,1).view(-1,obs.size()[-1])
 
         with torch.no_grad():
@@ -134,8 +134,16 @@ class SVGD_ACTOR():
         logp_a2 = logp_a2.detach()
 
 
+class ActorSvgdNonParam(ActorSvgd):
+    def __init__(self):
+    def act(self, obs):
 
+class ActorSvgdP0Param(ActorSvgd):
+    def __init__(self):
+    def act(self, obs):
 
-
+class ActorSvgdP0KernelParam(ActorSvgd):
+    def __init__(self):
+    def act(self, obs):
 
 
