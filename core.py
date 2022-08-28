@@ -3,18 +3,17 @@ import itertools
 import numpy as np
 import torch 
 from torch.optim import Adam
-import gym
 import random
 import time
 import math
-#import wandb
 from datetime import datetime
-from sac.utils as utils
+from utils import utils
 from spinup.utils.logx import EpochLogger
 from torch.utils.tensorboard import SummaryWriter
-from multigoal import MultiGoalEnv, QFPolicyPlotter
+from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
 from actorcritic import ActorCritic
 from utils import utils
+from buffer import ReplayBuffer
 
 
 class MaxEntrRL():
@@ -46,7 +45,7 @@ class MaxEntrRL():
         self.act_limit = self.env.action_space.high[0]
 
         # Create actor-critic module and target networks
-        self.ac = ActorCritic(self.env.observation_space, self.env.action_space, **self.actor_kwargs, **self.critic_kwargs, self.device)
+        self.ac = ActorCritic(self.env.observation_space, self.env.action_space, self.device, **self.critic_kwargs, self.actor_kwargs)
         self.ac_targ = deepcopy(self.ac)
 
         # move models to device
@@ -84,7 +83,7 @@ class MaxEntrRL():
             q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.actor.num_particles).mean(-1)
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
             
-            backup = r + gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)
+            backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)
             #self.tb_logger.add_scalars('loss_q/backup',  {'total ': backup.mean(), 'q_pi_targ': (gamma * (1 - d) * q_pi_targ).mean(),'entr_term': - (gamma * (1 - d)* alpha * logp_a2).mean()  }, itr)
             #self.tb_logger.add_scalar('loss_q/backup/entr', - logp_a2.mean(), itr)
 
@@ -241,7 +240,7 @@ class MaxEntrRL():
             
             # Update handling
             if t >= self.RL_kwargs.update_after and t % self.RL_kwargs.update_every == 0:
-                for j in range(update_every):
+                for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
                     self.update(data=batch, itr=t)
 
@@ -250,8 +249,8 @@ class MaxEntrRL():
                 self.env.plot_paths(t,1)
                 self.env.plot_paths(t,20)
             
-            if (t+1) % steps_per_epoch == 0:
-                epoch = (t+1) // steps_per_epoch 
+            if (t+1) % self.RL_kwargs.steps_per_epoch == 0:
+                epoch = (t+1) // self.RL_kwargs.steps_per_epoch 
                 # Save model
                 if (epoch % self.save_freq == 0) or (epoch == self.optim_kwargs.epochs): 
                     print('save env ...') 
