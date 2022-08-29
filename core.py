@@ -125,7 +125,6 @@ class MaxEntrRL():
         # First run one gradient descent step for Q1 and Q2
         self.q_optimizer.zero_grad()
         loss_q, q_info = self.compute_loss_q(data, itr)
-        
         self.tb_logger.add_scalar('loss_q/total',loss_q, itr)
 
         loss_q.backward()
