@@ -29,3 +29,9 @@ class AdamOptim():
         dx = dx.view(x.size())
         x = x + self.lr * dx
         return x
+
+
+class AttrDict(dict):
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self

@@ -10,6 +10,7 @@ import gym
 from datetime import datetime
 from core import MaxEntrRL
 import gym_max_entropy
+from utils import AttrDict
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
@@ -66,9 +67,9 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=dict(actor=args.actor, num_svgd_particles=args.num_svgd_particles, num_svgd_steps=args.num_svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
+        actor_kwargs=AttrDict(actor=args.actor, num_svgd_particles=args.num_svgd_particles, num_svgd_steps=args.num_svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
     elif args.actor in ['sac']:
-        actor_kwargs=dict(actor=args.actor, hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
+        actor_kwargs=AttrDict(actor=args.actor, hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
 
     # get device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -82,13 +83,13 @@ if __name__ == '__main__':
     tb_logger = SummaryWriter(args.tensorboard_path+project_name)
 
     # RL args
-    RL_kwargs = dict(gamma=args.gamma,alpha=args.alpha,replay_size=args.replay_size,start_steps=args.start_steps,update_after=args.update_after,
+    RL_kwargs = AttrDict(gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),start_steps=args.start_steps,update_after=args.update_after,
         update_every=args.update_every,num_test_episodes=args.num_test_episodes,max_ep_len=args.max_ep_len)
 
     # optim args
-    optim_kwargs = dict(episodes=args.episodes,steps_per_episode=args.steps_per_episode,polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)
+    optim_kwargs = AttrDict(episodes=args.episodes,steps_per_episode=args.steps_per_episode,polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)
     
     stac=MaxEntrRL(env_fn, tb_logger, env=args.env, actor=args.actor, seed=args.seed, device=device, 
-        critic_kwargs=dict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ELU), actor_kwargs= actor_kwargs,
+        critic_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ELU), actor_kwargs= actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs, logger_kwargs=logger_kwargs, save_freq = args.save_freq)
 

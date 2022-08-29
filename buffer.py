@@ -1,6 +1,6 @@
 import torch 
 import numpy as np
-from utils import combined_shape
+from utils import combined_shape, AttrDict
 
 class ReplayBuffer:
     """
@@ -26,7 +26,7 @@ class ReplayBuffer:
 
     def sample_batch(self, batch_size=32):
         idxs = np.random.randint(0, self.size, size=batch_size) 
-        batch = dict(obs=self.obs_buf[idxs],
+        batch = AttrDict(obs=self.obs_buf[idxs],
                      obs2=self.obs2_buf[idxs],
                      act=self.act_buf[idxs],
                      rew=self.rew_buf[idxs],

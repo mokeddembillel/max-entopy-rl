@@ -9,13 +9,12 @@ from spinup_utils.logx import EpochLogger
 # from torch.utils.tensorboard import SummaryWriter
 # from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
 from actorcritic import ActorCritic
-# from utils import utils
+from utils import combined_shape, count_vars, AttrDict
 from buffer import ReplayBuffer
 
-
 class MaxEntrRL():
-    def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=dict(), actor_kwargs=dict(), device="cuda",   
-        RL_kwargs=dict(), optim_kwargs=dict(),logger_kwargs=dict(), save_freq=1):
+    def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
+        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict(), save_freq=1):
         self.env_fn = env_fn
         self.tb_logger = tb_logger
         self.env_name = env
@@ -50,7 +49,7 @@ class MaxEntrRL():
         self.ac_targ = self.ac_targ.to(self.device)
 
         # Experience buffer
-        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size)
+        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device)
 
         # Set up optimizers for policy and q-function
         self.pi_optimizer = Adam(self.ac.pi.parameters(), lr=self.optim_kwargs.lr)
@@ -59,7 +58,7 @@ class MaxEntrRL():
         self.q_optimizer = Adam(self.q_params, lr=self.optim_kwargs.lr)
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
-        var_counts = tuple(utils.count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
+        var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
         self.logger.log('\nNumber of parameters: \t pi: %d, \t q1: %d, \t q2: %d\n'%var_counts)
 
 
@@ -93,7 +92,7 @@ class MaxEntrRL():
         self.tb_logger.add_scalar('loss_q/loss_q2',loss_q2, itr)
         
         # Useful info for logging
-        q_info = dict(Q1Vals=q1.detach().cpu().numpy(),Q2Vals=q2.detach().cpu().numpy())
+        q_info = AttrDict(Q1Vals=q1.detach().cpu().numpy(),Q2Vals=q2.detach().cpu().numpy())
 
         return loss_q, q_info
 
@@ -116,7 +115,7 @@ class MaxEntrRL():
         self.tb_logger.add_scalar('loss_pi/logp_pi', logp_pi.mean(), itr)
 
         # Useful info for logging
-        pi_info = dict(LogPi=logp_pi.detach().cpu().numpy())
+        pi_info = AttrDict(LogPi=logp_pi.detach().cpu().numpy())
 
         return loss_pi, pi_info
 
