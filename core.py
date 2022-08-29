@@ -52,7 +52,8 @@ class MaxEntrRL():
         self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device)
 
         # Set up optimizers for policy and q-function
-        self.pi_optimizer = Adam(self.ac.pi.parameters(), lr=self.optim_kwargs.lr)
+        if next(self.ac.pi.parameters(), None) is not None:
+            self.pi_optimizer = Adam(self.ac.pi.parameters(), lr=self.optim_kwargs.lr)
         
         self.q_params = itertools.chain(self.ac.q1.parameters(), self.ac.q2.parameters())
         self.q_optimizer = Adam(self.q_params, lr=self.optim_kwargs.lr)
