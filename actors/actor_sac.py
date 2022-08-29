@@ -6,7 +6,7 @@ from torch.distributions import Normal
 
 class ActorSac(torch.nn.Module):
     def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
-        super(ActorSac, self).__init__(obs_dim, act_dim, hidden_sizes, activation)
+        super(ActorSac, self).__init__()
         self.num_particles = 1
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
     
