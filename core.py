@@ -71,13 +71,13 @@ class MaxEntrRL():
 
         # Bellman backup for Q functions
         # Target actions come from *current* policy
-        o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.actor.num_particles,1).view(-1,o2.size()[-1])
-        a2, logp_a2 = self.ac.act(o2)
+        o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o2.size()[-1])
+        a2, logp_a2 = self.ac(o2)
 
         with torch.no_grad(): 
             # Target Q-values
-            q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.actor.num_particles).mean(-1)
-            q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.actor.num_particles).mean(-1)
+            q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
+            q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
             
             backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)
@@ -130,7 +130,7 @@ class MaxEntrRL():
         loss_q.backward()
         self.q_optimizer.step()
         
-        self.env.debugging_metrics(itr)
+        #self.env.debugging_metrics(itr)
 
         # Record things
         self.logger.store(LossQ=loss_q.item(), **q_info)

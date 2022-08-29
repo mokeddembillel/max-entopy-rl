@@ -14,7 +14,6 @@ def mlp(sizes, activation, output_activation=nn.Identity):
     return nn.Sequential(*layers)
 
 class MLPQFunction(nn.Module):
-
     def __init__(self, obs_dim, act_dim, hidden_sizes, activation=nn.Identity):
         super().__init__()
         # print('activation ', activation)
