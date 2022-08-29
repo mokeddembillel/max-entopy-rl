@@ -95,4 +95,4 @@ if __name__ == '__main__':
     stac=MaxEntrRL(env_fn, tb_logger, env=args.env, actor=args.actor, seed=args.seed, device=device, 
         critic_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ELU), actor_kwargs= actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs, logger_kwargs=logger_kwargs, save_freq = args.save_freq)
-
+    stac.forward()

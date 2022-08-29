@@ -198,9 +198,8 @@ class MaxEntrRL():
         # Prepare for interaction with environment
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
-        ep_done = 0
+        episode = 0
         
-
         # Main loop: collect experience in env and update/log each epoch
         while episode < self.RL_kwargs.episodes:
             # Until start_steps have elapsed, randomly sample actions
