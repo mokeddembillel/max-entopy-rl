@@ -4,3 +4,8 @@ spinup_utils/__pycache__/*
 data/
 actors/__pycache__/*
 envs/__pycache__/*
+envs/.DS_Store
+envs/max-entropy-gym-env/.DS_Store
+envs/.DS_Store
+envs/max-entropy-gym-env/gym_max_entropy/.DS_Store
+.DS_Store
