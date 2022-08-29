@@ -101,13 +101,13 @@ class MaxEntrRL():
 
     def compute_loss_pi(self, data, itr):
         o = data['obs']
-        o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.actor.num_particles,1).view(-1,o.size()[-1])
+        o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
         
         a, logp_pi = self.ac.pi.act(o, False, True)
         
         # get the final action
-        q1_pi = self.ac.q1(o, a).view(-1, self.ac.actor.num_particles).mean(-1)
-        q2_pi = self.ac.q2(o, a).view(-1, self.ac.actor.num_particles).mean(-1)
+        q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles).mean(-1)
+        q2_pi = self.ac.q2(o, a).view(-1, self.ac.pi.num_particles).mean(-1)
         q_pi = torch.min(q1_pi, q2_pi)
 
         # Entropy-regularized policy loss
