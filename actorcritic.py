@@ -4,9 +4,10 @@ from actors.actor_sac import ActorSac
 from actors.actor_svgd import ActorSvgdNonParam,ActorSvgdP0Param,ActorSvgdP0KernelParam
 from actors.actor_sql import ActorSql
 from actors.actor_diffusion import ActorDiffusion
+from utils import AttrDict
 
 class ActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space, device , critic_kwargs=dict(), actor_kwargs=dict()):
+    def __init__(self, observation_space, action_space, device , critic_kwargs=AttrDict(), actor_kwargs=AttrDict()):
         super().__init__()
         obs_dim = observation_space.shape[0]
         act_dim = action_space.shape[0]
