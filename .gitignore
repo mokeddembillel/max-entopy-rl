@@ -1,0 +1,6 @@
+runs/*
+__pycache__/*
+spinup_utils/__pycache__/*
+data/
+actors/__pycache__/*
+envs/__pycache__/*
