@@ -2,7 +2,6 @@ from gym.utils import EzPickle
 from gym import spaces
 #from gym.envs.mujoco.mujoco_env import MujocoEnv
 from gym import Env
-from spinup.algos.pytorch.sac.plotter import svgd_plotting 
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -261,7 +260,7 @@ class PointDynamics(object):
         state_next = mu_next + self.sigma * np.random.normal(size=self.s_dim)
         return state_next
 
-
+'''
 class Debuger_MultiGoal():
     def __init__(self,writer): 
         init_state = torch.tensor([0.0,0.0]).to(device)
@@ -443,5 +442,5 @@ class Debuger_MultiGoal():
                 picks += 1
                 stability = 1 - (picks/(epoch-200000))
                 writer.add_scalar('modes/stability',stability, epoch)
-
+'''
 
