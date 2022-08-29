@@ -69,10 +69,10 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=AttrDict(actor=args.actor, num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
 
     elif args.actor in ['sac']:
-        actor_kwargs=AttrDict(actor=args.actor, hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
 
     # get device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

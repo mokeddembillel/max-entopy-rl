@@ -41,7 +41,7 @@ class MaxEntrRL():
         self.act_limit = self.env.action_space.high[0]
 
         # Create actor-critic module and target networks
-        self.ac = ActorCritic(self.env.observation_space, self.env.action_space, self.critic_kwargs, self.actor_kwargs)
+        self.ac = ActorCritic(self.actor, self.env.observation_space, self.env.action_space, self.critic_kwargs, self.actor_kwargs)
         self.ac_targ = deepcopy(self.ac)
 
         # move models to device

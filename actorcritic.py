@@ -7,7 +7,7 @@ from actors.actor_diffusion import ActorDiffusion
 from utils import AttrDict
 
 class ActorCritic(nn.Module):
-    def __init__(self, observation_space, action_space, critic_kwargs=AttrDict(), actor_kwargs=AttrDict()):
+    def __init__(self, actor, observation_space, action_space, critic_kwargs=AttrDict(), actor_kwargs=AttrDict()):
         super().__init__()
         obs_dim = observation_space.shape[0]
         act_dim = action_space.shape[0]
@@ -23,7 +23,7 @@ class ActorCritic(nn.Module):
 
         self.q1 = MLPQFunction(obs_dim, act_dim, critic_kwargs.hidden_sizes, critic_kwargs.activation)
         self.q2 = MLPQFunction(obs_dim, act_dim, critic_kwargs.hidden_sizes, critic_kwargs.activation)
-        self.pi = dict_actors[actor_kwargs.actor](**actor_kwargs)
+        self.pi = dict_actors[actor](**actor_kwargs)
 
     def forward(self, obs):
     	self.pi.act(obs)
