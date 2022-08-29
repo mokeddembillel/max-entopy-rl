@@ -80,32 +80,38 @@ class ActorSvgd():
         # sample from a Gaussian
         a = torch.normal(0, 1, size=(len(obs) * self.num_svgd_particles, self.act_dim)).to(self.device)
 
+        # entropy of a gaussian
+        logp0_a2 = 0
+
         # svgd
         a2, logq_a2, phi_a2 = self.svgd_sampler(obs, a.detach()) 
         a2 = a2.detach()
         
         # compute the entropy 
         logp_a2 = logp0_a2.detach() + logq_a2.detach().mean(-1)
+
+        return a2, logp_a2
         
 
-'''
+
 class ActorSvgdNonParam(ActorSvgd):
     def __init__(self):
-
+        ActorSvgd.__init__(self)
     def act(self, obs):
-        obs = obs.view(-1,1,obs.size()[-1]).repeat(1,self.num_svgd_particles,1).view(-1,obs.size()[-1])
-
-        with torch.no_grad():
-            a = torch.normal(0, 1, size=(len(obs) * self.num_svgd_particles, self.act_dim)).to(self.device)
-            a = self.act_limit * torch.tanh(a)
+        return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0Param(ActorSvgd):
     def __init__(self):
+        ActorSvgd.__init__(self)
     def act(self, obs):
+        return ActorSvgd.act(self, obs)
+
 
 class ActorSvgdP0KernelParam(ActorSvgd):
     def __init__(self):
+        ActorSvgd.__init__(self)
     def act(self, obs):
-'''
+        return ActorSvgd.act(self, obs)
+
 

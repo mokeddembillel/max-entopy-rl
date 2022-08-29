@@ -1,9 +1,9 @@
 import torch.nn as nn
 from networks import mlp, MLPQFunction
 from actors.actor_sac import ActorSac
-# from actors.actor_svgd import ActorSvgd
-# from actors.actor_sql import ActorSql
-# from actors.actor_diffusion import ActorDiffusion
+from actors.actor_svgd import ActorSvgdNonParam,ActorSvgdP0Param,ActorSvgdP0KernelParam
+from actors.actor_sql import ActorSql
+from actors.actor_diffusion import ActorDiffusion
 
 class ActorCritic(nn.Module):
     def __init__(self, observation_space, action_space, device , critic_kwargs=dict(), actor_kwargs=dict()):
@@ -14,11 +14,11 @@ class ActorCritic(nn.Module):
 
         dict_actors = {
             'sac': ActorSac,
-            'svgd_nonparam': 'ActorSvgdNonParam',
-            'svgd_p0_pram': 'ActorSvgdP0Param',
-            'svgd_p0_kernel_pram': 'ActorSvgdP0KernelParam',
-            'svgd_sql': 'ActorSql',
-            'diffusion': 'ActorDiffusion'}
+            'svgd_nonparam': ActorSvgdNonParam,
+            'svgd_p0_pram': ActorSvgdP0Param,
+            'svgd_p0_kernel_pram': ActorSvgdP0KernelParam,
+            'svgd_sql': ActorSql,
+            'diffusion': ActorDiffusion}
 
         self.q1 = MLPQFunction(obs_dim, act_dim, critic_kwargs['hidden_sizes'], critic_kwargs['activation'])
         self.q2 = MLPQFunction(obs_dim, act_dim, critic_kwargs['hidden_sizes'], critic_kwargs['activation'])
