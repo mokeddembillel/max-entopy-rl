@@ -72,7 +72,8 @@ class MaxEntrRL():
         # Bellman backup for Q functions
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o2.size()[-1])
-        a2, logp_a2 = self.ac(o2)
+        
+        a2, logp_a2 = self.ac.pi.act(o2, False, True)
 
         with torch.no_grad(): 
             # Target Q-values
@@ -102,7 +103,7 @@ class MaxEntrRL():
         o = data['obs']
         o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.actor.num_particles,1).view(-1,o.size()[-1])
         
-        a, logp_pi = self.ac.act(o)
+        a, logp_pi = self.ac.pi.act(o, False, True)
         
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.actor.num_particles).mean(-1)
@@ -130,13 +131,13 @@ class MaxEntrRL():
         loss_q.backward()
         self.q_optimizer.step()
         
-        #self.env.debugging_metrics(itr)
+        # self.env.debugging_metrics(itr)
 
         # Record things
         self.logger.store(LossQ=loss_q.item(), **q_info)
 
 
-        if (len(self.ac.pi.parameters())!=0):
+        if (len(list(self.ac.pi.parameters()))!=0):
             # Freeze Q-networks so you don't waste computational effort 
             # computing gradients for them during the policy learning step.
             for p in self.q_params:
@@ -145,7 +146,6 @@ class MaxEntrRL():
             # Next run one gradient descent step for pi.
             self.pi_optimizer.zero_grad()
             loss_pi, pi_info = self.compute_loss_pi(data, itr)
-            
             self.tb_logger.add_scalar('loss_pi/total',loss_pi, itr)
 
             loss_pi.backward()
@@ -169,8 +169,8 @@ class MaxEntrRL():
             for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
                 # NB: We use an in-place operations "mul_", "add_" to update target
                 # params, as opposed to "mul" and "add", which would make new tensors.
-                p_targ.data.mul_(self.RL_kwargs.polyak)
-                p_targ.data.add_((1 - self.RL_kwargs.polyak) * p.data)
+                p_targ.data.mul_(self.optim_kwargs.polyak)
+                p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
     def test_agent(self, itr=None):
         for j in range(self.RL_kwargs.num_test_episodes):
@@ -178,7 +178,7 @@ class MaxEntrRL():
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
                 # Take deterministic actions at test time 
-                a = self.ac.act(np.expand_dims(o, axis=0), deterministic=self.ac.actor.test_deterministic, test=True)
+                a = self.ac.act(np.expand_dims(o, axis=0), deterministic=self.ac.pi.test_deterministic, test=True)
                 o, r, d, _ = self.test_env.step(a)
                 ep_ret += r
                 ep_len += 1
@@ -206,7 +206,7 @@ class MaxEntrRL():
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
-                a = self.ac.pi.act(np.expand_dims(o, axis=0))
+                a = self.ac.pi.act(np.expand_dims(o, axis=0), False, False)
             else:
                 a = self.env.action_space.sample()  
             
@@ -239,10 +239,10 @@ class MaxEntrRL():
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
                     self.update(data=batch, itr=step_itr)
 
-            if (step_itr+1) % 1000 == 0:
-                print('Plot ', episode_itr+1)
-                self.env.plot_paths(episode_itr,1)
-                self.env.plot_paths(episode_itr,20)
+            # if (step_itr+1) % 1000 == 0:
+            #     print('Plot ', episode_itr+1)
+            #     self.env.plot_paths(episode_itr,1)
+            #     self.env.plot_paths(episode_itr,20)
 
 
             if (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
