@@ -32,7 +32,7 @@ class RBF(torch.nn.Module):
         kappa_grad = -2. * (diff * gamma) * kappa
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
-class ActorSvgd():
+class ActorSvgd(nn.Module):
     def __init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
         self.num_particles = num_svgd_particles
         self.num_svgd_steps = num_svgd_steps
@@ -95,22 +95,22 @@ class ActorSvgd():
 
 
 class ActorSvgdNonParam(ActorSvgd):
-    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
-        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
+    def __init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
-        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
+    def __init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
-        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
+    def __init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
