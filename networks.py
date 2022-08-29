@@ -26,7 +26,6 @@ class MLPQFunction(nn.Module):
 
 
 class MLPSquashedGaussian(nn.Module):
-
     def __init__(self, obs_dim, act_dim, hidden_sizes, activation=nn.Identity):
         super().__init__()
         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
