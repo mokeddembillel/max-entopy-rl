@@ -9,13 +9,13 @@ import numpy as np
 import gym
 from datetime import datetime
 from core import MaxEntrRL
-import gym_max_entropy
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
+    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
@@ -60,13 +60,13 @@ if __name__ == '__main__':
 
     # environment
     if args.env =='Multigoal':
-        env_fn = MultiGoalEnv()
+        env_fn = MultiGoalEnv
     else:
         env_fn = lambda : gym.make(args.env)
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=dict(actor=args.actor, num_svgd_particles=args.num_svgd_particles, num_svgd_steps=args.num_svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
+        actor_kwargs=dict(actor=args.actor, num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
     elif args.actor in ['sac']:
         actor_kwargs=dict(actor=args.actor, hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
 
@@ -77,7 +77,7 @@ if __name__ == '__main__':
     project_name = datetime.now().strftime("%b_%d_%Y_%H_%M_%S") +'_'+args.env + '_' + args.actor+'_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        project_name += '_svgd_steps_'+str(args.num_svgd_steps)+'_svgd_particles_'+str(args.num_svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
+        project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
 
     tb_logger = SummaryWriter(args.tensorboard_path+project_name)
 

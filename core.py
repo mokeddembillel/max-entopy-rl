@@ -4,7 +4,7 @@ import numpy as np
 import torch 
 from torch.optim import Adam
 from datetime import datetime
-# from utils import utils
+from utils import count_vars
 from spinup_utils.logx import EpochLogger
 # from torch.utils.tensorboard import SummaryWriter
 # from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
@@ -59,7 +59,7 @@ class MaxEntrRL():
         self.q_optimizer = Adam(self.q_params, lr=self.optim_kwargs.lr)
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
-        var_counts = tuple(utils.count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
+        var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
         self.logger.log('\nNumber of parameters: \t pi: %d, \t q1: %d, \t q2: %d\n'%var_counts)
 
 
@@ -196,7 +196,6 @@ class MaxEntrRL():
         self.logger.setup_pytorch_saver(self.ac)
         
         # Prepare for interaction with environment
-        
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
         ep_done = 0
@@ -208,7 +207,7 @@ class MaxEntrRL():
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
             if episode > self.optim_kwargs.start_steps:
-                a = self.ac.get_action(np.expand_dims(o, axis=0))
+                a = self.ac.pi.act(np.expand_dims(o, axis=0))
             else:
                 a = self.env.action_space.sample()  
             

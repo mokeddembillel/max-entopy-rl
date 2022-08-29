@@ -33,7 +33,7 @@ class RBF(torch.nn.Module):
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
 class ActorSvgd():
-    def __init__(self, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
         self.num_particles = num_svgd_particles
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr = svgd_lr
