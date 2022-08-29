@@ -198,14 +198,14 @@ class MaxEntrRL():
         # Prepare for interaction with environment
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
-        episode = 0
+        episode_itr = 0
         
         # Main loop: collect experience in env and update/log each epoch
-        while episode < self.RL_kwargs.episodes:
-            # Until start_steps have elapsed, randomly sample actions
+        while episode_itr < self.RL_kwargs.num_episodes:
+            # Until exploration_episodes have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
-            if episode > self.optim_kwargs.start_steps:
+            if episode_itr > self.RL_kwargs.exploration_episodes:
                 a = self.ac.pi.act(np.expand_dims(o, axis=0))
             else:
                 a = self.env.action_space.sample()  
@@ -231,39 +231,39 @@ class MaxEntrRL():
             if d or (ep_len == self.RL_kwargs.max_ep_len):
                 self.logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
-                episode += 1
+                episode_itr += 1
             
             # Update handling
-            if episode >= self.RL_kwargs.update_after and episode % self.RL_kwargs.update_every == 0:
+            if episode_itr >= self.RL_kwargs.update_after and episode_itr % self.RL_kwargs.update_every == 0:
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    self.update(data=batch, itr=episode)
+                    self.update(data=batch, itr=episode_itr)
 
-            if (episode+1) % 1000 == 0:
-                print('Plot ', episode+1)
-                self.env.plot_paths(episode,1)
-                self.env.plot_paths(episode,20)
+            if (episode_itr+1) % 1000 == 0:
+                print('Plot ', episode_itr+1)
+                self.env.plot_paths(episode_itr,1)
+                self.env.plot_paths(episode_itr,20)
             
-            if (episode+1) % self.RL_kwargs.steps_per_episode == 0:
-                episode = (episode+1) // self.RL_kwargs.steps_per_episode 
+            if (episode_itr+1) % self.RL_kwargs.steps_per_episode == 0:
+                episode_itr = (episode_itr+1) // self.RL_kwargs.steps_per_episode 
                 # Save model
-                if (episode % self.save_freq == 0) or (episode == self.optim_kwargs.episodes): 
+                if (episode_itr % self.save_freq == 0) or (episode_itr == self.optim_kwargs.episodes_itr): 
                     print('save env ...') 
                     self.logger.save_state({'env': self.env}, None)
 
                 # Test the performance of the deterministic version of the agent.
-                self.test_agent(episode)
+                self.test_agent(episode_itr)
                 
-                self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode)
-                self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode)
+                self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode_itr)
+                self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode_itr)
                 
                 # Log info about epoch
-                self.logger.log_tabular('Episode', episode)
+                self.logger.log_tabular('Episode', episode_itr)
                 self.logger.log_tabular('EpRet', with_min_and_max=True)
                 self.logger.log_tabular('TestEpRet', with_min_and_max=True)
                 self.logger.log_tabular('EpLen', average_only=True)
                 self.logger.log_tabular('TestEpLen', average_only=True)
-                self.logger.log_tabular('TotalEnvInteracts', episode)
+                self.logger.log_tabular('TotalEnvInteracts', episode_itr)
                 self.logger.log_tabular('Q1Vals', with_min_and_max=True)
                 self.logger.log_tabular('Q2Vals', with_min_and_max=True)
                 self.logger.log_tabular('LossQ', average_only=True)
