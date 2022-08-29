@@ -14,7 +14,7 @@ from buffer import ReplayBuffer
 
 class MaxEntrRL():
     def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
-        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict(), save_freq=1):
+        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict()):
         self.env_fn = env_fn
         self.tb_logger = tb_logger
         self.env_name = env
@@ -26,7 +26,7 @@ class MaxEntrRL():
         self.RL_kwargs = RL_kwargs
         self.optim_kwargs = optim_kwargs
         self.logger_kwargs = logger_kwargs
-        self.save_freq = save_freq
+        
 
         # logger 
         self.logger = EpochLogger(**self.logger_kwargs)
@@ -198,6 +198,7 @@ class MaxEntrRL():
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
         episode_itr = 0
+        step_itr = 0
         
         # Main loop: collect experience in env and update/log each epoch
         while episode_itr < self.RL_kwargs.num_episodes:
@@ -233,22 +234,20 @@ class MaxEntrRL():
                 episode_itr += 1
             
             # Update handling
-            if episode_itr >= self.RL_kwargs.update_after and episode_itr % self.RL_kwargs.update_every == 0:
+            if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    self.update(data=batch, itr=episode_itr)
+                    self.update(data=batch, itr=step_itr)
 
-            if (episode_itr+1) % 1000 == 0:
+            if (step_itr+1) % 1000 == 0:
                 print('Plot ', episode_itr+1)
                 self.env.plot_paths(episode_itr,1)
                 self.env.plot_paths(episode_itr,20)
-            
-            if (episode_itr+1) % self.RL_kwargs.steps_per_episode == 0:
-                episode_itr = (episode_itr+1) // self.RL_kwargs.steps_per_episode 
+
+
+            if (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Save model
-                if (episode_itr % self.save_freq == 0) or (episode_itr == self.optim_kwargs.episodes_itr): 
-                    print('save env ...') 
-                    self.logger.save_state({'env': self.env}, None)
+                self.logger.save_state({'env': self.env}, None)
 
                 # Test the performance of the deterministic version of the agent.
                 self.test_agent(episode_itr)
@@ -269,4 +268,6 @@ class MaxEntrRL():
                 self.logger.log_tabular('LogPi', with_min_and_max=True)
                 self.logger.log_tabular('LossPi', average_only=True)
                 self.logger.dump_tabular()
+            
+            step_itr += 1
 

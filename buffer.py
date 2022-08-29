@@ -31,5 +31,5 @@ class ReplayBuffer:
                      act=self.act_buf[idxs],
                      rew=self.rew_buf[idxs],
                      done=self.done_buf[idxs])
-        return {k: torch.as_tensor(v, dtype=torch.float32).to(device) for k,v in batch.items()}
+        return {k: torch.as_tensor(v, dtype=torch.float32).to(self.device) for k,v in batch.items()}
 
