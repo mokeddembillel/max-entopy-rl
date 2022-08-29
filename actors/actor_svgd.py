@@ -56,7 +56,7 @@ class ActorSvgd(nn.Module):
         def phi(X):
             nonlocal logp
             X = X.requires_grad_(True)
-            log_prob = self.q1(obs, X)
+            log_prob = self.q(obs, X)
             score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
             
             X = X.reshape(-1, self.num_particles, self.act_dim)
@@ -67,9 +67,9 @@ class ActorSvgd(nn.Module):
             # compute the entropy
             if with_logprob:
                 #import pdb; pdb.set_trace()
-                line_4 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
-                line_5 = -2 * K_gamma.view(-1,1) * ((-K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
-                logp -= self.svgd_lr*(line_4+line_5)
+                tmp1 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
+                tmp2 = -2 * K_gamma.view(-1,1) * ((-K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
+                logp -= self.svgd_lr*(tmp1+tmp2)
             
             return phi 
         
@@ -95,7 +95,7 @@ class ActorSvgdNonParam(ActorSvgd):
         logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1)
 
         # run svgd
-        a, logp = self.svgd_sampler(obs, a0.detach()) 
+        a, logp = self.sampler(obs, a0.detach()) 
 
         # compute the entropy 
         logp_a = logp0 + logp.mean(-1)

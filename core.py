@@ -136,7 +136,7 @@ class MaxEntrRL():
         self.logger.store(LossQ=loss_q.item(), **q_info)
 
 
-        if (len(self.ac.pi.parameters())!=0):
+        if next(self.ac.pi.parameters(), None) is not None:
             # Freeze Q-networks so you don't waste computational effort 
             # computing gradients for them during the policy learning step.
             for p in self.q_params:
