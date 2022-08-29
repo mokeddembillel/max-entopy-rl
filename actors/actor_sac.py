@@ -4,7 +4,7 @@ import numpy as np
 import torch.functional as F
 from torch.distributions import Normal
 
-class SAC_ACTOR():
+class ActorSac():
     def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
         self.num_particles = 1
         self.net = MLPSquashedGaussian(self, obs_dim, act_dim, hidden_sizes, activation)
@@ -20,7 +20,7 @@ class SAC_ACTOR():
     def act(self, obs, deterministic, with_logprob):#, wandb=None):
         mu, sigma = self.forward(obs)
 
-        pi_distribution = Normal(mu, std)
+        pi_distribution = Normal(mu, sigma)
         
         if deterministic:
             pi_action = mu

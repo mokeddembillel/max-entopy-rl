@@ -4,12 +4,12 @@ import numpy as np
 import torch 
 from torch.optim import Adam
 from datetime import datetime
-from utils import utils
-from spinup.utils.logx import EpochLogger
-from torch.utils.tensorboard import SummaryWriter
-from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
+# from utils import utils
+from spinup_utils.logx import EpochLogger
+# from torch.utils.tensorboard import SummaryWriter
+# from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
 from actorcritic import ActorCritic
-from utils import utils
+# from utils import utils
 from buffer import ReplayBuffer
 
 
@@ -42,7 +42,7 @@ class MaxEntrRL():
         self.act_limit = self.env.action_space.high[0]
 
         # Create actor-critic module and target networks
-        self.ac = ActorCritic(self.env.observation_space, self.env.action_space, self.device, **self.critic_kwargs, self.actor_kwargs)
+        self.ac = ActorCritic(self.env.observation_space, self.env.action_space, self.device, self.critic_kwargs, self.actor_kwargs)
         self.ac_targ = deepcopy(self.ac)
 
         # move models to device
@@ -137,7 +137,7 @@ class MaxEntrRL():
         self.logger.store(LossQ=loss_q.item(), **q_info)
 
 
-        if (len(ac.pi.parameters())!=0):
+        if (len(self.ac.pi.parameters())!=0):
             # Freeze Q-networks so you don't waste computational effort 
             # computing gradients for them during the policy learning step.
             for p in self.q_params:
@@ -173,7 +173,7 @@ class MaxEntrRL():
                 p_targ.data.mul_(self.RL_kwargs.polyak)
                 p_targ.data.add_((1 - self.RL_kwargs.polyak) * p.data)
 
-    def test_agent(itr=None):
+    def test_agent(self, itr=None):
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
@@ -196,18 +196,18 @@ class MaxEntrRL():
         self.logger.setup_pytorch_saver(self.ac)
         
         # Prepare for interaction with environment
-        total_steps = self.optim_kwargs.steps_per_epoch * self.optim_kwargs.epochs
         
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
         ep_done = 0
         
+
         # Main loop: collect experience in env and update/log each epoch
-        for t in range(total_steps):
+        while episode < self.RL_kwargs.episodes:
             # Until start_steps have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
-            if t > self.optim_kwargs.start_steps:
+            if episode > self.optim_kwargs.start_steps:
                 a = self.ac.get_action(np.expand_dims(o, axis=0))
             else:
                 a = self.env.action_space.sample()  
@@ -231,41 +231,41 @@ class MaxEntrRL():
 
             # End of trajectory handling
             if d or (ep_len == self.RL_kwargs.max_ep_len):
-                logger.store(EpRet=ep_ret, EpLen=ep_len)
+                self.logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
-                ep_done += 1
+                episode += 1
             
             # Update handling
-            if t >= self.RL_kwargs.update_after and t % self.RL_kwargs.update_every == 0:
+            if episode >= self.RL_kwargs.update_after and episode % self.RL_kwargs.update_every == 0:
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    self.update(data=batch, itr=t)
+                    self.update(data=batch, itr=episode)
 
-            if (t+1) % 1000 == 0:
-                print('Plot ', t+1)
-                self.env.plot_paths(t,1)
-                self.env.plot_paths(t,20)
+            if (episode+1) % 1000 == 0:
+                print('Plot ', episode+1)
+                self.env.plot_paths(episode,1)
+                self.env.plot_paths(episode,20)
             
-            if (t+1) % self.RL_kwargs.steps_per_epoch == 0:
-                epoch = (t+1) // self.RL_kwargs.steps_per_epoch 
+            if (episode+1) % self.RL_kwargs.steps_per_episode == 0:
+                episode = (episode+1) // self.RL_kwargs.steps_per_episode 
                 # Save model
-                if (epoch % self.save_freq == 0) or (epoch == self.optim_kwargs.epochs): 
+                if (episode % self.save_freq == 0) or (episode == self.optim_kwargs.episodes): 
                     print('save env ...') 
                     self.logger.save_state({'env': self.env}, None)
 
                 # Test the performance of the deterministic version of the agent.
-                self.test_agent(t)
+                self.test_agent(episode)
                 
-                self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), epoch)
-                self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , epoch)
+                self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode)
+                self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode)
                 
                 # Log info about epoch
-                self.logger.log_tabular('Epoch', epoch)
+                self.logger.log_tabular('Episode', episode)
                 self.logger.log_tabular('EpRet', with_min_and_max=True)
                 self.logger.log_tabular('TestEpRet', with_min_and_max=True)
                 self.logger.log_tabular('EpLen', average_only=True)
                 self.logger.log_tabular('TestEpLen', average_only=True)
-                self.logger.log_tabular('TotalEnvInteracts', t)
+                self.logger.log_tabular('TotalEnvInteracts', episode)
                 self.logger.log_tabular('Q1Vals', with_min_and_max=True)
                 self.logger.log_tabular('Q2Vals', with_min_and_max=True)
                 self.logger.log_tabular('LossQ', average_only=True)

@@ -15,9 +15,9 @@ def mlp(sizes, activation, output_activation=nn.Identity):
 
 class MLPQFunction(nn.Module):
 
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
+    def __init__(self, obs_dim, act_dim, hidden_sizes, activation=nn.Identity):
         super().__init__()
-        print('activation ', activation)
+        # print('activation ', activation)
         self.q = mlp([obs_dim + act_dim] + list(hidden_sizes) + [1], activation)
 
     def forward(self, obs, act):
@@ -27,7 +27,7 @@ class MLPQFunction(nn.Module):
 
 class MLPSquashedGaussian(nn.Module):
 
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation):
+    def __init__(self, obs_dim, act_dim, hidden_sizes, activation=nn.Identity):
         super().__init__()
         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
