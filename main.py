@@ -9,7 +9,8 @@ import numpy as np
 import gym
 from datetime import datetime
 from core import MaxEntrRL
-import gym_max_entropy
+from envs.max_entropy_env import MaxEntropyEnv
+
 from utils import AttrDict
 
 if __name__ == '__main__':
@@ -68,7 +69,7 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=dict(actor=args.actor, num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
+        actor_kwargs=AttrDict(actor=args.actor, num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic)
 
     elif args.actor in ['sac']:
         actor_kwargs=AttrDict(actor=args.actor, hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)

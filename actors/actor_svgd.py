@@ -95,22 +95,22 @@ class ActorSvgd():
 
 
 class ActorSvgdNonParam(ActorSvgd):
-    def __init__(self):
-        ActorSvgd.__init__(self)
+    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self):
-        ActorSvgd.__init__(self)
+    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self):
-        ActorSvgd.__init__(self)
+    def __init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic):
+        ActorSvgd.__init__(self, actor, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic)
     def act(self, obs):
         return ActorSvgd.act(self, obs)
 
