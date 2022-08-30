@@ -174,20 +174,15 @@ class MaxEntrRL():
     def test_agent(self, itr=None):
         self.test_env.reset_rendering()
 
-        print('test agent')
-
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
-                # Take deterministic actions at test time 
-
-                # a = self.env.action_space.sample()
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device)
                 o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
-
+                
                 ep_ret += r
                 ep_len += 1
             
@@ -195,20 +190,6 @@ class MaxEntrRL():
         self.test_env.render(render='draw')
         self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
 
-
-    def fill_buffer(self, o, a, r, o2, d, info, goals, replay_buffer, episode_itr, success_buffer, env_name):
-        if env_name == 'max-entropy-v0':
-            success_buffer.append((o, a, r, o2, d))
-            if info['status'] == 'succeeded':
-                goals[info['goal'] - 1] +=1
-                print('Adding a success traj episode number ', episode_itr, replay_buffer.size + 1, goals)
-                for expr in success_buffer:
-                    replay_buffer.store(expr[0], expr[1], expr[2], expr[3], expr[4])
-            elif info['status'] == 'failed':
-                # print('Removing a fail traj')
-                success_buffer.clear()
-        else:
-            replay_buffer.store(o, a, r, o2, d)
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -249,8 +230,6 @@ class MaxEntrRL():
 
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d)
-
-            # self.fill_buffer(o, a, r, o2, d, info, goals, self.replay_buffer, episode_itr, success_buffer, self.env_name)
 
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
