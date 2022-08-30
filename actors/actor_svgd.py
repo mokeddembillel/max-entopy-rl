@@ -5,15 +5,18 @@ import torch.nn.functional as F
 import torch.autograd as autograd
 from networks import MLPSquashedGaussian
 from torch.distributions import Normal
-
+from networks import mlp
 
 class RBF(torch.nn.Module):
-    def __init__(self, sigma=None, parametrized=False):
+    def __init__(self, parametrized=False, act_dim=None, obs_dim=None, hidden_sizes=None, activation=torch.nn.ReLU):
         super(RBF, self).__init__()
         self.parametrized = parametrized
 
         if parametrized:
-            self.sigma = 
+            self.log_std_layer = mlp([obs_dim] + list(hidden_sizes) + [act_dim] , activation, activation)
+            self.log_std_min = 2
+            self.log_std_max = -20
+            
 
     def forward(self, input_1, input_2,  h_min=1e-3):
         _, out_dim1 = input_1.size()[-2:]
@@ -34,10 +37,12 @@ class RBF(torch.nn.Module):
             h = median_sq / (2 * np.log(num_particles + 1.))
             sigma = torch.sqrt(h)
         else:
-            sigma = self.sigma
+            log_std = self.log_std_layer(net_out)
+            log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
+            sigma = torch.exp(log_std)
+        
 
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
-        
         kappa = (-gamma * dist_sq).exp()
         kappa_grad = -2. * (diff * gamma) * kappa
         return kappa.squeeze(-1), diff, gamma, kappa_grad
@@ -133,10 +138,10 @@ class ActorSvgdNonParam(ActorSvgd):
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
         ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
-        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
+        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
     def act(self, obs, deterministic=False, with_logprob=True):
         # sample from a gaussian
@@ -163,10 +168,10 @@ class ActorSvgdP0Param(ActorSvgd):
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, hidden_sizes, q1, q2):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
         ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
-        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
+        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
         self.Kernel = RBF(parametrized=True)
 
     def act(self, obs, deterministic=False, with_logprob=True):
