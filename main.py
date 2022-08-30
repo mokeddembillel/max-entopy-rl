@@ -80,10 +80,12 @@ if __name__ == '__main__':
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # actor arguments
-    if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+    if (args.actor == 'svgd_nonparam'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic, batch_size=args.batch_size)
-    elif args.actor in ['sac']:
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity, test_deterministic=args.sac_test_deterministic)
+    if (args.actor == 'svgd_p0_pram'):
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, hidden_sizes=[args.hid]*args.l)
+    elif (args.actor =='sac'):
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic)
     
     # tensorboard
     project_name = datetime.now().strftime("%b_%d_%Y_%H_%M_%S") +'_'+args.env + '_' + args.actor+'_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
@@ -100,8 +102,11 @@ if __name__ == '__main__':
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)
     
+    # critic args
+    critic_kwargs = AttrDict(hidden_sizes=[args.hid]*args.l)
+
     stac=MaxEntrRL(env_fn, tb_logger, env=args.env, actor=args.actor, seed=args.seed, device=device, 
-        critic_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ELU), actor_kwargs= actor_kwargs,
+        critic_kwargs=critic_kwargs, actor_kwargs= actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs, logger_kwargs=logger_kwargs)
 
     stac.forward()
