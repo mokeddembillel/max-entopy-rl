@@ -50,7 +50,7 @@ class MaxEntrRL():
         self.ac_targ = self.ac_targ.to(self.device)
 
         # Experience buffer
-        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device)
+        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device, env_name=self.env_name, episode_max_steps=self.env.max_steps)
 
         # Set up optimizers for policy and q-function
         if next(self.ac.pi.parameters(), None) is not None:
@@ -224,9 +224,6 @@ class MaxEntrRL():
         episode_itr = 0
         step_itr = 0
 
-        goals = [0, 0]
-        success_buffer = []
-        
         # Main loop: collect experience in env and update/log each epoch
         while episode_itr < self.RL_kwargs.num_episodes:
             # Until exploration_episodes have elapsed, randomly sample actions
@@ -251,9 +248,9 @@ class MaxEntrRL():
             d = False if ep_len==self.RL_kwargs.max_ep_len else d
 
             # Store experience to replay buffer
-            # self.replay_buffer.store(o, a, r, o2, d)
+            self.replay_buffer.store(o, a, r, o2, d)
 
-            self.fill_buffer(o, a, r, o2, d, info, goals, self.replay_buffer, episode_itr, success_buffer, self.env_name)
+            # self.fill_buffer(o, a, r, o2, d, info, goals, self.replay_buffer, episode_itr, success_buffer, self.env_name)
 
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
