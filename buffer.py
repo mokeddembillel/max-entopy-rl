@@ -42,13 +42,7 @@ class ReplayBuffer:
                 self.goals[env_info['goal'] - 1] +=1 # will be removed later
                 print('Adding a success traj episode number ', self.size + 1, self.goals)
                 if self.max_size - self.ptr < self.ptr_tmp:
-                    remaining_index = (self.ptr_tmp - self.max_size + self.ptr)
-                    self.obs_buf[:self.ptr - remaining_index] = self.obs_buf[remaining_index:self.ptr]
-                    self.obs2_buf[:self.ptr - remaining_index] = self.obs2_tmp[remaining_index:self.ptr]
-                    self.act_buf[:self.ptr - remaining_index] = self.act_tmp[remaining_index:self.ptr]
-                    self.rew_buf[:self.ptr - remaining_index] = self.rew_tmp[remaining_index:self.ptr]
-                    self.done_buf[:self.ptr - remaining_index] = self.done_tmp[remaining_index:self.ptr]
-                    self.ptr -= remaining_index
+                    self.ptr = self.max_size - self.ptr_tmp
                 
                 self.obs_buf[self.ptr:self.ptr+self.ptr_tmp] = self.obs_tmp[:self.ptr_tmp]
                 self.obs2_buf[self.ptr:self.ptr+self.ptr_tmp] = self.obs2_tmp[:self.ptr_tmp]
