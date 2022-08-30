@@ -3,6 +3,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
+from networks import MLPSquashedGaussian
+from torch.distributions import Normal
+
 
 class RBF(torch.nn.Module):
     def __init__(self, sigma=None):
@@ -85,6 +88,8 @@ class ActorSvgd(torch.nn.Module):
             a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
 
         return a, logp, q_s_a
+
+    
         
 
 
@@ -93,41 +98,61 @@ class ActorSvgdNonParam(ActorSvgd):
         ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         
         self.test_deterministic = test_deterministic
+        self.batch_size = batch_size
+
         self.a0 = torch.normal(0, 1, size=(2 * batch_size * num_svgd_particles, self.act_dim)).to(device)
 
     def act(self, obs, deterministic=False, with_logprob=True):
         # sample from a Gaussian
-        a0 = self.a0 #torch.normal(0, 1, size=(len(obs), self.act_dim))
-        a0 = self.act_limit * torch.tanh(self.a0) 
+        a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
+        a0 = self.act_limit * torch.tanh(a0) 
         
         # run svgd
         a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
         
         # compute the entropy 
         if with_logprob:
-            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)
-            logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
+            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)+ (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
             logp_a = (logp0 + logp_a).mean(-1)
         
         # at test time
         if (with_logprob == False) and (deterministic == True):
-            ind = q_s_a.view(-1, self.num_particles).argmax(-1)
-            a = a.view(-1, self.num_particles, self.act_dim)[:,ind,:]
+            a = a.view(-1, self.num_particles, self.act_dim)[:,q_s_a.view(-1, self.num_particles).argmax(-1),:]
          
         elif (with_logprob == False) and (deterministic == False):
-            a = a.view(-1, self.num_particles, self.act_dim)
-            a = a[:,np.random.randint(self.num_particles),:]
+            a = a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
 
         return a, logp_a
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, batch_size, q1, q2):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, activation, q1, q2):
         ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
+        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
 
     def act(self, obs, deterministic=False, with_logprob=True):
-        return ActorSvgd.act(self, obs)
+        # sample from a gaussian
+        mu, sigma = self.policy_net(obs)
+        a0 = Normal(mu, sigma).rsample()
+        a0 = self.act_limit * torch.tanh(a0)
+        
+        # run svgd
+        a, logp_a, q_s_a = self.sampler(obs, a0, with_logprob) 
+
+        # compute the entropy 
+        if with_logprob:
+            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2) + (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
+            logp_a = (logp0 + logp_a).mean(-1)
+        
+        # at test time
+        if (with_logprob == False) and (deterministic == True):
+            a = a.view(-1, self.num_particles, self.act_dim)[:,q_s_a.view(-1, self.num_particles).argmax(-1),:]
+        
+        elif (with_logprob == False) and (deterministic == False):
+            a = a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
+        
+        return a, logp_a
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
