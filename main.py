@@ -9,16 +9,15 @@ import numpy as np
 import gym
 from datetime import datetime
 from core import MaxEntrRL
-from envs.max_entropy_env import MaxEntropyEnv
 
 from utils import AttrDict
 
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
+    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
@@ -27,20 +26,18 @@ if __name__ == '__main__':
     parser.add_argument('--alpha', type=float, default=5.0)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
-    parser.add_argument('--exploration_episodes', type=int, default=20)
+    parser.add_argument('--num_episodes', type=int, default=500)
+    #parser.add_argument('--exploration_episodes', type=int, default=20)
+    parser.add_argument('--exploration_episodes', type=int, default=200)
+    parser.add_argument('--num_test_episodes', type=int, default=10)
+    parser.add_argument('--stats_episode_freq', type=int, default=5)
+
 
     #parser.add_argument('--update_after', type=int, default=1000)
-    parser.add_argument('--update_after', type=int, default=100)
-    
-    parser.add_argument('--update_every', type=int, default=50)
-
-    parser.add_argument('--num_test_episodes', type=int, default=10)
-    
-    #parser.add_argument('--max_ep_len', type=int, default=1000)
-    parser.add_argument('--max_ep_len', type=int, default=100)
-    parser.add_argument('--num_episodes', type=int, default=60)
-    parser.add_argument('--stats_episode_freq', type=int, default=5)
-    
+    parser.add_argument('--update_after', type=int, default=50000)
+    # parser.add_argument('--update_every', type=int, default=50)
+    parser.add_argument('--update_every', type=int, default=500)
+    parser.add_argument('--max_ep_len', type=int, default=1000)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -83,7 +80,7 @@ if __name__ == '__main__':
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic, batch_size=args.batch_size)
     elif args.actor in ['sac']:
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity, test_deterministic=args.sac_test_deterministic)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ReLU, test_deterministic=args.sac_test_deterministic)
     
     # tensorboard
     project_name = datetime.now().strftime("%b_%d_%Y_%H_%M_%S") +'_'+args.env + '_' + args.actor+'_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
@@ -101,7 +98,7 @@ if __name__ == '__main__':
     optim_kwargs = AttrDict(polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)
     
     stac=MaxEntrRL(env_fn, tb_logger, env=args.env, actor=args.actor, seed=args.seed, device=device, 
-        critic_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ELU), actor_kwargs= actor_kwargs,
+        critic_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.ReLU), actor_kwargs= actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs, logger_kwargs=logger_kwargs)
 
     stac.forward()
