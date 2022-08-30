@@ -178,7 +178,9 @@ class MaxEntrRL():
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
                 # Take deterministic actions at test time 
-                a = self.ac(np.expand_dims(o, axis=0), deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
+                a = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                
                 o, r, d, _ = self.test_env.step(a)
                 ep_ret += r
                 ep_len += 1

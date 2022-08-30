@@ -43,7 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=500)
     ######sac
-    parser.add_argument('--sac_test_deterministic', type=bool, default=False)
+    parser.add_argument('--sac_test_deterministic', type=bool, default=True)
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
