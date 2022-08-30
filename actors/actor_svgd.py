@@ -13,7 +13,7 @@ class RBF(torch.nn.Module):
         self.parametrized = parametrized
 
         if parametrized:
-            self.log_std_layer = mlp([obs_dim] + list(hidden_sizes) + [act_dim] , activation, activation)
+            self.log_std_layer = mlp([obs_dim] + list(hidden_sizes) + [act_dim] , activation)
             self.log_std_min = 2
             self.log_std_max = -20
             
@@ -33,7 +33,6 @@ class RBF(torch.nn.Module):
             # Get median.
             median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
             median_sq = median_sq.reshape(-1,1,1,1)
-            
             h = median_sq / (2 * np.log(num_particles + 1.))
             sigma = torch.sqrt(h)
         else:
@@ -41,7 +40,6 @@ class RBF(torch.nn.Module):
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
             sigma = torch.exp(log_std)
         
-
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
         kappa = (-gamma * dist_sq).exp()
         kappa_grad = -2. * (diff * gamma) * kappa
@@ -168,11 +166,11 @@ class ActorSvgdP0Param(ActorSvgd):
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
+        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
-        self.Kernel = RBF(parametrized=True)
+        self.Kernel = RBF(parametrized=True, act_dim=None, obs_dim=None, hidden_sizes=None)
 
     def act(self, obs, deterministic=False, with_logprob=True):
 
