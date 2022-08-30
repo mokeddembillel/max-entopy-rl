@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 class ActorSac(torch.nn.Module):
-    def __init__(self, obs_dim, act_dim, act_limit, hidden_sizes, activation, test_deterministic):
+    def __init__(self, obs_dim, act_dim, act_limit, hidden_sizes, activation=torch.nn.ReLU, test_deterministic=False):
         super(ActorSac, self).__init__()
         self.num_particles = 1
         self.act_limit = act_limit
