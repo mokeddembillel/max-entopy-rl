@@ -10,7 +10,10 @@ from torch.distributions import Normal
 class RBF(torch.nn.Module):
     def __init__(self, sigma=None, parametrized=False):
         super(RBF, self).__init__()
-        self.sigma = sigma
+        self.parametrized = parametrized
+
+        if parametrized:
+            self.sigma = 
 
     def forward(self, input_1, input_2,  h_min=1e-3):
         _, out_dim1 = input_1.size()[-2:]
@@ -23,12 +26,16 @@ class RBF(torch.nn.Module):
         dist_sq = diff.pow(2).sum(-1)
         dist_sq = dist_sq.unsqueeze(-1)
         
-        # Get median.
-        median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
-        median_sq = median_sq.reshape(-1,1,1,1)
-        
-        h = median_sq / (2 * np.log(num_particles + 1.))
-        sigma = torch.sqrt(h)
+        if self.parametrized == False:
+            # Get median.
+            median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
+            median_sq = median_sq.reshape(-1,1,1,1)
+            
+            h = median_sq / (2 * np.log(num_particles + 1.))
+            sigma = torch.sqrt(h)
+        else:
+            sigma = self.sigma
+
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
         
         kappa = (-gamma * dist_sq).exp()
