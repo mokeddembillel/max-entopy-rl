@@ -50,7 +50,7 @@ class MaxEntrRL():
         self.ac_targ = self.ac_targ.to(self.device)
 
         # Experience buffer
-        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device, env_name=self.env_name, episode_max_steps=self.env.max_steps)
+        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device, env_name=self.env_name)
 
         # Set up optimizers for policy and q-function
         if next(self.ac.pi.parameters(), None) is not None:
@@ -229,7 +229,7 @@ class MaxEntrRL():
             d = False if ep_len==self.RL_kwargs.max_ep_len else d
 
             # Store experience to replay buffer
-            self.replay_buffer.store(o, a, r, o2, d)
+            self.replay_buffer.store(o, a, r, o2, d, info)
 
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
