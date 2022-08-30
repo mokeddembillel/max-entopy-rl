@@ -23,6 +23,10 @@ class ActorCritic(nn.Module):
 
         self.q1 = MLPQFunction(obs_dim, act_dim, critic_kwargs.hidden_sizes, critic_kwargs.activation)
         self.q2 = MLPQFunction(obs_dim, act_dim, critic_kwargs.hidden_sizes, critic_kwargs.activation)
+        if actor != 'sac':
+            actor_kwargs['q1_forward'] = self.q1.forward
+            actor_kwargs['q2_forward'] = self.q2.forward
+            
         self.pi = dict_actors[actor](obs_dim, act_dim, act_limit, **actor_kwargs)
 
     def forward(self, obs):
