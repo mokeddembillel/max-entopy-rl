@@ -1,7 +1,7 @@
 import torch.nn as nn
 from networks import mlp, MLPQFunction
 from actors.actor_sac import ActorSac
-from actors.actor_svgd import ActorSvgdNonParam,ActorSvgdP0Param,ActorSvgdP0KernelParam
+from actors.actor_svgd import ActorSvgd
 from actors.actor_sql import ActorSql
 from actors.actor_diffusion import ActorDiffusion
 from utils import AttrDict
@@ -15,9 +15,9 @@ class ActorCritic(nn.Module):
 
         dict_actors = {
             'sac': ActorSac,
-            'svgd_nonparam': ActorSvgdNonParam,
-            'svgd_p0_pram': ActorSvgdP0Param,
-            'svgd_p0_kernel_pram': ActorSvgdP0KernelParam,
+            'svgd_nonparam': ActorSvgd,
+            'svgd_p0_pram': ActorSvgd,
+            'svgd_p0_kernel_pram': ActorSvgd,
             'svgd_sql': ActorSql,
             'diffusion': ActorDiffusion}
 
@@ -28,7 +28,7 @@ class ActorCritic(nn.Module):
             actor_kwargs.q1 = self.q1
             actor_kwargs.q2 = self.q2
             
-        self.pi = dict_actors[actor](obs_dim, act_dim, act_limit, **actor_kwargs)
+        self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs)
 
     def forward(self, obs, deterministic=False, with_logprob=True):
     	return self.pi.act(obs, deterministic, with_logprob)

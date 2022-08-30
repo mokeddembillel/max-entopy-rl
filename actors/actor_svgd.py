@@ -45,9 +45,13 @@ class RBF(torch.nn.Module):
         kappa_grad = -2. * (diff * gamma) * kappa
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
+
+
+
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
         super().__init__()
+        self.actor = actor
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.act_limit = act_limit
@@ -55,9 +59,21 @@ class ActorSvgd(torch.nn.Module):
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr = svgd_lr
         
-        self.Kernel = RBF()
         self.q1 = q1
         self.q2 = q2
+
+        self.test_deterministic = test_deterministic
+        self.batch_size = batch_size
+
+        if actor == "ActorSvgdNonParam":
+            self.a0 = torch.normal(0, 1, size=(2 * batch_size * num_svgd_particles, self.act_dim)).to(device)
+        else:
+            self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
+
+        if actor == "svgd_p0_kernel_pram":
+            self.Kernel = RBF(True, act_dim, obs_dim, hidden_sizes)
+        else:
+            self.Kernel = RBF()
 
     def svgd_optim(self, x, dx): 
         dx = dx.view(x.size())
@@ -69,13 +85,12 @@ class ActorSvgd(torch.nn.Module):
 
         def phi(X):
             nonlocal logp
-
             X = X.requires_grad_(True)
             
             log_prob1 = self.q1(obs, X)
             log_prob2 = self.q1(obs, X)
             log_prob = torch.min(log_prob1, log_prob2)
-
+            
             score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
             
             X = X.reshape(-1, self.num_particles, self.act_dim)
@@ -99,24 +114,15 @@ class ActorSvgd(torch.nn.Module):
 
         return a, logp, q_s_a
 
-    
-        
-
-
-class ActorSvgdNonParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, batch_size, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
-        
-        self.test_deterministic = test_deterministic
-        self.batch_size = batch_size
-
-        self.a0 = torch.normal(0, 1, size=(2 * batch_size * num_svgd_particles, self.act_dim)).to(device)
-
     def act(self, obs, deterministic=False, with_logprob=True):
-        # sample from a Gaussian
-        a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
-        a0 = self.act_limit * torch.tanh(a0) 
-        
+        if self.actor == "ActorSvgdNonParam":
+            a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
+            a0 = self.act_limit * torch.tanh(a0) 
+        else:
+            mu, sigma = self.p0(obs)
+            a0 = Normal(mu, sigma).rsample()
+            a0 = self.act_limit * torch.tanh(a0)
+
         # run svgd
         a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
         
@@ -133,47 +139,4 @@ class ActorSvgdNonParam(ActorSvgd):
             a = a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
 
         return a, logp_a
-
-
-class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
-        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
-        self.test_deterministic = test_deterministic
-        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
-
-    def act(self, obs, deterministic=False, with_logprob=True):
-        # sample from a gaussian
-        mu, sigma = self.policy_net(obs)
-        a0 = Normal(mu, sigma).rsample()
-        a0 = self.act_limit * torch.tanh(a0)
-        
-        # run svgd
-        a, logp_a, q_s_a = self.sampler(obs, a0, with_logprob) 
-
-        # compute the entropy 
-        if with_logprob:
-            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2) + (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
-            logp_a = (logp0 + logp_a).mean(-1)
-        
-        # at test time
-        if (with_logprob == False) and (deterministic == True):
-            a = a.view(-1, self.num_particles, self.act_dim)[:,q_s_a.view(-1, self.num_particles).argmax(-1),:]
-        
-        elif (with_logprob == False) and (deterministic == False):
-            a = a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
-        
-        return a, logp_a
-
-
-class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
-        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
-        self.test_deterministic = test_deterministic
-        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
-        self.Kernel = RBF(parametrized=True, act_dim=None, obs_dim=None, hidden_sizes=None)
-
-    def act(self, obs, deterministic=False, with_logprob=True):
-
-        return a, logp_a
-
 
