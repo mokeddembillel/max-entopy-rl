@@ -73,7 +73,7 @@ class MaxEntrRL():
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o2.size()[-1])
         
-        a2, logp_a2 = self.ac.pi.act(o2, False, True)
+        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
 
         with torch.no_grad(): 
             # Target Q-values
@@ -103,7 +103,7 @@ class MaxEntrRL():
         o = data['obs']
         o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
         
-        a, logp_pi = self.ac.pi.act(o, False, True)
+        a, logp_pi = self.ac(o, False, True)
         
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles).mean(-1)
@@ -177,7 +177,7 @@ class MaxEntrRL():
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
                 # Take deterministic actions at test time 
-                a = self.ac.act(np.expand_dims(o, axis=0), deterministic=self.ac.pi.test_deterministic, test=True)
+                a = self.ac(np.expand_dims(o, axis=0), deterministic=self.ac.pi.test_deterministic, test=True)
                 o, r, d, _ = self.test_env.step(a)
                 ep_ret += r
                 ep_len += 1

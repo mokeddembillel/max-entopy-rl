@@ -48,7 +48,7 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
     parser.add_argument('--svgd_lr', type=float, default=0.1)
-    parser.add_argument('--svgd_test_deterministic', type=bool, default=False)
+    
     ######logging
     
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, device=device)
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device)
     elif args.actor in ['sac']:
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
     

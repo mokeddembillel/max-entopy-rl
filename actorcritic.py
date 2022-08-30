@@ -26,6 +26,7 @@ class ActorCritic(nn.Module):
         self.pi = dict_actors[actor](obs_dim, act_dim, act_limit, **actor_kwargs)
 
     def forward(self, obs):
+        
     	return self.pi.act(obs)
 
 
