@@ -11,8 +11,7 @@ from spinup_utils.logx import EpochLogger
 from actorcritic import ActorCritic
 from utils import combined_shape, count_vars, AttrDict
 from buffer import ReplayBuffer
-from envs.max_entropy_env import MaxEntropyEnv
-
+import gym_max_entropy
 
 class MaxEntrRL():
     def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -173,31 +172,36 @@ class MaxEntrRL():
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
     def test_agent(self, itr=None):
+        self.test_env.reset_rendering()
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
                 # Take deterministic actions at test time 
-                a = self.ac(np.expand_dims(o, axis=0), deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                a, _ = self.ac(torch.tensor(np.expand_dims(o, axis=0), dtype=torch.float32), deterministic=self.actor_kwargs.test_deterministic, with_logprob=False)
+                a = a.cpu().detach().numpy().squeeze()
+                # a = self.env.action_space.sample()
                 o, r, d, _ = self.test_env.step(a)
                 ep_ret += r
                 ep_len += 1
             
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
-        self.test_env.render()
+        self.test_env.render(render='draw')
         self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
-        self.test_env.reset_rendering()
 
-    # def fill_buffer(self, o, a, r, o2, d):
-    #     success_buffer.append((o, a, r, o2, d))
-    #     if info['status'] == 'succeeded':
-    #         goals[info['goal'] - 1] +=1
-    #         print('Adding a success traj Iteration number ', t, replay_buffer.size + 1, goals)
-    #         for expr in success_buffer:
-    #             replay_buffer.store(expr[0], expr[1], expr[2], expr[3], expr[4])
-    #     elif info['status'] == 'failed':
-    #         # print('Removing a fail traj')
-    #         success_buffer = []
+    def fill_buffer(self, o, a, r, o2, d, info, goals, replay_buffer, episode_itr, success_buffer, env_name):
+        if env_name == 'max-entropy-v0':
+            success_buffer.append((o, a, r, o2, d))
+            if info['status'] == 'succeeded':
+                goals[info['goal'] - 1] +=1
+                print('Adding a success traj episode number ', episode_itr, replay_buffer.size + 1, goals)
+                for expr in success_buffer:
+                    replay_buffer.store(expr[0], expr[1], expr[2], expr[3], expr[4])
+            elif info['status'] == 'failed':
+                # print('Removing a fail traj')
+                success_buffer.clear()
+        else:
+            replay_buffer.store(o, a, r, o2, d)
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -212,6 +216,9 @@ class MaxEntrRL():
 
         episode_itr = 0
         step_itr = 0
+
+        goals = [0, 0]
+        success_buffer = []
         
         # Main loop: collect experience in env and update/log each epoch
         while episode_itr < self.RL_kwargs.num_episodes:
@@ -235,7 +242,9 @@ class MaxEntrRL():
             d = False if ep_len==self.RL_kwargs.max_ep_len else d
 
             # Store experience to replay buffer
-            self.replay_buffer.store(o, a, r, o2, d)
+            # self.replay_buffer.store(o, a, r, o2, d)
+
+            self.fill_buffer(o, a, r, o2, d, info, goals, self.replay_buffer, episode_itr, success_buffer, self.env_name)
 
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
@@ -250,6 +259,7 @@ class MaxEntrRL():
             
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
+                print('Update The Agent')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
                     self.update(data=batch, itr=step_itr)
@@ -260,7 +270,7 @@ class MaxEntrRL():
             #     self.env.plot_paths(episode_itr,20)
 
 
-            if (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
+            if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Save model
                 self.logger.save_state({'env': self.env}, None)
 
