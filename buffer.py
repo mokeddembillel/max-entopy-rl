@@ -38,6 +38,8 @@ class ReplayBuffer:
             self.done_tmp[self.ptr_tmp] = done
             self.ptr_tmp = self.ptr_tmp + 1
 
+        if self.env_name == 'max-entropy-v0':
+            
             if env_info['status'] == 'succeeded':
                 self.goals[env_info['goal'] - 1] +=1 # will be removed later
                 print('Adding a success traj episode number ', self.size + 1, self.goals)
@@ -51,6 +53,7 @@ class ReplayBuffer:
                 self.ptr_tmp = 0
             elif env_info['status'] == 'failed':
                 self.ptr_tmp = 0
+
         else:
             self.obs_buf[self.ptr] = obs
             self.obs2_buf[self.ptr] = next_obs

@@ -8,13 +8,13 @@ from torch.distributions import Normal
 
 
 class RBF(torch.nn.Module):
-    def __init__(self, sigma=None):
+    def __init__(self, sigma=None, parametrized=False):
         super(RBF, self).__init__()
         self.sigma = sigma
 
     def forward(self, input_1, input_2,  h_min=1e-3):
-        k_fix, out_dim1 = input_1.size()[-2:]
-        k_upd, out_dim2 = input_2.size()[-2:]
+        _, out_dim1 = input_1.size()[-2:]
+        _, out_dim2 = input_2.size()[-2:]
         num_particles = input_2.size()[-2]
         assert out_dim1 == out_dim2
         
@@ -126,8 +126,8 @@ class ActorSvgdNonParam(ActorSvgd):
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, activation, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
 
@@ -156,11 +156,14 @@ class ActorSvgdP0Param(ActorSvgd):
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, hidden_sizes, q1, q2):
         ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
+        self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
+        self.Kernel = RBF(parametrized=True)
 
     def act(self, obs, deterministic=False, with_logprob=True):
-        return ActorSvgd.act(self, obs)
+
+        return a, logp_a
 
 

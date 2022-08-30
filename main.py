@@ -17,7 +17,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    
+    parser.add_argument('--actor', type=str, default='svgd_p0_pram', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    #parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
@@ -79,7 +82,6 @@ if __name__ == '__main__':
     # actor arguments
     if (args.actor == 'svgd_nonparam'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic, batch_size=args.batch_size)
-
     if (args.actor == 'svgd_p0_pram'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, hidden_sizes=[args.hid]*args.l)
     elif (args.actor =='sac'):
