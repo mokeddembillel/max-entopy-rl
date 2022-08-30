@@ -33,7 +33,7 @@ class RBF(torch.nn.Module):
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2):
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
@@ -41,8 +41,7 @@ class ActorSvgd(torch.nn.Module):
         self.num_particles = num_svgd_particles
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr = svgd_lr
-        self.device = device
-        self.test_deterministic = test_deterministic
+        
         self.Kernel = RBF()
         self.q1 = q1
         self.q2 = q2
@@ -90,13 +89,16 @@ class ActorSvgd(torch.nn.Module):
 
 
 class ActorSvgdNonParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, batch_size, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+        
+        self.test_deterministic = test_deterministic
+        self.a0 = torch.normal(0, 1, size=(2 * batch_size * num_svgd_particles, self.act_dim)).to(device)
 
     def act(self, obs, deterministic=False, with_logprob=True):
         # sample from a Gaussian
-        a0 = torch.normal(0, 1, size=(len(obs), self.act_dim)).to(self.device)
-        a0 = self.act_limit * torch.tanh(a0) 
+        a0 = self.a0 #torch.normal(0, 1, size=(len(obs), self.act_dim))
+        a0 = self.act_limit * torch.tanh(self.a0) 
         
         # run svgd
         a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
@@ -111,7 +113,7 @@ class ActorSvgdNonParam(ActorSvgd):
         if (with_logprob == False) and (deterministic == True):
             ind = q_s_a.view(-1, self.num_particles).argmax(-1)
             a = a.view(-1, self.num_particles, self.act_dim)[:,ind,:]
-            
+         
         elif (with_logprob == False) and (deterministic == False):
             a = a.view(-1, self.num_particles, self.act_dim)
             a = a[:,np.random.randint(self.num_particles),:]
@@ -120,15 +122,19 @@ class ActorSvgdNonParam(ActorSvgd):
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, batch_size, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+        self.test_deterministic = test_deterministic
+
     def act(self, obs, deterministic=False, with_logprob=True):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
     def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
+        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+        self.test_deterministic = test_deterministic
+
     def act(self, obs, deterministic=False, with_logprob=True):
         return ActorSvgd.act(self, obs)
 

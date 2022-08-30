@@ -28,7 +28,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--exploration_episodes', type=int, default=20)
-    
+
     #parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_after', type=int, default=100)
     
@@ -38,7 +38,6 @@ if __name__ == '__main__':
     
     #parser.add_argument('--max_ep_len', type=int, default=1000)
     parser.add_argument('--max_ep_len', type=int, default=100)
-
     parser.add_argument('--num_episodes', type=int, default=60)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     
@@ -82,7 +81,7 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic)
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic, batch_size=args.batch_size)
     elif args.actor in ['sac']:
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity, test_deterministic=args.sac_test_deterministic)
     
