@@ -188,7 +188,7 @@ class MaxEntrRL():
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
 
         self.test_env.render()
-        self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
+        
         self.test_env.reset_rendering()
 
     # def fill_buffer(self, o, a, r, o2, d):
