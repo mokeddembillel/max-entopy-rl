@@ -11,7 +11,7 @@ from spinup_utils.logx import EpochLogger
 from actorcritic import ActorCritic
 from utils import combined_shape, count_vars, AttrDict
 from buffer import ReplayBuffer
-
+import gym_max_entropy
 class MaxEntrRL():
     def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
         RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict()):
@@ -183,7 +183,20 @@ class MaxEntrRL():
                 ep_len += 1
             
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
-        
+        self.test_env.render()
+        self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
+        self.test_env.reset_rendering()
+
+    # def fill_buffer(self, o, a, r, o2, d):
+    #     success_buffer.append((o, a, r, o2, d))
+    #     if info['status'] == 'succeeded':
+    #         goals[info['goal'] - 1] +=1
+    #         print('Adding a success traj Iteration number ', t, replay_buffer.size + 1, goals)
+    #         for expr in success_buffer:
+    #             replay_buffer.store(expr[0], expr[1], expr[2], expr[3], expr[4])
+    #     elif info['status'] == 'failed':
+    #         # print('Removing a fail traj')
+    #         success_buffer = []
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -205,12 +218,13 @@ class MaxEntrRL():
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
-                a = self.ac.pi.act(np.expand_dims(o, axis=0), False, False)
+                a, _ = self.ac.pi.act(torch.tensor(np.expand_dims(o, axis=0), dtype=torch.float32), False, False)
+                a = a.cpu().detach().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
             
             # Step the env
-            o2, r, d, _ = self.env.step(a)
+            o2, r, d, info = self.env.step(a)
             ep_ret += r
             ep_len += 1
 
@@ -230,6 +244,7 @@ class MaxEntrRL():
             if d or (ep_len == self.RL_kwargs.max_ep_len):
                 self.logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
+                print('Episode number :', episode_itr)
                 episode_itr += 1
             
             # Update handling
@@ -251,22 +266,22 @@ class MaxEntrRL():
                 # Test the performance of the deterministic version of the agent.
                 self.test_agent(episode_itr)
                 
-                self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode_itr)
-                self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode_itr)
+                # self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode_itr)
+                # self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode_itr)
                 
-                # Log info about epoch
-                self.logger.log_tabular('Episode', episode_itr)
-                self.logger.log_tabular('EpRet', with_min_and_max=True)
-                self.logger.log_tabular('TestEpRet', with_min_and_max=True)
-                self.logger.log_tabular('EpLen', average_only=True)
-                self.logger.log_tabular('TestEpLen', average_only=True)
-                self.logger.log_tabular('TotalEnvInteracts', episode_itr)
-                self.logger.log_tabular('Q1Vals', with_min_and_max=True)
-                self.logger.log_tabular('Q2Vals', with_min_and_max=True)
-                self.logger.log_tabular('LossQ', average_only=True)
-                self.logger.log_tabular('LogPi', with_min_and_max=True)
-                self.logger.log_tabular('LossPi', average_only=True)
-                self.logger.dump_tabular()
+                # # Log info about epoch
+                # self.logger.log_tabular('Episode', episode_itr)
+                # self.logger.log_tabular('EpRet', with_min_and_max=True)
+                # self.logger.log_tabular('TestEpRet', with_min_and_max=True)
+                # self.logger.log_tabular('EpLen', average_only=True)
+                # self.logger.log_tabular('TestEpLen', average_only=True)
+                # self.logger.log_tabular('TotalEnvInteracts', episode_itr)
+                # self.logger.log_tabular('Q1Vals', with_min_and_max=True)
+                # self.logger.log_tabular('Q2Vals', with_min_and_max=True)
+                # self.logger.log_tabular('LossQ', average_only=True)
+                # self.logger.log_tabular('LogPi', with_min_and_max=True)
+                # self.logger.log_tabular('LossPi', average_only=True)
+                # self.logger.dump_tabular()
             
             step_itr += 1
 
