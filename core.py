@@ -11,7 +11,9 @@ from spinup_utils.logx import EpochLogger
 from actorcritic import ActorCritic
 from utils import combined_shape, count_vars, AttrDict
 from buffer import ReplayBuffer
-import gym_max_entropy
+from envs.max_entropy_env import MaxEntropyEnv
+
+
 class MaxEntrRL():
     def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
         RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict()):
@@ -30,7 +32,7 @@ class MaxEntrRL():
 
         # logger 
         self.logger = EpochLogger(**self.logger_kwargs)
-        self.logger.save_config(locals())
+        #self.logger.save_config(locals())
 
         # instantiating the environment
         self.env, self.test_env = env_fn(), env_fn()
@@ -74,6 +76,8 @@ class MaxEntrRL():
         o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o2.size()[-1])
         
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
+        a2 = a2.detach()
+        logp_a2 = logp_a2.detach()
 
         with torch.no_grad(): 
             # Target Q-values
@@ -162,12 +166,9 @@ class MaxEntrRL():
                 if value.grad is not None:
                     self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), itr)
         
-
         # Finally, update target networks by polyak averaging.
         with torch.no_grad():
             for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
-                # NB: We use an in-place operations "mul_", "add_" to update target
-                # params, as opposed to "mul" and "add", which would make new tensors.
                 p_targ.data.mul_(self.optim_kwargs.polyak)
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
@@ -227,7 +228,7 @@ class MaxEntrRL():
             o2, r, d, info = self.env.step(a)
             ep_ret += r
             ep_len += 1
-
+            
             # Ignore the "done" signal if it comes from hitting the time
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)

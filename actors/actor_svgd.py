@@ -33,7 +33,7 @@ class RBF(torch.nn.Module):
         return kappa.squeeze(-1), diff, gamma, kappa_grad
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device):
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
         super().__init__()
         self.obs_dim = obs_dim
         self.act_dim = act_dim
@@ -42,7 +42,10 @@ class ActorSvgd(torch.nn.Module):
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr = svgd_lr
         self.device = device
+        self.test_deterministic = test_deterministic
         self.Kernel = RBF()
+        self.q1 = q1
+        self.q2 = q2
 
     def svgd_optim(self, x, dx): 
         dx = dx.view(x.size())
@@ -54,8 +57,13 @@ class ActorSvgd(torch.nn.Module):
 
         def phi(X):
             nonlocal logp
+
             X = X.requires_grad_(True)
-            log_prob = self.q(obs, X)
+            
+            log_prob1 = self.q1(obs, X)
+            log_prob2 = self.q1(obs, X)
+            log_prob = torch.min(log_prob1, log_prob2)
+
             score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
             
             X = X.reshape(-1, self.num_particles, self.act_dim)
@@ -81,37 +89,37 @@ class ActorSvgd(torch.nn.Module):
 
 
 class ActorSvgdNonParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device):
-        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
 
-    def act(self, obs, q=None, deterministic=None, with_logprob=None):
+    def act(self, obs, deterministic=False, with_logprob=True):
         # sample from a Gaussian
-        a0 = torch.normal(0, 1, size=(len(obs) * self.num_particles, self.act_dim)).to(self.device)
+        a0 = torch.normal(0, 1, size=(len(obs), self.act_dim)).to(self.device)
         a0 = self.act_limit * torch.tanh(a0) 
 
         # entropy of a gaussian followed by tanh
         logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)
-        logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1)
+        logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
 
         # run svgd
-        a, logp = self.sampler(obs, a0.detach()) 
+        a, logp = self.sampler(obs, a0.detach(), with_logprob) 
 
         # compute the entropy 
-        logp_a = logp0 + logp.mean(-1)
+        logp_a = (logp0 + logp).mean(-1)
 
-        return a, logp_a.detach()
+        return a, logp_a
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
     def act(self, obs, deterministic=False, with_logprob=True):
         return ActorSvgd.act(self, obs)
 
 
 class ActorSvgdP0KernelParam(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, device, test_deterministic, q1, q2)
     def act(self, obs, deterministic=False, with_logprob=True):
         return ActorSvgd.act(self, obs)
 

@@ -43,11 +43,12 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=500)
     ######sac
-    parser.add_argument('--sac_deterministic', type=bool, default=False)
+    parser.add_argument('--sac_test_deterministic', type=bool, default=False)
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
     parser.add_argument('--svgd_lr', type=float, default=0.1)
+    parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     
     ######logging
     
@@ -77,9 +78,9 @@ if __name__ == '__main__':
 
     # actor arguments
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device)
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, svgd_lr=args.svgd_lr, device=device, test_deterministic=args.svgd_test_deterministic)
     elif args.actor in ['sac']:
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, activation=torch.nn.Identity, test_deterministic=args.sac_test_deterministic)
     
     # tensorboard
     project_name = datetime.now().strftime("%b_%d_%Y_%H_%M_%S") +'_'+args.env + '_' + args.actor+'_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
