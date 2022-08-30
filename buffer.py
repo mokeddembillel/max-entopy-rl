@@ -26,16 +26,17 @@ class ReplayBuffer:
             self.act_tmp = np.zeros(combined_shape(self.episode_max_steps, self.act_dim), dtype=np.float32)
             self.rew_tmp = np.zeros(self.episode_max_steps, dtype=np.float32)
             self.done_tmp = np.zeros(self.episode_max_steps, dtype=np.float32)
-            self.ptr_tmp, self.size_tmp = 0, 0
+            self.ptr_tmp = 0
             self.goals = [0, 0]
 
     def store(self, obs, act, rew, next_obs, done, env_info=None):
-        self.obs_tmp[self.ptr_tmp] = obs
-        self.obs2_tmp[self.ptr_tmp] = next_obs
-        self.act_tmp[self.ptr_tmp] = act
-        self.rew_tmp[self.ptr_tmp] = rew
-        self.done_tmp[self.ptr_tmp] = done
-        self.ptr_tmp = self.ptr_tmp+1
+        if self.env_name == 'max-entropy-v0':
+            self.obs_tmp[self.ptr_tmp] = obs
+            self.obs2_tmp[self.ptr_tmp] = next_obs
+            self.act_tmp[self.ptr_tmp] = act
+            self.rew_tmp[self.ptr_tmp] = rew
+            self.done_tmp[self.ptr_tmp] = done
+            self.ptr_tmp = self.ptr_tmp + 1
 
         if self.env_name == 'max-entropy-v0':
             
@@ -43,22 +44,22 @@ class ReplayBuffer:
                 self.goals[env_info['goal'] - 1] +=1 # will be removed later
                 print('Adding a success traj episode number ', self.size + 1, self.goals)
                 self.obs_buf[self.ptr:self.ptr+self.ptr_tmp] = self.obs_tmp[:self.ptr_tmp]
-
-                self.obs2_buf[self.ptr:self.ptr+self.size_tmp] = self.obs2_tmp[:self.size_tmp]
-                self.act_buf[self.ptr:self.ptr+self.size_tmp] = self.act_tmp[:self.size_tmp]
-                self.rew_buf[self.ptr:self.ptr+self.size_tmp] = self.rew_tmp[:self.size_tmp]
-                self.done_buf[self.ptr:self.ptr+self.size_tmp] = self.done_tmp[:self.size_tmp]
-                self.ptr = (self.ptr+self.size_tmp) % self.max_size
-                self.size = min(self.size+self.size_tmp, self.max_size)
+                self.obs2_buf[self.ptr:self.ptr+self.ptr_tmp] = self.obs2_tmp[:self.ptr_tmp]
+                self.act_buf[self.ptr:self.ptr+self.ptr_tmp] = self.act_tmp[:self.ptr_tmp]
+                self.rew_buf[self.ptr:self.ptr+self.ptr_tmp] = self.rew_tmp[:self.ptr_tmp]
+                self.done_buf[self.ptr:self.ptr+self.ptr_tmp] = self.done_tmp[:self.ptr_tmp]
+                self.ptr = (self.ptr + self.ptr_tmp) % self.max_size
+                self.size = min(self.size + self.ptr_tmp, self.max_size)
+                self.ptr_tmp = 0
             elif env_info['status'] == 'failed':
                 self.ptr_tmp = 0
-            
+
         else:
-            self.obs_buf[self.ptr:self.ptr+self.size_tmp] = obs
-            self.obs2_buf[self.ptr:self.ptr+self.size_tmp] = next_obs
-            self.act_buf[self.ptr:self.ptr+self.size_tmp] = act
-            self.rew_buf[self.ptr:self.ptr+self.size_tmp] = rew
-            self.done_buf[self.ptr:self.ptr+self.size_tmp] = done
+            self.obs_buf[self.ptr] = obs
+            self.obs2_buf[self.ptr] = next_obs
+            self.act_buf[self.ptr] = act
+            self.rew_buf[self.ptr] = rew
+            self.done_buf[self.ptr] = done
             self.ptr = (self.ptr+1) % self.max_size
             self.size = min(self.size+1, self.max_size)
 
