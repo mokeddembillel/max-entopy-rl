@@ -37,7 +37,8 @@ if __name__ == '__main__':
     parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--max_ep_len', type=int, default=1000)
     parser.add_argument('--num_episodes', type=int, default=50)
-    parser.add_argument('--stats_episode_freq', type=int, default=5)
+    #parser.add_argument('--stats_episode_freq', type=int, default=5)
+    parser.add_argument('--stats_episode_freq', type=int, default=1)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr', type=float, default=1e-3)

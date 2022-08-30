@@ -178,14 +178,15 @@ class MaxEntrRL():
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
                 # Take deterministic actions at test time 
+                o = torch.as_tensor(o, dtype=torch.float32).to(self.device)
                 o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
-                a = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                
-                o, r, d, _ = self.test_env.step(a)
+                a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                o, r, d, _ = self.test_env.step(a.cpu().numpy())
                 ep_ret += r
                 ep_len += 1
             
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
+
         self.test_env.render()
         self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
         self.test_env.reset_rendering()

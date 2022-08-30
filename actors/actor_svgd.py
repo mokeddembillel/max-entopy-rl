@@ -78,13 +78,14 @@ class ActorSvgd(torch.nn.Module):
                 tmp2 = -2 * K_gamma.view(-1,1) * ((-K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
                 logp -= self.svgd_lr*(tmp1+tmp2)
             
-            return phi 
+            return phi, log_prob 
         
         for t in range(self.num_svgd_steps):
-            a = self.svgd_optim(a, phi(a))
+            phi_, q_s_a= phi(a)
+            a = self.svgd_optim(a, phi_)
             a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
 
-        return a, logp
+        return a, logp, q_s_a
         
 
 
@@ -96,16 +97,24 @@ class ActorSvgdNonParam(ActorSvgd):
         # sample from a Gaussian
         a0 = torch.normal(0, 1, size=(len(obs), self.act_dim)).to(self.device)
         a0 = self.act_limit * torch.tanh(a0) 
-
-        # entropy of a gaussian followed by tanh
-        logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)
-        logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
-
+        
         # run svgd
-        a, logp = self.sampler(obs, a0.detach(), with_logprob) 
-
+        a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
+        
         # compute the entropy 
-        logp_a = (logp0 + logp).mean(-1)
+        if with_logprob:
+            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)
+            logp0 += (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
+            logp_a = (logp0 + logp_a).mean(-1)
+        
+        # at test time
+        if (with_logprob == False) and (deterministic == True):
+            ind = q_s_a.view(-1, self.num_particles).argmax(-1)
+            a = a.view(-1, self.num_particles, self.act_dim)[:,ind,:]
+            
+        elif (with_logprob == False) and (deterministic == False):
+            a = a.view(-1, self.num_particles, self.act_dim)
+            a = a[:,np.random.randint(self.num_particles),:]
 
         return a, logp_a
 
