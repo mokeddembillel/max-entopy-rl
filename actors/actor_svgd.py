@@ -126,8 +126,8 @@ class ActorSvgdNonParam(ActorSvgd):
 
 
 class ActorSvgdP0Param(ActorSvgd):
-    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, activation, q1, q2):
-        ActorSvgd.__init__(self, obs_dim, act_dim, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
+    def __init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, hidden_sizes, q1, q2):
+        ActorSvgd.__init__(self, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, q1, q2)
         self.test_deterministic = test_deterministic
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes)
 
