@@ -2,10 +2,10 @@ from gym.utils import EzPickle
 from gym import spaces
 #from gym.envs.mujoco.mujoco_env import MujocoEnv
 from gym import Env
-from spinup.algos.pytorch.sac.plotter import svgd_plotting 
+from envs.plotter import svgd_plotting 
 import numpy as np
 import matplotlib.pyplot as plt
-
+import torch
 
 
 class Debuger_MultiGoal():

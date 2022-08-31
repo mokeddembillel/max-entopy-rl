@@ -52,6 +52,10 @@ class MultiGoalEnv(Env, EzPickle):
         self.fixed_plots = None
         self.dynamic_plots = []
 
+        self.episodes_information = []
+
+
+
     def reset(self, init_state=None):
         if init_state:
             unclipped_observation = init_state
@@ -63,6 +67,13 @@ class MultiGoalEnv(Env, EzPickle):
             unclipped_observation,
             self.observation_space.low,
             self.observation_space.high)
+        
+        self.episodes_information.append({'observations':[self.observation],
+                            'actions': [],
+                            'rewards': [],
+                            'status': None,
+                            'goal': None
+                            })
         
         return self.observation
 
@@ -92,6 +103,10 @@ class MultiGoalEnv(Env, EzPickle):
             action,
             self.action_space.low,
             self.action_space.high).ravel()
+        
+        self.episodes_information[-1]['actions'].append(action)
+
+        
 
         observation = self.dynamics.forward(self.observation, action)
         observation = np.clip(
@@ -99,7 +114,10 @@ class MultiGoalEnv(Env, EzPickle):
             self.observation_space.low,
             self.observation_space.high)
 
+        self.episodes_information[-1]['observations'].append(observation)
+
         reward = self.compute_reward(observation, action)
+        
 
         dist_to_goal = np.amin([
             np.linalg.norm(observation - goal_position)
@@ -110,6 +128,7 @@ class MultiGoalEnv(Env, EzPickle):
         
         if done:
             reward += self.goal_reward
+        self.episodes_information[-1]['rewards'].append(reward)
 
         self.observation = np.copy(observation)
 
@@ -177,7 +196,7 @@ class MultiGoalEnv(Env, EzPickle):
                 print('_______________________')
                 for i in range(len(positions)-1):
                     #import pdb; pdb.set_trace()
-                    x_values = np.linspace( positions[i]+mu_s[i]+3*std_s[i], positions[i]+mu_s[i]-3*std_s[i] , 20) 
+                    x_values = np.linspace(positions[i]+mu_s[i]+3*std_s[i], positions[i]+mu_s[i]-3*std_s[i] , 20) 
                     plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu_s[i], std_s[i])[:,0] )
                     print('std[',i,']:  ',std_s[i])
                 print('_______________________')
@@ -202,6 +221,107 @@ class MultiGoalEnv(Env, EzPickle):
     def render(self, mode='human', *args, **kwargs):
         """Render for rendering the current state of the environment."""
         pass
+    
+    def plot_paths(self, epoch, num_episodes, eps):
+        paths = []        
+        plot_svgd_steps = False
+
+        env = MultiGoalEnv()
+
+
+        ac_hess_list = []
+        ac_score_func_list = []
+        ac_hess_eig_max = []
+        #
+        #for episode in range(50):
+        for episode in range(num_episodes): 
+            #print("_____________"+str(episode)+"______________")
+            observation = env.reset() 
+            done = False
+            step = 0
+            path = {'infos':{'pos':[], 'mu':[], 'std':[], 'svgd_steps':[] }}
+            particles = None
+
+            while not done and step < 30 :
+                actions = get_action(np.expand_dims(observation, axis=0), test=True, plot=True, writer=writer)
+                
+                path['infos']['pos'].append(observation)
+
+                #import pdb; pdb.set_trace()
+                if (sac_version == "svgd_v1"):
+                    path['infos']['mu'].append( np.zeros( observation.shape ) )
+                    path['infos']['std'].append( np.ones( observation.shape ) )
+
+                    svgd_actions = torch.stack(ac.svgd_steps)
+                    path['infos']['svgd_steps'].append(svgd_actions.cpu().numpy())
+                    plot_svgd_steps=True
+
+                    ac_hess_list.append(ac.hess_list)
+                    ac_score_func_list.append(ac.score_func_list)
+                    ac_hess_eig_max.append(ac.hess_eig_max)
+                
+                elif (sac_version == "svgd_v2a"):
+                    path['infos']['mu'].append(ac.pi.mu.cpu().numpy())
+                    path['infos']['std'].append(ac.pi.std.cpu().numpy())
+
+                    svgd_actions = torch.stack(ac.svgd_steps)
+                    path['infos']['svgd_steps'].append(svgd_actions.cpu().numpy())
+                    plot_svgd_steps=True
+
+                    ac_hess_list.append(ac.hess_list)
+                    ac_score_func_list.append(ac.score_func_list)
+                    ac_hess_eig_max.append(ac.hess_eig_max)
+                else:
+                    path['infos']['mu'].append(ac.pi.mu.cpu().numpy())
+                    path['infos']['std'].append(ac.pi.std.cpu().numpy())
+
+                #import pdb; pdb.set_trace()
+                observation, reward, done, _ = env.step(actions)
+                
+                #print(observation)
+                step +=1
+            
+            paths.append(path)
+        
+        print("saving figure..., epoch=",epoch)
+        number_of_hits_mode = env.render_rollouts(paths,num_episodes, plot_svgd_steps, epoch=epoch, eps=eps, fout='loss_p_200k_elu_'+sac_version+"_alphaQ_"+str(alpha_q)+"_alphaP_"+str(alpha_p)+'_svgd_steps_'+str(num_svgd_steps)+'_svgd_particles_'+str(num_svgd_particles)+'_svgd_lr_'+str(svgd_lr)+"_epoch_"+str(epoch)+"_batch_size_"+str(batch_size)+'_lr_p_'+str(lr_p)+"_num_episodes_"+str(num_episodes)+".png" )
+        total_number_of_hits_mode = number_of_hits_mode.sum()
+        if total_number_of_hits_mode > 0.0:
+            m0 = number_of_hits_mode[0]/total_number_of_hits_mode
+            m1 = number_of_hits_mode[1]/total_number_of_hits_mode
+            m2 = number_of_hits_mode[2]/total_number_of_hits_mode
+            m3 = number_of_hits_mode[3]/total_number_of_hits_mode
+        else:
+            m0, m1, m2, m3 = 0, 0, 0, 0
+        ac_hess_list = torch.stack(ac_hess_list)
+        ac_score_func_list = torch.stack(ac_score_func_list)
+        ac_hess_eig_max = torch.stack(ac_hess_eig_max)
+
+        # 
+        writer.add_scalar('smoothness/ac_score/mean', torch.abs(ac_score_func_list).mean() , epoch)
+        writer.add_scalar('smoothness/ac_score/std', torch.abs(ac_score_func_list).std() , epoch)
+        writer.add_scalar('smoothness/hess/mean', torch.abs(ac_hess_list).mean() , epoch)
+        writer.add_scalar('smoothness/hess/std', torch.abs(ac_hess_list).std() , epoch)
+        writer.add_scalar('smoothness/hess/max_eigen_val/mean', ac_hess_eig_max.mean() , epoch)
+        writer.add_scalar('smoothness/hess/max_eigen_val/std', ac_hess_eig_max.std() , epoch)
+
+        # 
+        writer.add_scalar('modes/num_modes',(number_of_hits_mode>0).sum(), epoch)
+        writer.add_scalar('modes/total_number_of_hits_mode',total_number_of_hits_mode, epoch)
+        writer.add_scalar('modes/prob_mod_0',m0, epoch)
+        writer.add_scalar('modes/prob_mod_1',m1, epoch)
+        writer.add_scalar('modes/prob_mod_2',m2, epoch)
+        writer.add_scalar('modes/prob_mod_3',m3, epoch)
+
+        picks = 0
+
+        #import pdb; pdb.set_trace() 
+        if (epoch>200000):
+            if ((number_of_hits_mode>0).sum()!=4):
+                picks += 1
+                stability = 1 - (picks/(epoch-200000))
+                writer.add_scalar('modes/stability',stability, epoch)
+
 
     def compute_reward(self, observation, action): 
         # penalize the L2 norm of acceleration
