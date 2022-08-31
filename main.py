@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     #parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ######networks
@@ -46,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=500)
     ######sac
-    parser.add_argument('--sac_test_deterministic', type=bool, default=True)
+    parser.add_argument('--sac_test_deterministic', type=bool, default=False)
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
@@ -71,10 +71,6 @@ if __name__ == '__main__':
     torch.set_num_threads(torch.get_num_threads())
 
     # environment
-    if args.env =='Multigoal':
-        env_fn = MultiGoalEnv
-    else:
-        env_fn = lambda : gym.make(args.env)
 
     # get device
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -95,10 +91,15 @@ if __name__ == '__main__':
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
 
     tb_logger = SummaryWriter(args.tensorboard_path+project_name)
+    
+    if args.env =='Multigoal':
+        env_fn = MultiGoalEnv
+    else:
+        env_fn = lambda writer: gym.make(args.env, writer=writer)
 
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
-        update_every=args.update_every,num_test_episodes=args.num_test_episodes,max_ep_len=args.max_ep_len)
+        update_every=args.update_every, num_test_episodes=args.num_test_episodes, max_ep_len=args.max_ep_len)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)
