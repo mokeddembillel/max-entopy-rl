@@ -30,8 +30,8 @@ class MLPSquashedGaussian(nn.Module):
         self.net = mlp([obs_dim] + list(hidden_sizes), activation, activation)
         self.mu_layer = nn.Linear(hidden_sizes[-1], act_dim)
         self.log_std_layer = nn.Linear(hidden_sizes[-1], act_dim)
-        self.log_std_min = 2
-        self.log_std_max = -20
+        self.log_std_min = -20
+        self.log_std_max = 2
 
     def forward(self, obs):
         net_out = self.net(obs)
