@@ -11,3 +11,5 @@ envs/max-entropy-gym-env/gym_max_entropy/.DS_Store
 .DS_Store
 .vscode
 .vscode/settings.json
+max_entropy_plots_/*
+
