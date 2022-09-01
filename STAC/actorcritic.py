@@ -25,10 +25,11 @@ class ActorCritic(nn.Module):
         self.q2 = MLPQFunction(obs_dim, act_dim, **critic_kwargs)
         
         if 'svgd' in actor:
-            actor_kwargs.q1 = self.q1
-            actor_kwargs.q2 = self.q2
+            actor_kwargs.q1 = self.q1.forward
+            actor_kwargs.q2 = self.q2.forward
             
         self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs)
+
 
     def forward(self, obs, deterministic=False, with_logprob=True):
     	return self.pi.act(obs, deterministic, with_logprob)
