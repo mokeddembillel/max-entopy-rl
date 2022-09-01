@@ -1,1 +1,0 @@
-from gym_max_entropy.envs.max_entropy_env import MaxEntropyEnv
