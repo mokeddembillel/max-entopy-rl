@@ -4,12 +4,9 @@ import numpy as np
 import torch 
 from torch.optim import Adam
 from datetime import datetime
-from utils import count_vars
-from spinup_utils.logx import EpochLogger
 from actorcritic import ActorCritic
-from utils import combined_shape, count_vars, AttrDict
+from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
-import gym_max_entropy
 
 class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -24,10 +21,6 @@ class MaxEntrRL():
         self.RL_kwargs = RL_kwargs
         self.optim_kwargs = optim_kwargs
         
-        # logger 
-        self.logger = EpochLogger()
-        #self.logger.save_config(locals())
-
         # instantiating the environment
         self.env, self.test_env = env_fn(self.tb_logger), env_fn(self.tb_logger)
         self.obs_dim = self.env.observation_space.shape[0]
@@ -55,8 +48,7 @@ class MaxEntrRL():
         self.q_optimizer = Adam(self.q_params, lr=self.optim_kwargs.lr)
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
-        var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.logger.log('\nNumber of parameters: \t pi: %d, \t q1: %d, \t q2: %d\n'%var_counts)
+        # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
 
 
     def compute_loss_q(self, data, itr):
@@ -127,9 +119,6 @@ class MaxEntrRL():
         loss_q, q_info = self.compute_loss_q(data, itr)
         loss_q.backward()
         self.q_optimizer.step()
-
-        # Record things
-        self.logger.store(LossQ=loss_q.item(), **q_info)
         
         if next(self.ac.pi.parameters(), None) is not None:
             # Freeze Q-networks so you don't waste computational effort 
@@ -146,9 +135,6 @@ class MaxEntrRL():
             # Unfreeze Q-networks so you can optimize it at next DDPG step.
             for p in self.q_params:
                 p.requires_grad = True
-
-            # Record things
-            self.logger.store(LossPi=loss_pi.item(), **pi_info)
         
         # Finally, update target networks by polyak averaging.
         with torch.no_grad():
@@ -173,7 +159,6 @@ class MaxEntrRL():
                 ep_ret += r
                 ep_len += 1
             
-            self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
         self.test_env.render(itr=itr)
         # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
         self.test_env.save_fig('./multi_goal_plots_/'+ str(itr))   
@@ -183,10 +168,7 @@ class MaxEntrRL():
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
         for p in self.ac_targ.parameters(): 
             p.requires_grad = False
-        
-        # Set up model saving
-        self.logger.setup_pytorch_saver(self.ac)
-        
+                
         # Prepare for interaction with environment
         o, ep_ret, ep_len = self.env.reset(), 0, 0 
 
@@ -224,7 +206,6 @@ class MaxEntrRL():
 
             # End of trajectory handling
             if d or (ep_len == self.RL_kwargs.max_ep_len):
-                self.logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
                 d=True
