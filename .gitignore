@@ -13,4 +13,15 @@ ToyExperiments/figs
 .vscode
 .vscode/settings.json
 max_entropy_plots_/*
+actors/__pycache__/*
+spinup_utils/__pycache__/*
+STAC/__pycache__/*
+STAC/actors/__pycache__/*
+STAC/envs/__pycache__/*
+STAC/spinup_utils/__pycache__/*
+data/*
+envs/*
+
+
+
 
