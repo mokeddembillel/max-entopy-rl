@@ -1,10 +1,10 @@
 import argparse
 from envs.multigoal_env import MultiGoalEnv
-from spinup_utils.run_utils import setup_logger_kwargs
 import random
 import torch
 from torch.utils.tensorboard import SummaryWriter
 from envs.multigoal_env import MultiGoalEnv
+from envs.max_entropy_env import MaxEntropyEnv
 import numpy as np
 import gym
 from datetime import datetime
@@ -14,7 +14,7 @@ from utils import AttrDict
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
+    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     
@@ -82,8 +82,6 @@ if __name__ == '__main__':
 
     tb_logger = SummaryWriter(args.tensorboard_path+project_name)
     
-    logger_kwargs = setup_logger_kwargs(args.actor, args.seed)
-
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, max_ep_len=args.max_ep_len)
@@ -97,8 +95,8 @@ if __name__ == '__main__':
     # stac
     if args.env =='Multigoal':
         env_fn = MultiGoalEnv
-    else:
-        env_fn = lambda writer: gym.make(args.env, writer=writer)
+    elif args.env == 'max-entropy-v0':
+        env_fn = MaxEntropyEnv
     
     
     stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
