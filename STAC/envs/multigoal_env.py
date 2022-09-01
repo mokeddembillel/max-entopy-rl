@@ -1,11 +1,10 @@
 from gym.utils import EzPickle
 from gym import spaces
-#from gym.envs.mujoco.mujoco_env import MujocoEnv
 from gym import Env
-
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+
 def gaussian(x, mu, sig):
     out = np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
     out = np.tanh(out)
