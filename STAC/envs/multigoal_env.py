@@ -22,7 +22,7 @@ class MultiGoalEnv(Env, EzPickle):
                  goal_reward=10,
                  actuation_cost_coeff=30.0,
                  distance_cost_coeff=1.0,
-                 init_sigma=0.05):
+                 init_sigma=0.05, max_steps=30):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
@@ -77,7 +77,7 @@ class MultiGoalEnv(Env, EzPickle):
                             'status': None,
                             'goal': None, 
                             'mu': [],
-                            'std': [],
+                            'sigma': [],
                             'svgd_steps': [],
                             'ac_hess_list': [],
                             'ac_score_func_list': [],
@@ -183,7 +183,7 @@ class MultiGoalEnv(Env, EzPickle):
             yy = positions[:, 1]
 
             mu_s = np.stack(path['mu']).squeeze()
-            std_s = np.stack(path['std']).squeeze()
+            std_s = np.stack(path['sigma']).squeeze()
             
             self._env_lines += self._ax.plot(xx, yy, '+b' if not 'color' in path else path['color'])
             
@@ -193,7 +193,7 @@ class MultiGoalEnv(Env, EzPickle):
                     #import pdb; pdb.set_trace()
                     x_values = np.linspace(positions[i]+mu_s[i]+3*std_s[i], positions[i]+mu_s[i]-3*std_s[i] , 20) 
                     plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu_s[i], std_s[i])[:,0] )
-                    print('std[',i,']:  ',std_s[i])
+                    print('sigma[',i,']:  ',std_s[i])
                 print('_______________________')
             else:
                 #compute the number of modes
@@ -249,10 +249,10 @@ class MultiGoalEnv(Env, EzPickle):
 
         if ac.pi.actor_name == 'svgd_nonparam':
             self.episodes_information[-1]['mu'].append(np.zeros(self.state_space.shape)) ####
-            self.episodes_information[-1]['std'].append(np.ones(self.state_space.shape)) ####
+            self.episodes_information[-1]['sigma'].append(np.ones(self.state_space.shape)) ####
         else:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
-            self.episodes_information[-1]['std'].append(ac.pi.std.detach().cpu().numpy())
+            self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
         if ac.pi.actor_name != 'sac':
             self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
             self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)

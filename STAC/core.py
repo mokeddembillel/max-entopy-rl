@@ -29,8 +29,8 @@ class MaxEntrRL():
         #self.logger.save_config(locals())
 
         # instantiating the environment
-        self.env, self.test_env = env_fn(), env_fn()
-        self.obs_dim = self.env.observation_space.shape
+        self.env, self.test_env = env_fn(self.tb_logger), env_fn(self.tb_logger)
+        self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
 
         # Action limit for clamping: critically, assumes all dimensions share the same bound!
@@ -67,6 +67,7 @@ class MaxEntrRL():
 
         # Bellman backup for Q functions
         # Target actions come from *current* policy
+        # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
@@ -98,7 +99,6 @@ class MaxEntrRL():
 
 
     def compute_loss_pi(self, data, itr):
-        
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
         a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
@@ -166,15 +166,17 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
                 
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                self.test_env.collect_plotting_data(self.ac)    
+
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
                 ep_ret += r
                 ep_len += 1
             
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
-
-        self.test_env.render(render='draw')
-        self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
+        self.test_env.render(itr=itr)
+        # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
+        self.test_env.save_fig('./multi_goal_plots_/'+ str(itr))   
 
 
     def forward(self):
@@ -211,7 +213,7 @@ class MaxEntrRL():
             # Ignore the "done" signal if it comes from hitting the time
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
-            d = False if ep_len==self.RL_kwargs.max_ep_len else d
+            # d = False if ep_len==self.RL_kwargs.max_ep_len else d
 
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
@@ -225,7 +227,7 @@ class MaxEntrRL():
                 self.logger.store(EpRet=ep_ret, EpLen=ep_len)
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
-            
+                d=True
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
                 print('Update The Agent')
@@ -238,14 +240,14 @@ class MaxEntrRL():
             #     self.env.plot_paths(episode_itr,1)
             #     self.env.plot_paths(episode_itr,20)
             # log for p_0
-            for tag, value in self.ac.named_parameters():
-                if value.grad is not None:
-                    self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
+            # for tag, value in self.ac.named_parameters():    ### commented right now ###
+            #     if value.grad is not None:
+            #         self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
 
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
 
                 # Save model
-                self.logger.save_state({'env': self.env}, None)
+                # self.logger.save_state({'env': self.env}, None)
 
                 # Test the performance of the deterministic version of the agent.
                 self.test_agent(episode_itr)
@@ -254,18 +256,18 @@ class MaxEntrRL():
                 # self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode_itr)
                 
                 # Log info about epoch
-                self.logger.log_tabular('Episode', episode_itr)
-                self.logger.log_tabular('EpRet', with_min_and_max=True)
-                self.logger.log_tabular('TestEpRet', with_min_and_max=True)
-                self.logger.log_tabular('EpLen', average_only=True)
-                self.logger.log_tabular('TestEpLen', average_only=True)
-                self.logger.log_tabular('TotalEnvInteracts', episode_itr)
-                self.logger.log_tabular('Q1Vals', with_min_and_max=True)
-                self.logger.log_tabular('Q2Vals', with_min_and_max=True)
-                self.logger.log_tabular('LossQ', average_only=True)
-                self.logger.log_tabular('LogPi', with_min_and_max=True)
-                self.logger.log_tabular('LossPi', average_only=True)
-                self.logger.dump_tabular()
+                # self.logger.log_tabular('Episode', episode_itr)
+                # self.logger.log_tabular('EpRet', with_min_and_max=True)
+                # self.logger.log_tabular('TestEpRet', with_min_and_max=True)
+                # self.logger.log_tabular('EpLen', average_only=True)
+                # self.logger.log_tabular('TestEpLen', average_only=True)
+                # self.logger.log_tabular('TotalEnvInteracts', episode_itr)
+                # self.logger.log_tabular('Q1Vals', with_min_and_max=True)
+                # self.logger.log_tabular('Q2Vals', with_min_and_max=True)
+                # self.logger.log_tabular('LossQ', average_only=True)
+                # self.logger.log_tabular('LogPi', with_min_and_max=True)
+                # self.logger.log_tabular('LossPi', average_only=True)
+                # self.logger.dump_tabular()
                 
             step_itr += 1
 
