@@ -176,7 +176,7 @@ class MaxEntrRL():
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
         self.test_env.render(itr=itr)
         # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
-        self.test_env.save_fig('./multi_goal_plots_/'+ str(itr))   
+        self.test_env.save_fig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
 
 
     def forward(self):
@@ -199,8 +199,8 @@ class MaxEntrRL():
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
-                o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, _ = self.ac(o, deterministic=False, with_logprob=False)
+                o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+                a, _ = self.ac(o_, deterministic=False, with_logprob=False)
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
