@@ -50,12 +50,8 @@ if __name__ == '__main__':
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     args = parser.parse_args()    
-
     
     
-    # logger
-    
-
     # fix the seeds
     torch.backends.cudnn.deterministic = True
     torch.manual_seed(args.seed)
@@ -106,7 +102,7 @@ if __name__ == '__main__':
     
     
     stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
-        critic_kwargs=critic_kwargs, actor_kwargs= actor_kwargs,
+        critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger)
 
     stac.forward()

@@ -25,7 +25,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # logger 
-        self.logger = EpochLogger(**self.logger_kwargs)
+        self.logger = EpochLogger()
         #self.logger.save_config(locals())
 
         # instantiating the environment
@@ -240,7 +240,7 @@ class MaxEntrRL():
             # log for p_0
             for tag, value in self.ac.named_parameters():
                 if value.grad is not None:
-                    self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), itr)
+                    self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
 
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
 
