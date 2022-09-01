@@ -9,7 +9,6 @@ import numpy as np
 import gym
 from datetime import datetime
 from core import MaxEntrRL
-
 from utils import AttrDict
 
 if __name__ == '__main__':
