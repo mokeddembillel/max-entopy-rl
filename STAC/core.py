@@ -6,29 +6,24 @@ from torch.optim import Adam
 from datetime import datetime
 from utils import count_vars
 from spinup_utils.logx import EpochLogger
-# from torch.utils.tensorboard import SummaryWriter
-# from envs.multigoal_env import MultiGoalEnv, QFPolicyPlotter
 from actorcritic import ActorCritic
 from utils import combined_shape, count_vars, AttrDict
 from buffer import ReplayBuffer
 import gym_max_entropy
 
 class MaxEntrRL():
-    def __init__(self, env_fn, tb_logger, env, actor, seed, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
-        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(),logger_kwargs=AttrDict()):
+    def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
+        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None):
         self.env_fn = env_fn
         self.tb_logger = tb_logger
         self.env_name = env
         self.actor = actor 
-        self.seed = seed 
+        self.device = device
         self.critic_kwargs = critic_kwargs
         self.actor_kwargs = actor_kwargs
-        self.device = device
         self.RL_kwargs = RL_kwargs
         self.optim_kwargs = optim_kwargs
-        self.logger_kwargs = logger_kwargs
         
-
         # logger 
         self.logger = EpochLogger(**self.logger_kwargs)
         #self.logger.save_config(locals())
@@ -72,7 +67,7 @@ class MaxEntrRL():
 
         # Bellman backup for Q functions
         # Target actions come from *current* policy
-        o2 = o2.view(-1,1,o2.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o2.size()[-1])
+        o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
         a2 = a2.detach()
@@ -104,10 +99,9 @@ class MaxEntrRL():
 
     def compute_loss_pi(self, data, itr):
         
-        o = data['obs']
-        o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
+        o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
-        a, logp_pi = self.ac(o, False, True)
+        a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
         
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles).mean(-1)
@@ -155,11 +149,6 @@ class MaxEntrRL():
 
             # Record things
             self.logger.store(LossPi=loss_pi.item(), **pi_info)
-
-            # log for p_0
-            for tag, value in self.ac.named_parameters():
-                if value.grad is not None:
-                    self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), itr)
         
         # Finally, update target networks by polyak averaging.
         with torch.no_grad():
@@ -174,8 +163,8 @@ class MaxEntrRL():
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
-                o = torch.as_tensor(o, dtype=torch.float32).to(self.device)
-                o = o.view(-1,1,o.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o.size()[-1])
+                o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+                
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
@@ -183,6 +172,7 @@ class MaxEntrRL():
                 ep_len += 1
             
             self.logger.store(TestEpRet=ep_ret, TestEpLen=ep_len)
+
         self.test_env.render(render='draw')
         self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
 
@@ -207,9 +197,8 @@ class MaxEntrRL():
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
-                o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device)
-                o_ = o_.view(-1,1,o_.size()[-1]).repeat(1,self.ac.pi.num_particles,1).view(-1,o_.size()[-1])
-                a, _ = self.ac(o_, deterministic=False, with_logprob=False)
+                o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+                a, _ = self.ac(o, deterministic=False, with_logprob=False)
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
@@ -248,6 +237,10 @@ class MaxEntrRL():
             #     print('Plot ', episode_itr+1)
             #     self.env.plot_paths(episode_itr,1)
             #     self.env.plot_paths(episode_itr,20)
+            # log for p_0
+            for tag, value in self.ac.named_parameters():
+                if value.grad is not None:
+                    self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), itr)
 
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
 

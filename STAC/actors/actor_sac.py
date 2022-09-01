@@ -12,15 +12,13 @@ class ActorSac(torch.nn.Module):
         self.test_deterministic = test_deterministic
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
     
-    # def forward(self):
-    #     return self.net.forward
 
     def log_prob(self, pi_distribution, pi_action):
         logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
         logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
         return logp_pi
 
-    def act(self, obs, deterministic=None, with_logprob=None):#, wandb=None):
+    def act(self, obs, deterministic=None, with_logprob=None):
         mu, sigma = self.policy_net(obs)
 
         pi_distribution = Normal(mu, sigma)

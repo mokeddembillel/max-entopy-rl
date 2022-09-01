@@ -105,9 +105,9 @@ if __name__ == '__main__':
         env_fn = lambda writer: gym.make(args.env, writer=writer)
     
     
-    stac=MaxEntrRL(env_fn, tb_logger, env=args.env, actor=args.actor, seed=args.seed, device=device, 
+    stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
         critic_kwargs=critic_kwargs, actor_kwargs= actor_kwargs,
-        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs, logger_kwargs=logger_kwargs)
+        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger)
 
     stac.forward()
 
