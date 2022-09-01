@@ -51,7 +51,7 @@ class MultiGoalEnv(Env, EzPickle):
         self._env_lines = []
         self.fixed_plots = None
         self.dynamic_plots = []
-
+        self.max_steps = max_steps
         self.episodes_information = []
 
 
@@ -179,8 +179,8 @@ class MultiGoalEnv(Env, EzPickle):
         for i, path in enumerate(self.episodes_information):
             
             positions = np.stack(path['observations'])
-            xx = positions[:, 0]
-            yy = positions[:, 1]
+            xx = positions[-1, 0]
+            yy = positions[-1, 1]
 
             mu_s = np.stack(path['mu']).squeeze()
             std_s = np.stack(path['sigma']).squeeze()
