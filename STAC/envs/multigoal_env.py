@@ -182,12 +182,13 @@ class MultiGoalEnv(Env, EzPickle):
             xx = positions[-1, 0]
             yy = positions[-1, 1]
 
-            mu_s = np.stack(path['mu']).squeeze()
-            std_s = np.stack(path['sigma']).squeeze()
-            
             self._env_lines += self._ax.plot(xx, yy, '+b' if not 'color' in path else path['color'])
             
             if (num_episodes==1):
+                if self.ac.pi.actor not in ['svgd_nonparam', 'svgd_sql']:
+                    mu_s = np.stack(path['mu']).squeeze()
+                    std_s = np.stack(path['sigma']).squeeze()
+                
                 print('_______________________')
                 for i in range(len(positions)-1):
                     #import pdb; pdb.set_trace()
@@ -246,18 +247,15 @@ class MultiGoalEnv(Env, EzPickle):
         plt.close()
 
     def collect_plotting_data(self, ac):
-
-        if ac.pi.actor == 'svgd_nonparam':
-            self.episodes_information[-1]['mu'].append(np.zeros(self.state_space.shape)) ####
-            self.episodes_information[-1]['sigma'].append(np.ones(self.state_space.shape)) ####
-        else:
+        if ac.pi.actor not in ['svgd_nonparam', 'svgd_sql']:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
-        if ac.pi.actor != 'sac':
-            self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
-            self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
-            self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
-            self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
+        if ac.pi.actor not in  ['sac', 'svgd_sql']:
+            self.episodes_information[-1]['svgd_steps'].append(ac.pi.num_svgd_steps)
+            
+            # self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
+            # self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
+            # self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
 
 
     def render(self, num_episodes=0, itr=0, fout=None, mode='human'):
