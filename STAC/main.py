@@ -32,10 +32,11 @@ if __name__ == '__main__':
     parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     parser.add_argument('--update_after', type=int, default=1000)
-    #parser.add_argument('--update_after', type=int, default=50000)
-    parser.add_argument('--update_every', type=int, default=50)
+    # parser.add_argument('--update_after', type=int, default=50000)
+    # parser.add_argument('--update_every', type=int, default=50)
+    parser.add_argument('--update_every', type=int, default=1000)
     #parser.add_argument('--max_ep_len', type=int, default=1000)
-    parser.add_argument('--max_ep_len', type=int, default=500)
+    # parser.add_argument('--max_ep_len', type=int, default=500)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr', type=float, default=1e-3)
@@ -84,7 +85,7 @@ if __name__ == '__main__':
     
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
-        update_every=args.update_every, num_test_episodes=args.num_test_episodes, max_ep_len=args.max_ep_len)
+        update_every=args.update_every, num_test_episodes=args.num_test_episodes)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr=args.lr,batch_size=args.batch_size)

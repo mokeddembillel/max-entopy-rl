@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
 from networks import MLPSquashedGaussian
-from torch.distributions import Normal
+from torch.distributions import Normal, Categorical
 from networks import mlp
 
 class RBF(torch.nn.Module):
@@ -131,12 +131,22 @@ class ActorSvgd(torch.nn.Module):
             logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)+ (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
             logp_a = (logp0 + logp_a).mean(-1)
         
+        a = a.view(-1, self.num_particles, self.act_dim)
         # at test time
         if (with_logprob == False) and (deterministic == True):
-            a = a.view(-1, self.num_particles, self.act_dim)[:,q_s_a.view(-1, self.num_particles).argmax(-1),:]
+            a = torch.gather(a, 1, torch.max(q_s_a, dim=1)[1].unsqueeze(-1))
          
         elif (with_logprob == False) and (deterministic == False):
-            a = a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
+            beta = 1
+            max_q_object = torch.max(q_s_a, dim=1, keepdim=True) # (-1, 1)
+            max_q_value, max_q_indicies = max_q_object[0], max_q_object[1] # (-1, 1)
 
+            nominator = torch.exp(beta * q_s_a - max_q_value) # (-1, np)
+            denominator = torch.sum(nominator, dim=1, keepdim=True) # (-1, 1)
+            denominator = denominator.repeat((-1, self.num_particles))  # (-1, np)
+
+            soft_max_porbs = (nominator / denominator) # (-1, np)
+            dist = Categorical(soft_max_porbs)
+            a = torch.gather(q_s_a, 1, dist.sample().unsqueeze(-1))
         return a, logp_a
 

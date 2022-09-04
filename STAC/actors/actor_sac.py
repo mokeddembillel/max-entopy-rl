@@ -5,11 +5,12 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 class ActorSac(torch.nn.Module):
-    def __init__(self, actor_name, obs_dim, act_dim, act_limit, hidden_sizes, activation=torch.nn.ReLU, test_deterministic=False):
+    def __init__(self, actor_name, obs_dim, act_dim, act_limit, hidden_sizes, activation=torch.nn.Identity, test_deterministic=False):
         super(ActorSac, self).__init__()
         self.num_particles = 1
         self.actor_name = actor_name
-
+        self.obs_dim = obs_dim
+        self.act_dim = act_dim
         self.act_limit = act_limit
         self.test_deterministic = test_deterministic
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)

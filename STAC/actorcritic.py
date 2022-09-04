@@ -28,7 +28,7 @@ class ActorCritic(nn.Module):
             actor_kwargs.q1 = self.q1.forward
             actor_kwargs.q2 = self.q2.forward
             
-        self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs)
+        self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs, activation=nn.ReLU)
 
 
     def forward(self, obs, deterministic=False, with_logprob=True):

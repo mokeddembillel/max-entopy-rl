@@ -23,6 +23,7 @@ class MaxEntrRL():
         
         # instantiating the environment
         self.env, self.test_env = env_fn(self.tb_logger), env_fn(self.tb_logger)
+
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
 
@@ -142,7 +143,7 @@ class MaxEntrRL():
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
-            while not(d or (ep_len == self.RL_kwargs.max_ep_len)):
+            while not(d or (ep_len == self.env.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
                 
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
@@ -191,7 +192,7 @@ class MaxEntrRL():
             # Ignore the "done" signal if it comes from hitting the time
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
-            # d = False if ep_len==self.RL_kwargs.max_ep_len else d
+            d = False if ep_len==self.env.max_steps else d
 
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
@@ -201,7 +202,7 @@ class MaxEntrRL():
             o = o2
 
             # End of trajectory handling
-            if d or (ep_len == self.RL_kwargs.max_ep_len):
+            if d or (ep_len == self.env.max_steps):
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
                 d=True
