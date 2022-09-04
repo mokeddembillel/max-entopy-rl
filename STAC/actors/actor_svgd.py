@@ -97,9 +97,8 @@ class ActorSvgd(torch.nn.Module):
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
-            max_q_value = torch.max(q_s_a, dim=1, keepdim=True)[0] # (-1, 1)
-            soft_max_porbs = torch.exp(beta * q_s_a - max_q_value)
-            dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=1, keepdim=True))
-            a = torch.gather(q_s_a, 1, dist.sample().unsqueeze(-1))
+            soft_max_porbs = torch.exp(beta * q_s_a - q_s_a.max())
+            dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=-1))
+            a = a[dist.sample()]
         return a, logp_a
 
