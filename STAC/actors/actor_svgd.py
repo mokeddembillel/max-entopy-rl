@@ -135,19 +135,13 @@ class ActorSvgd(torch.nn.Module):
         a = a.view(-1, self.num_particles, self.act_dim)
         # at test time
         if (with_logprob == False) and (deterministic == True):
-            a = torch.gather(a, 1, torch.max(q_s_a, dim=1)[1].unsqueeze(-1))
+            a = a.view(-1, self.num_particles, self.act_dim)[:,q_s_a.view(-1, self.num_particles).argmax(-1),:]
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
-            max_q_object = torch.max(q_s_a, dim=1, keepdim=True) # (-1, 1)
-            max_q_value, max_q_indicies = max_q_object[0], max_q_object[1] # (-1, 1)
-
-            nominator = torch.exp(beta * q_s_a - max_q_value) # (-1, np)
-            denominator = torch.sum(nominator, dim=1, keepdim=True) # (-1, 1)
-            #denominator = denominator.repeat((-1, self.num_particles))  # (-1, np)
-
-            soft_max_porbs = (nominator / denominator) # (-1, np)
-            dist = Categorical(soft_max_porbs)
+            max_q_value = torch.max(q_s_a, dim=1, keepdim=True)[0] # (-1, 1)
+            soft_max_porbs = torch.exp(beta * q_s_a - max_q_value)
+            dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=1, keepdim=True))
             a = torch.gather(q_s_a, 1, dist.sample().unsqueeze(-1))
         return a, logp_a
 

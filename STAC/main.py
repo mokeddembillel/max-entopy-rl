@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     
     ######networks
     parser.add_argument('--hid', type=int, default=256)
@@ -82,9 +82,9 @@ if __name__ == '__main__':
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
 
-    if not os.path.isdir(datetime.now().strftime("%b_%d_%Y_%H_%M_%S")):
+    if not os.path.isdir(args.tensorboard_path + datetime.now().strftime("%b_%d_%Y_%H_%M_%S")):
         datetime_folder = datetime.now().strftime("%b_%d_%Y_%H_%M_%S")
-        os.makedirs(datetime_folder)
+        os.makedirs(args.tensorboard_path + datetime_folder)
     
     tb_logger = SummaryWriter(args.tensorboard_path + datetime_folder + '/' + project_name)
     

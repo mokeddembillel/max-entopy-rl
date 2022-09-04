@@ -247,7 +247,7 @@ class MultiGoalEnv(Env, EzPickle):
 
     def collect_plotting_data(self, ac):
 
-        if ac.pi.actor_name == 'svgd_nonparam':
+        if ac.pi.actor == 'svgd_nonparam':
             self.episodes_information[-1]['mu'].append(np.zeros(self.state_space.shape)) ####
             self.episodes_information[-1]['sigma'].append(np.ones(self.state_space.shape)) ####
         else:
