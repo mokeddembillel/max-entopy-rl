@@ -1,6 +1,6 @@
 import torch 
 import numpy as np
-from utils import combined_shape, AttrDict
+from utils import AttrDict
 
 class ReplayBuffer:
     """
@@ -11,25 +11,26 @@ class ReplayBuffer:
         self.act_dim = act_dim
         self.env_name = env_name
         
-        self.obs_buf = np.zeros(combined_shape(size, self.obs_dim), dtype=np.float32)
-        self.obs2_buf = np.zeros(combined_shape(size, self.obs_dim), dtype=np.float32)
-        self.act_buf = np.zeros(combined_shape(size, act_dim), dtype=np.float32)
-        self.rew_buf = np.zeros(size, dtype=np.float32)
-        self.done_buf = np.zeros(size, dtype=np.float32)
+        self.obs_buf = np.zeros((size, self.obs_dim), dtype=np.float32)
+        self.obs2_buf = np.zeros((size, self.obs_dim), dtype=np.float32)
+        self.act_buf = np.zeros((size, act_dim), dtype=np.float32)
+        self.rew_buf = np.zeros((size,), dtype=np.float32)
+        self.done_buf = np.zeros((size,), dtype=np.float32)
         self.ptr, self.size, self.max_size = 0, 0, size
         self.device = device
 
         if self.env_name == 'max-entropy-v0':
             self.episode_max_steps = episode_max_steps
-            self.obs_tmp = np.zeros(combined_shape(self.episode_max_steps, self.obs_dim), dtype=np.float32)
-            self.obs2_tmp = np.zeros(combined_shape(self.episode_max_steps, self.obs_dim), dtype=np.float32)
-            self.act_tmp = np.zeros(combined_shape(self.episode_max_steps, self.act_dim), dtype=np.float32)
-            self.rew_tmp = np.zeros(self.episode_max_steps, dtype=np.float32)
-            self.done_tmp = np.zeros(self.episode_max_steps, dtype=np.float32)
+            self.obs_tmp = np.zeros((self.episode_max_steps, self.obs_dim), dtype=np.float32)
+            self.obs2_tmp = np.zeros((self.episode_max_steps, self.obs_dim), dtype=np.float32)
+            self.act_tmp = np.zeros((self.episode_max_steps, self.act_dim), dtype=np.float32)
+            self.rew_tmp = np.zeros((self.episode_max_steps,), dtype=np.float32)
+            self.done_tmp = np.zeros((self.episode_max_steps,), dtype=np.float32)
             self.ptr_tmp = 0
             self.goals = [0, 0]
 
     def store(self, obs, act, rew, next_obs, done, env_info=None):
+        
         if self.env_name == 'max-entropy-v0':
             self.obs_tmp[self.ptr_tmp] = obs
             self.obs2_tmp[self.ptr_tmp] = next_obs
@@ -54,7 +55,6 @@ class ReplayBuffer:
                 self.ptr_tmp = 0
             elif env_info['status'] == 'failed':
                 self.ptr_tmp = 0
-
         else:
             self.obs_buf[self.ptr] = obs
             self.obs2_buf[self.ptr] = next_obs

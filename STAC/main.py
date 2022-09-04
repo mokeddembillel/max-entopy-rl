@@ -14,7 +14,7 @@ from utils import AttrDict
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser()
-    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
+    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     
@@ -23,7 +23,7 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=5.0)
+    parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--num_episodes', type=int, default=500)

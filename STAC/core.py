@@ -83,11 +83,8 @@ class MaxEntrRL():
         self.tb_logger.add_scalar('loss_q/loss_q1',loss_q1, itr)
         self.tb_logger.add_scalar('loss_q/loss_q2',loss_q2, itr)
         self.tb_logger.add_scalar('loss_q/total',loss_q, itr)
-        
-        # Useful info for logging
-        q_info = AttrDict(Q1Vals=q1.detach().cpu().numpy(),Q2Vals=q2.detach().cpu().numpy())
-        
-        return loss_q, q_info
+
+        return loss_q
 
 
     def compute_loss_pi(self, data, itr):
@@ -107,16 +104,13 @@ class MaxEntrRL():
         self.tb_logger.add_scalar('loss_pi/logp_pi', logp_pi.mean(), itr)
         self.tb_logger.add_scalar('loss_pi/total',loss_pi, itr)
 
-        # Useful info for logging
-        pi_info = AttrDict(LogPi=logp_pi.detach().cpu().numpy())
-
-        return loss_pi, pi_info
+        return loss_pi
 
 
     def update(self, data, itr):
         # First run one gradient descent step for Q1 and Q2
         self.q_optimizer.zero_grad()
-        loss_q, q_info = self.compute_loss_q(data, itr)
+        loss_q = self.compute_loss_q(data, itr)
         loss_q.backward()
         self.q_optimizer.step()
         
@@ -128,7 +122,7 @@ class MaxEntrRL():
 
             # Next run one gradient descent step for pi.
             self.pi_optimizer.zero_grad()
-            loss_pi, pi_info = self.compute_loss_pi(data, itr)
+            loss_pi = self.compute_loss_pi(data, itr)
             loss_pi.backward()
             self.pi_optimizer.step()
 
@@ -158,6 +152,8 @@ class MaxEntrRL():
                 
                 ep_ret += r
                 ep_len += 1
+        
+            print('ep_ret ', ep_ret)
             
         self.test_env.render(itr=itr)
         # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
@@ -191,7 +187,7 @@ class MaxEntrRL():
             o2, r, d, info = self.env.step(a)
             ep_ret += r
             ep_len += 1
-            print('episode_itr: ', episode_itr, ' ep_len: ', ep_len)
+            #print('episode_itr: ', episode_itr, ' ep_len: ', ep_len)
             # Ignore the "done" signal if it comes from hitting the time
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
@@ -211,7 +207,7 @@ class MaxEntrRL():
                 d=True
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
-                print('Update The Agent')
+                #print('Update The Agent')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
                     self.update(data=batch, itr=step_itr)

@@ -21,8 +21,8 @@ class ActorCritic(nn.Module):
             'svgd_sql': ActorSql,
             'diffusion': ActorDiffusion}
 
-        self.q1 = MLPQFunction(obs_dim, act_dim, **critic_kwargs)
-        self.q2 = MLPQFunction(obs_dim, act_dim, **critic_kwargs)
+        self.q1 = MLPQFunction(obs_dim, act_dim, **critic_kwargs, activation=nn.ReLU)
+        self.q2 = MLPQFunction(obs_dim, act_dim, **critic_kwargs, activation=nn.ReLU)
         
         if 'svgd' in actor:
             actor_kwargs.q1 = self.q1.forward
