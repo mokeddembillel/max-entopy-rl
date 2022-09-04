@@ -253,7 +253,7 @@ class MultiGoalEnv(Env, EzPickle):
         else:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
-        if ac.pi.actor_name != 'sac':
+        if ac.pi.actor != 'sac':
             self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
             self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
             self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
