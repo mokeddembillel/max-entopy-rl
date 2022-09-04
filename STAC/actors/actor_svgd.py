@@ -8,12 +8,13 @@ from torch.distributions import Normal, Categorical
 from networks import mlp
 
 class RBF(torch.nn.Module):
-    def __init__(self, parametrized=False, act_dim=None, obs_dim=None, hidden_sizes=None, activation=torch.nn.ReLU):
+    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None):
         super(RBF, self).__init__()
         self.parametrized = parametrized
+        self.num_particles = num_particles
 
         if parametrized:
-            self.log_std_layer = mlp([obs_dim] + list(hidden_sizes) + [act_dim] , activation)
+            self.log_std_layer = mlp([num_particles*num_particles] + list(hidden_sizes) + [act_dim] , activation)
             self.log_std_min = 2
             self.log_std_max = -20
             
@@ -36,7 +37,7 @@ class RBF(torch.nn.Module):
             h = median_sq / (2 * np.log(num_particles + 1.))
             sigma = torch.sqrt(h)
         else:
-            log_std = self.log_std_layer(net_out)
+            log_std = self.log_std_layer(dist_sq)
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
             sigma = torch.exp(log_std)
         
@@ -71,9 +72,9 @@ class ActorSvgd(torch.nn.Module):
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
         if actor == "svgd_p0_kernel_pram":
-            self.Kernel = RBF(True, act_dim, obs_dim, hidden_sizes)
+            self.Kernel = RBF(True, act_dim, hidden_sizes)
         else:
-            self.Kernel = RBF()
+            self.Kernel = RBF(num_particles=self.num_particles)
 
     def svgd_optim(self, x, dx): 
         dx = dx.view(x.size())
@@ -143,7 +144,7 @@ class ActorSvgd(torch.nn.Module):
 
             nominator = torch.exp(beta * q_s_a - max_q_value) # (-1, np)
             denominator = torch.sum(nominator, dim=1, keepdim=True) # (-1, 1)
-            denominator = denominator.repeat((-1, self.num_particles))  # (-1, np)
+            #denominator = denominator.repeat((-1, self.num_particles))  # (-1, np)
 
             soft_max_porbs = (nominator / denominator) # (-1, np)
             dist = Categorical(soft_max_porbs)

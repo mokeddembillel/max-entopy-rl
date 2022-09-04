@@ -69,9 +69,9 @@ class MaxEntrRL():
 
         with torch.no_grad(): 
             # Target Q-values
-            q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
-            q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
-            q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+            q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)
+            q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
+            q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ).mean(-1)
             
             backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)
             
@@ -138,7 +138,11 @@ class MaxEntrRL():
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
     def test_agent(self, itr=None):
+
         self.test_env.reset_rendering()
+
+        TestEpRet = 0
+        TestEpLen = 0
 
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
@@ -155,10 +159,16 @@ class MaxEntrRL():
                 ep_len += 1
         
             print('ep_ret ', ep_ret)
+            TestEpRet += ep_ret
+            TestEpLen += ep_len
             
         self.test_env.render(itr=itr)
         # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
         self.test_env.save_fig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
+
+        # tensorboard logging
+        self.tb_logger.add_scalar('TestEpRet', TestEpRet/self.RL_kwargs.num_test_episodes , itr)
+        self.tb_logger.add_scalar('TestEpLen', TestEpLen/self.RL_kwargs.num_test_episodes , itr)
 
 
     def forward(self):
