@@ -16,7 +16,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     
     ######networks
     parser.add_argument('--hid', type=int, default=256)
@@ -72,6 +72,10 @@ if __name__ == '__main__':
             svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, 
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l)
     
+    elif (args.actor == 'svgd_sql'):
+        actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
+            svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, 
+            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l)
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic)
     
@@ -84,7 +88,8 @@ if __name__ == '__main__':
     tb_logger = SummaryWriter(args.tensorboard_path+project_name)
     
     # RL args
-    RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
+    RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
+        alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes)
 
     # optim args
