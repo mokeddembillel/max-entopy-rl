@@ -160,14 +160,15 @@ class MaxEntropyEnv(gym.Env):
             plt.draw()
             
     def collect_plotting_data(self, ac):
-        if ac.pi.actor_name == 'svgd_nonparam':
-            self.episodes_information[-1]['mu'].append(np.zeros(self.state_space.shape))
-            self.episodes_information[-1]['sigma'].append(np.ones(self.state_space.shape))
-        else:
+
+        if ac.pi.actor_name not in ['svgd_nonparam', 'svgd_sql']:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
-        if ac.pi.actor_name != 'sac':
+        if ac.pi.actor_name not in  ['sac', 'svgd_sql']:
             self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
+            self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
+            self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
+            self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
             
         
     
