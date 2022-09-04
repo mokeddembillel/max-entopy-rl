@@ -158,7 +158,7 @@ class MaxEntrRL():
                 ep_ret += r
                 ep_len += 1
         
-            print('ep_ret ', ep_ret)
+            #print('ep_ret ', ep_ret)
             TestEpRet += ep_ret
             TestEpLen += ep_len
             
@@ -215,12 +215,14 @@ class MaxEntrRL():
             if d or (ep_len == self.env.max_steps):
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
-                d=True
+                d = True
+            
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
                 #print('Update The Agent')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
+                    print('update')
                     self.update(data=batch, itr=step_itr)
 
             # if (step_itr+1) % 1000 == 0:

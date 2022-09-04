@@ -2,6 +2,7 @@ import argparse
 from envs.multigoal_env import MultiGoalEnv
 import random
 import torch
+import os
 from torch.utils.tensorboard import SummaryWriter
 from envs.multigoal_env import MultiGoalEnv
 from envs.max_entropy_env import MaxEntropyEnv
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     parser.add_argument('--l', type=int, default=2)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=0.2)
+    parser.add_argument('--alpha', type=float, default=1.0)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--num_episodes', type=int, default=500)
@@ -76,12 +77,16 @@ if __name__ == '__main__':
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic)
     
     # Logging
-    project_name = datetime.now().strftime("%b_%d_%Y_%H_%M_%S") +'_'+args.env + '_' + args.actor+'_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
+    project_name = args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size)+'_lr_'+str(args.lr)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
 
-    tb_logger = SummaryWriter(args.tensorboard_path+project_name)
+    if not os.path.isdir(datetime.now().strftime("%b_%d_%Y_%H_%M_%S")):
+        datetime_folder = datetime.now().strftime("%b_%d_%Y_%H_%M_%S")
+        os.makedirs(datetime_folder)
+    
+    tb_logger = SummaryWriter(args.tensorboard_path + datetime_folder + '/' + project_name)
     
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
