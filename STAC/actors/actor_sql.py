@@ -6,9 +6,9 @@ from actors.kernels import RBF
 
 
 class ActorSql(nn.Module):
-    def __init__(self, actor_name, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=nn.ReLU):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=nn.ReLU):
         super(ActorSql, self).__init__()
-        self.actor_name = actor_name
+        self.actor = actor
         self.obs_dim = obs_dim
         self.act_dim = act_dim
         self.act_limit = act_limit
@@ -51,16 +51,9 @@ class ActorSql(nn.Module):
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
-            max_q_object = torch.max(q_values, dim=1, keepdim=True) # (-1, 1)
-            max_q_value, max_q_indicies = max_q_object[0], max_q_object[1] # (-1, 1)
-
-            nominator = torch.exp(beta * q_values - max_q_value) # (-1, np)
-            denominator = torch.sum(nominator, dim=1, keepdim=True) # (-1, 1)
-            # denominator = denominator.repeat((-1, self.num_particles))  # (-1, np)
-
-            soft_max_porbs = (nominator / denominator) # (-1, np)
-            dist = Categorical(soft_max_porbs)
-            action = torch.gather(q_values, 1, dist.sample().unsqueeze(-1))
+            nominator = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
+            dist = Categorical((nominator / torch.sum(nominator, dim=1, keepdim=True)))
+            action = action[:,dist.sample()].view(-1, self.act_dim)
         else:
             action = action.view(-1, self.act_dim)
         return action, None
