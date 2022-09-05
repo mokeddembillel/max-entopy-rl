@@ -18,7 +18,7 @@ if __name__ == '__main__':
     parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ######networks
     parser.add_argument('--hid', type=int, default=256)
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--num_episodes', type=int, default=500)
-    parser.add_argument('--exploration_episodes', type=int, default=20)
+    parser.add_argument('--exploration_episodes', type=int, default=0)
     #parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=50)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
