@@ -219,7 +219,8 @@ class MultiGoalEnv(Env, EzPickle):
             
             positions = np.stack(path['observations'])
 
-            self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b')
+            # self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b)
+            self._env_lines += self._ax.plot(positions[:, 0], positions[:, 1])
             #compute the number of modes
             modes_dist = ((positions[-1].reshape(-1,2)-self.goal_positions)**2).sum(-1)
 
@@ -290,7 +291,7 @@ class MultiGoalEnv(Env, EzPickle):
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
         
 
-        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        if self.actor in  ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['q_hess'].append(ac.pi.hess_list)
             self.episodes_information[-1]['q_score'].append(ac.pi.score_func_list)
             self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
