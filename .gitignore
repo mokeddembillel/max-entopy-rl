@@ -20,8 +20,8 @@ STAC/actors/__pycache__/*
 STAC/envs/__pycache__/*
 STAC/spinup_utils/__pycache__/*
 data/*
-envs/*
-
+STAC/envs/*
+STAC/multi_goal_plots_/*
 
 
 
