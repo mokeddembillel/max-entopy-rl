@@ -22,7 +22,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn(self.tb_logger), env_fn(self.tb_logger)
+        self.env, self.test_env = env_fn(self.tb_logger, actor), env_fn(self.tb_logger, actor)
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -175,7 +175,7 @@ class MaxEntrRL():
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
     def test_agent(self, itr=None):
-
+        
         self.test_env.reset_rendering()
 
         TestEpRet = 0
@@ -188,7 +188,8 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
                 
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                self.test_env.collect_plotting_data(self.ac)    
+                
+                self.test_env.collect_data_for_logging(self.ac)    
 
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
@@ -199,10 +200,8 @@ class MaxEntrRL():
             TestEpRet += ep_ret
             TestEpLen += ep_len
             
-        self.test_env.render(itr=itr)
-        # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
-        self.test_env.save_fig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
-
+        self.test_env.render(num_episodes=1, itr=itr)
+        
         # tensorboard logging
         self.tb_logger.add_scalar('TestEpRet', TestEpRet/self.RL_kwargs.num_test_episodes , itr)
         self.tb_logger.add_scalar('TestEpLen', TestEpLen/self.RL_kwargs.num_test_episodes , itr)

@@ -78,8 +78,8 @@ class ActorSvgd(torch.nn.Module):
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
             a0 = self.act_limit * torch.tanh(a0) 
         else:
-            mu, sigma = self.p0(obs)
-            a0 = Normal(mu, sigma).rsample()
+            self.mu, self.sigma = self.p0(obs)
+            a0 = Normal(self.mu, self.sigma).rsample()
             a0 = self.act_limit * torch.tanh(a0)
 
         # run svgd

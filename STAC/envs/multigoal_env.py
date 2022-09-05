@@ -4,11 +4,30 @@ from gym import Env
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import glob
+import os
 
 def gaussian(x, mu, sig):
     out = np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
     out = np.tanh(out)
     return out 
+
+class PointDynamics(object):
+    """
+    State: position.
+    Action: velocity.
+    """
+    def __init__(self, dim, sigma):
+        self.dim = dim
+        self.sigma = sigma
+        self.s_dim = dim
+        self.a_dim = dim
+
+    def forward(self, state, action):
+        mu_next = state + action
+        state_next = mu_next + self.sigma * np.random.normal(size=self.s_dim)
+        return state_next
+
 
 class MultiGoalEnv(Env, EzPickle): 
     """
@@ -18,58 +37,44 @@ class MultiGoalEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, writer=None,
-                 goal_reward=10,
-                 actuation_cost_coeff=30.0,
-                 distance_cost_coeff=1.0,
+    def __init__(self, writer=None, actor=None, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0,
                  init_sigma=0.05, max_steps=30):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
         self.init_mu = np.zeros(2, dtype=np.float32)
         self.init_sigma = init_sigma
-        self.goal_positions = np.array(
-            (
-                (5, 0),
-                (-5, 0),
-                (0, 5),
-                (0, -5)
-            ),
-            dtype=np.float32)
+        self.max_steps = max_steps
+        # goal
+        self.goal_positions = np.array(((5, 0),(-5, 0),(0, 5),(0, -5)), dtype=np.float32)
+        self.num_goals = len(self.goal_positions)
         self.goal_threshold = 0.05 #1.0
         self.goal_reward = goal_reward
+        # reward
         self.action_cost_coeff = actuation_cost_coeff
         self.distance_cost_coeff = distance_cost_coeff
+        # plotting
         self.xlim = (-7, 7)
         self.ylim = (-7, 7)
         self.vel_bound = 1.
-        # self.reset()
-        self.observation = None
-
-        self.writer = writer
         self._ax = None
         self._env_lines = []
-        self.fixed_plots = None
-        self.dynamic_plots = []
-        self.max_steps = max_steps
+        # logging
+        self.writer = writer
+        self.actor = actor
         self.episodes_information = []
 
-
-        
-
-
-
+        # remove the content of the fig folder
+        figs = glob.glob('./STAC/multi_goal_plots_/*')
+        [os.remove(fig) for fig in figs]
+    
     def reset(self, init_state=None):
         if init_state:
             unclipped_observation = init_state
         else: 
             unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
-            #unclipped_observation = self.init_mu
 
-        self.observation = np.clip(
-            unclipped_observation,
-            self.observation_space.low,
-            self.observation_space.high)
+        self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
         
         self.episodes_information.append({'observations':[self.observation],
                             'actions': [],
@@ -102,165 +107,34 @@ class MultiGoalEnv(Env, EzPickle):
             shape=(self.dynamics.a_dim, ),
             dtype=np.float32)
 
-    def get_current_obs(self):
-        return np.copy(self.observation)
 
     def step(self, action):
+        # compute action
         action = action.ravel()
-
-        action = np.clip(
-            action,
-            self.action_space.low,
-            self.action_space.high).ravel()
-        
+        action = np.clip(action, self.action_space.low, self.action_space.high).ravel()
         self.episodes_information[-1]['actions'].append(action)
 
-        
-
+        # compute observation
         observation = self.dynamics.forward(self.observation, action)
-        observation = np.clip(
-            observation,
-            self.observation_space.low,
-            self.observation_space.high)
-
+        observation = np.clip(observation, self.observation_space.low,self.observation_space.high)
         self.episodes_information[-1]['observations'].append(observation)
 
+        # compute reward
         reward = self.compute_reward(observation, action)
-        
 
-        dist_to_goal = np.amin([
-            np.linalg.norm(observation - goal_position)
-            for goal_position in self.goal_positions
-        ])
-
+        # compute done
+        dist_to_goal = np.amin([np.linalg.norm(observation - goal_position)for goal_position in self.goal_positions])
         done = dist_to_goal < self.goal_threshold
         
+        # reward at the goal
         if done:
             reward += self.goal_reward
+        
         self.episodes_information[-1]['rewards'].append(reward)
 
         self.observation = np.copy(observation)
 
         return observation, reward, done, {'pos': observation}
-
-    def _init_plot(self):
-        fig_env = plt.figure(figsize=(7, 7)) 
-        self._ax = fig_env.add_subplot(111)
-        self._ax.axis('equal')
-
-        self._env_lines = []
-        self._ax.set_xlim((-7, 7))
-        self._ax.set_ylim((-7, 7))
-
-        self._ax.set_title('Multigoal Environment')
-        self._ax.set_xlabel('x')
-        self._ax.set_ylabel('y')
-
-        self._plot_position_cost(self._ax)
-    
-    
-    def reset_rendering(self,):
-        plt.close()
-        self.episodes_information = []
-        self._init_plot()
-
-    def render_rollouts(self, num_episodes, itr, fout):
-        """Render for rendering the past rollouts of the environment.""" 
-        # if self._ax is None:
-        # self._init_plot()
-
-        # noinspection PyArgumentList
-        [line.remove() for line in self._env_lines]
-        self._env_lines = []
-        
-        number_of_hits_mode = np.zeros(4)
-        
-        #import pdb; pdb.set_trace()
-        for i, path in enumerate(self.episodes_information):
-            
-            positions = np.stack(path['observations'])
-            xx = positions[-1, 0]
-            yy = positions[-1, 1]
-
-            self._env_lines += self._ax.plot(xx, yy, '+b' if not 'color' in path else path['color'])
-            
-            if (num_episodes==1):
-                if self.ac.pi.actor not in ['svgd_nonparam', 'svgd_sql']:
-                    mu_s = np.stack(path['mu']).squeeze()
-                    std_s = np.stack(path['sigma']).squeeze()
-                
-                print('_______________________')
-                for i in range(len(positions)-1):
-                    #import pdb; pdb.set_trace()
-                    x_values = np.linspace(positions[i]+mu_s[i]+3*std_s[i], positions[i]+mu_s[i]-3*std_s[i] , 20) 
-                    plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu_s[i], std_s[i])[:,0] )
-                    print('sigma[',i,']:  ',std_s[i])
-                print('_______________________')
-            else:
-                #compute the number of modes
-                modes_dist = ((positions[-1].reshape(-1,2)-self.goal_positions)**2).sum(-1)
-
-                if modes_dist.min()<1:
-                    number_of_hits_mode[modes_dist.argmin()]+=1 
-            
-        
-        # num_covered_modes = (self.episodes_information[-1]['number_of_hits_mode']>0).sum()
-        
-        
-        # if (itr>200000) or  (num_episodes==1): 
-        #     plt.title("itr "+ str(itr)+ " eps "+ str(eps)+"num_mode "+ str(num_covered_modes) )
-        #     plt.savefig("./multigoal_plots_/"+fout)  
-        #     plt.close()
-        total_number_of_hits_mode = number_of_hits_mode.sum()
-        if total_number_of_hits_mode > 0.0:
-            m0 = number_of_hits_mode[0]/total_number_of_hits_mode
-            m1 = number_of_hits_mode[1]/total_number_of_hits_mode
-            m2 = number_of_hits_mode[2]/total_number_of_hits_mode
-            m3 = number_of_hits_mode[3]/total_number_of_hits_mode
-        else:
-            m0, m1, m2, m3 = 0, 0, 0, 0
-        
-        ############ no hess variables for sac for now ###########
-        # ac_hess_list = torch.flatten(list(map(lambda x: x['ac_hess_list'], self.episodes_information)))
-        # ac_score_func_list = torch.flatten(list(map(lambda x: x['ac_score_func_list'], self.episodes_information)))
-        # ac_hess_eig_max = torch.flatten(list(map(lambda x: x['ac_hess_eig_max'], self.episodes_information)))
-
-        # # 
-        # self.writer.add_scalar('smoothness/ac_score/mean', torch.abs(ac_score_func_list).mean() , itr)
-        # self.writer.add_scalar('smoothness/ac_score/std', torch.abs(ac_score_func_list).std() , itr)
-        # self.writer.add_scalar('smoothness/hess/mean', torch.abs(ac_hess_list).mean() , itr)
-        # self.writer.add_scalar('smoothness/hess/std', torch.abs(ac_hess_list).std() , itr)
-        # self.writer.add_scalar('smoothness/hess/max_eigen_val/mean', ac_hess_eig_max.mean() , itr)
-        # self.writer.add_scalar('smoothness/hess/max_eigen_val/std', ac_hess_eig_max.std() , itr)
-
-        # 
-        self.writer.add_scalar('modes/num_modes',(number_of_hits_mode>0).sum(), itr)
-        self.writer.add_scalar('modes/total_number_of_hits_mode',total_number_of_hits_mode, itr)
-        self.writer.add_scalar('modes/prob_mod_0',m0, itr)
-        self.writer.add_scalar('modes/prob_mod_1',m1, itr)
-        self.writer.add_scalar('modes/prob_mod_2',m2, itr)
-        self.writer.add_scalar('modes/prob_mod_3',m3, itr)
-
-
-    def save_fig(self, path):
-        plt.savefig(path)
-        plt.close()
-
-    def collect_plotting_data(self, ac):
-        if ac.pi.actor not in ['svgd_nonparam', 'svgd_sql']:
-            self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
-            self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
-        if ac.pi.actor not in  ['sac', 'svgd_sql']:
-            self.episodes_information[-1]['svgd_steps'].append(ac.pi.num_svgd_steps)
-            
-            # self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
-            # self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
-            # self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
-
-
-    def render(self, num_episodes=0, itr=0, fout=None, mode='human'):
-        """Render for rendering the current state of the environment."""
-        return self.render_rollouts(num_episodes, itr, fout)
     
 
     def compute_reward(self, observation, action): 
@@ -281,19 +155,23 @@ class MultiGoalEnv(Env, EzPickle):
         costs = [action_cost, goal_cost]
         reward = -np.sum(costs)
         return reward
+    
 
     def _plot_position_cost(self, ax):
         delta = 0.01
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
         y_min, y_max = tuple(1.1 * np.array(self.ylim))
+
         X, Y = np.meshgrid(
             np.arange(x_min, x_max, delta),
             np.arange(y_min, y_max, delta)
         )
+
         goal_costs = np.amin([
             (X - goal_x) ** 2 + (Y - goal_y) ** 2
             for goal_x, goal_y in self.goal_positions
         ], axis=0)
+
         costs = goal_costs
 
         contours = ax.contour(X, Y, costs, 20)
@@ -306,6 +184,109 @@ class MultiGoalEnv(Env, EzPickle):
         return [contours, goal]
     
 
+    def _init_plot(self):
+        fig_env = plt.figure(figsize=(7, 7)) 
+        self._ax = fig_env.add_subplot(111)
+        self._ax.axis('equal')
+
+        self._env_lines = []
+        self._ax.set_xlim((-7, 7))
+        self._ax.set_ylim((-7, 7))
+
+        self._ax.set_title('Multigoal Environment')
+        self._ax.set_xlabel('x')
+        self._ax.set_ylabel('y')
+
+        self._plot_position_cost(self._ax)
+
+    
+    def reset_rendering(self,):
+        plt.close()
+        self.episodes_information = []
+        self._init_plot()
+
+    def render_rollouts(self, num_episodes, itr):
+        """Rendering the past rollouts of the environment.""" 
+
+        # noinspection PyArgumentList
+        [line.remove() for line in self._env_lines]
+        self._env_lines = []
+        
+        # compute the number of runs reaching the goals
+        number_of_hits_mode = np.zeros(self.num_goals)
+        
+        for i, path in enumerate(self.episodes_information):
+            
+            positions = np.stack(path['observations'])
+
+            if (num_episodes == 1):
+                self._env_lines += self._ax.plot(positions[:, 0], positions[:, 1], '+b')
+
+                for i in range(len(positions)-1):
+
+                    if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+                        mu = path['mu'][i][0]
+                        std = path['sigma'][i][0]
+                    else:
+                        mu = 0
+                        std = 1
+
+                    x_values = np.linspace(positions[i]+mu+self.action_space.low, positions[i]+mu+self.action_space.high , 20) 
+                    plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0] )
+                    
+                break
+                
+            else:
+                self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b')
+                #compute the number of modes
+                modes_dist = ((positions[-1].reshape(-1,2)-self.goal_positions)**2).sum(-1)
+
+                if modes_dist.min()<1:
+                    number_of_hits_mode[modes_dist.argmin()]+=1 
+        
+
+        #  log the number of hits across episodes for each of the modes
+        self.writer.add_scalar('modes/num_modes',(number_of_hits_mode>0).sum(), itr)
+        self.writer.add_scalar('modes/total_number_of_hits_mode',number_of_hits_mode.sum(), itr)
+        
+        for ind in range(self.num_goals):
+            self.writer.add_scalar('modes/prob_mod_'+str(ind),number_of_hits_mode[ind]/number_of_hits_mode.sum(), itr)
+        
+        ############ no hess variables for sac for now ###########
+        # ac_hess_list = torch.flatten(list(map(lambda x: x['ac_hess_list'], self.episodes_information)))
+        # ac_score_func_list = torch.flatten(list(map(lambda x: x['ac_score_func_list'], self.episodes_information)))
+        # ac_hess_eig_max = torch.flatten(list(map(lambda x: x['ac_hess_eig_max'], self.episodes_information)))
+
+        # # 
+        # self.writer.add_scalar('smoothness/ac_score/mean', torch.abs(ac_score_func_list).mean() , itr)
+        # self.writer.add_scalar('smoothness/ac_score/std', torch.abs(ac_score_func_list).std() , itr)
+        # self.writer.add_scalar('smoothness/hess/mean', torch.abs(ac_hess_list).mean() , itr)
+        # self.writer.add_scalar('smoothness/hess/std', torch.abs(ac_hess_list).std() , itr)
+        # self.writer.add_scalar('smoothness/hess/max_eigen_val/mean', ac_hess_eig_max.mean() , itr)
+        # self.writer.add_scalar('smoothness/hess/max_eigen_val/std', ac_hess_eig_max.std() , itr)
+
+        # 
+    
+    def collect_data_for_logging(self, ac):
+        if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
+            self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
+        
+        '''
+        if actor.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            self.episodes_information[-1]['svgd_steps'].append(ac.pi.num_svgd_steps)
+            
+            # self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
+            # self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
+            # self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
+        '''
+
+    def render(self, num_episodes=0, itr=0):
+        """Render for rendering the current state of the environment."""
+        self.render_rollouts(num_episodes, itr)
+        plt.savefig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
+        plt.close()
+    
     def debugging_metrics(self, itr, ac, num_svgd_particles):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         init_state = torch.tensor([0.0,0.0]).to(device)
@@ -389,20 +370,4 @@ class MultiGoalEnv(Env, EzPickle):
         self.writer.add_scalars('init_state/q_var',{'q_up': q_svgd_up_var, 'q_down':q_svgd_down_var, 'q_left':q_svgd_left_var, 'q_right':q_svgd_right_var}, itr)
 
 
-
-class PointDynamics(object):
-    """
-    State: position.
-    Action: velocity.
-    """
-    def __init__(self, dim, sigma):
-        self.dim = dim
-        self.sigma = sigma
-        self.s_dim = dim
-        self.a_dim = dim
-
-    def forward(self, state, action):
-        mu_next = state + action
-        state_next = mu_next + self.sigma * np.random.normal(size=self.s_dim)
-        return state_next
 
