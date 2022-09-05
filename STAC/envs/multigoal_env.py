@@ -83,10 +83,10 @@ class MultiGoalEnv(Env, EzPickle):
                             'goal': None, 
                             'mu': [],
                             'sigma': [],
-                            'svgd_steps': [],
-                            'ac_hess_list': [],
-                            'ac_score_func_list': [],
-                            'ac_hess_eig_max': [],
+                            'q_hess' : [],
+                            'q_score': [],
+                            'q_hess_eig_max': [],
+                            'q_particles_var': [],
                             })
         
         return self.observation
@@ -289,14 +289,13 @@ class MultiGoalEnv(Env, EzPickle):
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
         
-        '''
-        if actor.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-            self.episodes_information[-1]['svgd_steps'].append(ac.pi.num_svgd_steps)
-            
-            # self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
-            # self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
-            # self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
-        '''
+
+        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            self.episodes_information[-1]['q_hess'].append(ac.pi.hess_list)
+            self.episodes_information[-1]['q_score'].append(ac.pi.score_func_list)
+            self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
+            self.episodes_information[-1]['q_particles_var'].append(ac.pi.hess_eig_max)
+        
         
     
     def debugging_metrics(self, itr, ac, num_svgd_particles):
@@ -350,6 +349,8 @@ class MultiGoalEnv(Env, EzPickle):
         #import pdb; pdb.set_trace()  
         self.writer.add_scalars('init_state/hessian',{'hess_up': hess_up, 'hess_down':hess_down, 'hess_left':hess_left, 'hess_right':hess_right}, itr)
         self.writer.add_scalars('init_state/grad',{'grad_up': grad_up, 'grad_down':grad_down, 'grad_left':grad_left, 'grad_right':grad_right}, itr)
+        
+        
         # compute the variance of running svgd
         num_samples = 100
 

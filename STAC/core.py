@@ -280,13 +280,6 @@ class MaxEntrRL():
 
                 EpRet = []
                 EpLen = []
-
-                # Log info about epoch
-                
-                
-                # self.logger.log_tabular('LogPi', with_min_and_max=True)
-                # self.logger.log_tabular('LossPi', average_only=True)
-                # self.logger.dump_tabular()
                 
             step_itr += 1
 
