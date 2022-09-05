@@ -302,7 +302,8 @@ class MultiGoalEnv(Env, EzPickle):
 #             self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
 #             self.episodes_information[-1]['q_particles_var'].append(ac.pi.hess_eig_max)
         
-        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'svgd_sql']:
+            # print('############ ', o.shape, a.shape)
             grad_q_ = torch.autograd.grad(ac.q1(o,a), a, retain_graph=True, create_graph=True)[0].squeeze()
             hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
             self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().numpy())
