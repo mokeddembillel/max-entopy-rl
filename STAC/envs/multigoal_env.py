@@ -85,8 +85,6 @@ class MultiGoalEnv(Env, EzPickle):
                             'sigma': [],
                             'q_hess' : [],
                             'q_score': [],
-                            'q_hess_eig_max': [],
-                            'q_particles_var': [],
                             })
         
         return self.observation
