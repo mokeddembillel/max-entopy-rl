@@ -228,6 +228,8 @@ class MultiGoalEnv(Env, EzPickle):
         
         plt.savefig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
         plt.close()
+
+        # logging
         #  log the number of hits across episodes for each of the modes
         self.writer.add_scalar('modes/num_modes',(number_of_hits_mode>0).sum(), itr)
         self.writer.add_scalar('modes/total_number_of_hits_mode',number_of_hits_mode.sum(), itr)
