@@ -51,7 +51,6 @@ class MaxEntrRL():
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
 
-
     def compute_loss_q(self, data, itr):
         o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
 
@@ -85,9 +84,11 @@ class MaxEntrRL():
         loss_q2 = ((q2 - backup)**2).mean()
         loss_q = loss_q1 + loss_q2
         
-        self.tb_logger.add_scalar('loss_q/loss_q1',loss_q1, itr)
-        self.tb_logger.add_scalar('loss_q/loss_q2',loss_q2, itr)
-        self.tb_logger.add_scalar('loss_q/total',loss_q, itr)
+        self.tb_logger.add_scalars('Loss_q',  {'loss_q1 ': loss_q1, 'loss_q2': loss_q2, 'total': loss_q  }, itr)
+        
+        # plz add this to debugger/logger
+        #Q1Vals.append(q1.cpu().detach().numpy())
+        #Q2Vals.append(q2.cpu().detach().numpy())
 
         return loss_q
 
@@ -107,12 +108,8 @@ class MaxEntrRL():
             loss_pi = (-q_pi).mean()
         else:
             loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
-            self.tb_logger.add_scalar('loss_pi/logp_pi', logp_pi.mean(), itr)
-            # pi_info = AttrDict(LogPi=logp_pi.detach().cpu().numpy())
-        
-        self.tb_logger.add_scalar('loss_pi/q_pi',-q_pi.mean(), itr)
-        self.tb_logger.add_scalar('loss_pi/total',loss_pi, itr)
-
+            self.tb_logger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
+            
         return loss_pi
 
 
@@ -178,8 +175,8 @@ class MaxEntrRL():
         
         self.test_env.reset_rendering()
 
-        TestEpRet = 0
-        TestEpLen = 0
+        TestEpRet = []
+        TestEpLen = []
 
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
@@ -197,14 +194,16 @@ class MaxEntrRL():
                 ep_len += 1
         
             #print('ep_ret ', ep_ret)
-            TestEpRet += ep_ret
-            TestEpLen += ep_len
+            TestEpRet.append(ep_ret)
+            TestEpLen.append(ep_len)
             
-        self.test_env.render(num_episodes=1, itr=itr)
+        
+        self.test_env.render(itr=itr)
+        self.test_env.plot_policy(itr=itr)
         
         # tensorboard logging
-        self.tb_logger.add_scalar('TestEpRet', TestEpRet/self.RL_kwargs.num_test_episodes , itr)
-        self.tb_logger.add_scalar('TestEpLen', TestEpLen/self.RL_kwargs.num_test_episodes , itr)
+        self.tb_logger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
+        self.tb_logger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
 
 
     def forward(self):
@@ -217,6 +216,8 @@ class MaxEntrRL():
 
         episode_itr = 0
         step_itr = 0
+        EpRet = []
+        EpLen = []
 
         # Main loop: collect experience in env and update/log each epoch
         while episode_itr < self.RL_kwargs.num_episodes:
@@ -249,9 +250,13 @@ class MaxEntrRL():
 
             # End of trajectory handling
             if d or (ep_len == self.env.max_steps):
+                EpRet.append(ep_ret)
+                EpLen.append(ep_len)
+
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
                 d = True
+                
             
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
@@ -261,39 +266,20 @@ class MaxEntrRL():
                     print('update')
                     self.update(data=batch, itr=step_itr)
 
-            # if (step_itr+1) % 1000 == 0:
-            #     print('Plot ', episode_itr+1)
-            #     self.env.plot_paths(episode_itr,1)
-            #     self.env.plot_paths(episode_itr,20)
-            # log for p_0
-            # for tag, value in self.ac.named_parameters():    ### commented right now ###
-            #     if value.grad is not None:
-            #         self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
-
+            
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
-
-                # Save model
-                # self.logger.save_state({'env': self.env}, None)
-
                 # Test the performance of the deterministic version of the agent.
                 self.test_agent(episode_itr)
                 
-                # self.tb_logger.add_scalar('EpRet',np.mean(self.logger.epoch_dict['EpRet']), episode_itr)
-                # self.tb_logger.add_scalar('TestEpRet',np.mean(self.logger.epoch_dict['TestEpRet']) , episode_itr)
+                for tag, value in self.ac.named_parameters():    ### commented right now ###
+                    if value.grad is not None:
+                        self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
                 
-                # Log info about epoch
-                # self.logger.log_tabular('Episode', episode_itr)
-                # self.logger.log_tabular('EpRet', with_min_and_max=True)
-                # self.logger.log_tabular('TestEpRet', with_min_and_max=True)
-                # self.logger.log_tabular('EpLen', average_only=True)
-                # self.logger.log_tabular('TestEpLen', average_only=True)
-                # self.logger.log_tabular('TotalEnvInteracts', episode_itr)
-                # self.logger.log_tabular('Q1Vals', with_min_and_max=True)
-                # self.logger.log_tabular('Q2Vals', with_min_and_max=True)
-                # self.logger.log_tabular('LossQ', average_only=True)
-                # self.logger.log_tabular('LogPi', with_min_and_max=True)
-                # self.logger.log_tabular('LossPi', average_only=True)
-                # self.logger.dump_tabular()
+                self.tb_logger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
+                self.tb_logger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
+
+                EpRet = []
+                EpLen = []
                 
             step_itr += 1
 

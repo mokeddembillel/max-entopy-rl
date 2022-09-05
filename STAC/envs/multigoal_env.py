@@ -83,10 +83,10 @@ class MultiGoalEnv(Env, EzPickle):
                             'goal': None, 
                             'mu': [],
                             'sigma': [],
-                            'svgd_steps': [],
-                            'ac_hess_list': [],
-                            'ac_score_func_list': [],
-                            'ac_hess_eig_max': [],
+                            'q_hess' : [],
+                            'q_score': [],
+                            'q_hess_eig_max': [],
+                            'q_particles_var': [],
                             })
         
         return self.observation
@@ -201,12 +201,12 @@ class MultiGoalEnv(Env, EzPickle):
 
     
     def reset_rendering(self,):
-        plt.close()
         self.episodes_information = []
-        self._init_plot()
-
-    def render_rollouts(self, num_episodes, itr):
+        
+    
+    def render(self, itr):
         """Rendering the past rollouts of the environment.""" 
+        self._init_plot()
 
         # noinspection PyArgumentList
         [line.remove() for line in self._env_lines]
@@ -215,36 +215,21 @@ class MultiGoalEnv(Env, EzPickle):
         # compute the number of runs reaching the goals
         number_of_hits_mode = np.zeros(self.num_goals)
         
-        for i, path in enumerate(self.episodes_information):
+        for _, path in enumerate(self.episodes_information):
             
             positions = np.stack(path['observations'])
 
-            if (num_episodes == 1):
-                self._env_lines += self._ax.plot(positions[:, 0], positions[:, 1], '+b')
+            self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b')
+            #compute the number of modes
+            modes_dist = ((positions[-1].reshape(-1,2)-self.goal_positions)**2).sum(-1)
 
-                for i in range(len(positions)-1):
-
-                    if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-                        mu = path['mu'][i][0]
-                        std = path['sigma'][i][0]
-                    else:
-                        mu = 0
-                        std = 1
-
-                    x_values = np.linspace(positions[i]+mu+self.action_space.low, positions[i]+mu+self.action_space.high , 30) 
-                    plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0] )
-                    
-                break
-                
-            else:
-                self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b')
-                #compute the number of modes
-                modes_dist = ((positions[-1].reshape(-1,2)-self.goal_positions)**2).sum(-1)
-
-                if modes_dist.min()<1:
-                    number_of_hits_mode[modes_dist.argmin()]+=1 
+            if modes_dist.min()<1:
+                number_of_hits_mode[modes_dist.argmin()]+=1 
         
+        plt.savefig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
+        plt.close()
 
+        # logging
         #  log the number of hits across episodes for each of the modes
         self.writer.add_scalar('modes/num_modes',(number_of_hits_mode>0).sum(), itr)
         self.writer.add_scalar('modes/total_number_of_hits_mode',number_of_hits_mode.sum(), itr)
@@ -265,27 +250,53 @@ class MultiGoalEnv(Env, EzPickle):
         # self.writer.add_scalar('smoothness/hess/max_eigen_val/mean', ac_hess_eig_max.mean() , itr)
         # self.writer.add_scalar('smoothness/hess/max_eigen_val/std', ac_hess_eig_max.std() , itr)
 
-        # 
+        
+    def plot_policy(self, itr):
+        """Rendering the past rollouts of the environment.""" 
+        
+        self._init_plot()
+        # noinspection PyArgumentList
+        [line.remove() for line in self._env_lines]
+        self._env_lines = []
+        
+        path = self.episodes_information[0]
+            
+        positions = np.stack(path['observations'])
+
+        self._env_lines += self._ax.plot(positions[:, 0], positions[:, 1], '+b')
+
+        for i in range(len(positions)):
+            self._ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
+
+        for i in range(len(positions)-1):
+
+            if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+                mu = path['mu'][i][0]
+                std = path['sigma'][i][0]
+            else:
+                mu = 0
+                std = 1
+
+            x_values = np.linspace(positions[i]+mu+self.action_space.low, positions[i]+mu+self.action_space.high , 30) 
+            plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0] )
+
+        plt.savefig('./STAC/multi_goal_plots_/path_vis_'+ str(itr)+".pdf")   
+        plt.close()
+            
     
     def collect_data_for_logging(self, ac):
         if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
         
-        '''
-        if actor.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-            self.episodes_information[-1]['svgd_steps'].append(ac.pi.num_svgd_steps)
-            
-            # self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
-            # self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
-            # self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
-        '''
 
-    def render(self, num_episodes=0, itr=0):
-        """Render for rendering the current state of the environment."""
-        self.render_rollouts(num_episodes, itr)
-        plt.savefig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
-        plt.close()
+        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            self.episodes_information[-1]['q_hess'].append(ac.pi.hess_list)
+            self.episodes_information[-1]['q_score'].append(ac.pi.score_func_list)
+            self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
+            self.episodes_information[-1]['q_particles_var'].append(ac.pi.hess_eig_max)
+        
+        
     
     def debugging_metrics(self, itr, ac, num_svgd_particles):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -338,6 +349,8 @@ class MultiGoalEnv(Env, EzPickle):
         #import pdb; pdb.set_trace()  
         self.writer.add_scalars('init_state/hessian',{'hess_up': hess_up, 'hess_down':hess_down, 'hess_left':hess_left, 'hess_right':hess_right}, itr)
         self.writer.add_scalars('init_state/grad',{'grad_up': grad_up, 'grad_down':grad_down, 'grad_left':grad_left, 'grad_right':grad_right}, itr)
+        
+        
         # compute the variance of running svgd
         num_samples = 100
 

@@ -9,8 +9,6 @@ STAC/__pycache__/*
 STAC/actors/__pycache__/*
 STAC/envs/__pycache__/*
 data/*
-envs/*
-STAC/max_entropy_plots_/*
 STAC/multi_goal_plots_/*
-
+STAC/max_entropy_plots_/*
 
