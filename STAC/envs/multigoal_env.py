@@ -85,8 +85,6 @@ class MultiGoalEnv(Env, EzPickle):
                             'sigma': [],
                             'q_hess' : [],
                             'q_score': [],
-                            'q_hess_eig_max': [],
-                            'q_particles_var': [],
                             })
         
         return self.observation
@@ -214,6 +212,8 @@ class MultiGoalEnv(Env, EzPickle):
         
         # compute the number of runs reaching the goals
         number_of_hits_mode = np.zeros(self.num_goals)
+        q_score, q_score_min, q_score_max = [], [], []
+        q_hess, q_hess_min, q_hess_max = [], [], []
         
         for _, path in enumerate(self.episodes_information):
             
@@ -226,6 +226,18 @@ class MultiGoalEnv(Env, EzPickle):
 
             if modes_dist.min()<1:
                 number_of_hits_mode[modes_dist.argmin()]+=1 
+            
+            ###
+            q_score_ = np.stack(path['q_score'])
+            q_score.append(q_score_.mean())
+            q_score_min.append(q_score_.min())
+            q_score_max.append(q_score_.max())
+
+            q_hess_ = np.stack(path['q_hess'])
+            q_hess.append(q_hess_.mean())
+            q_hess_min.append(q_hess_.min())
+            q_hess_max.append(q_hess_.max())
+        
         
         plt.savefig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
         plt.close()
@@ -238,18 +250,9 @@ class MultiGoalEnv(Env, EzPickle):
         for ind in range(self.num_goals):
             self.writer.add_scalar('modes/prob_mod_'+str(ind),number_of_hits_mode[ind]/number_of_hits_mode.sum(), itr)
         
-        ############ no hess variables for sac for now ###########
-        # ac_hess_list = torch.flatten(list(map(lambda x: x['ac_hess_list'], self.episodes_information)))
-        # ac_score_func_list = torch.flatten(list(map(lambda x: x['ac_score_func_list'], self.episodes_information)))
-        # ac_hess_eig_max = torch.flatten(list(map(lambda x: x['ac_hess_eig_max'], self.episodes_information)))
-
-        # # 
-        # self.writer.add_scalar('smoothness/ac_score/mean', torch.abs(ac_score_func_list).mean() , itr)
-        # self.writer.add_scalar('smoothness/ac_score/std', torch.abs(ac_score_func_list).std() , itr)
-        # self.writer.add_scalar('smoothness/hess/mean', torch.abs(ac_hess_list).mean() , itr)
-        # self.writer.add_scalar('smoothness/hess/std', torch.abs(ac_hess_list).std() , itr)
-        # self.writer.add_scalar('smoothness/hess/max_eigen_val/mean', ac_hess_eig_max.mean() , itr)
-        # self.writer.add_scalar('smoothness/hess/max_eigen_val/std', ac_hess_eig_max.std() , itr)
+        self.writer.add_scalars('smoothness/q_score',  {'Mean ': np.mean(q_score), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
+        self.writer.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
+        
 
         
     def plot_policy(self, itr):
@@ -285,18 +288,25 @@ class MultiGoalEnv(Env, EzPickle):
         plt.close()
             
     
-    def collect_data_for_logging(self, ac):
+    def collect_data_for_logging(self, ac, o, a):
+
         if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
         
 
-        if self.actor in  ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-            self.episodes_information[-1]['q_hess'].append(ac.pi.hess_list)
-            self.episodes_information[-1]['q_score'].append(ac.pi.score_func_list)
-            self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
-            self.episodes_information[-1]['q_particles_var'].append(ac.pi.hess_eig_max)
+# <<<<<<< HEAD
+#         if self.actor in  ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+#             self.episodes_information[-1]['q_hess'].append(ac.pi.hess_list)
+#             self.episodes_information[-1]['q_score'].append(ac.pi.score_func_list)
+#             self.episodes_information[-1]['q_hess_eig_max'].append(ac.pi.hess_eig_max)
+#             self.episodes_information[-1]['q_particles_var'].append(ac.pi.hess_eig_max)
         
+        if self.actor in  ['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            grad_q_ = torch.autograd.grad(ac.q1(o,a), a, retain_graph=True, create_graph=True)[0].squeeze()
+            hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
+            self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().numpy())
+            self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().numpy())
         
     
     def debugging_metrics(self, itr, ac, num_svgd_particles):
