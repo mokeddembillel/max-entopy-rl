@@ -231,7 +231,7 @@ class MultiGoalEnv(Env, EzPickle):
                         mu = 0
                         std = 1
 
-                    x_values = np.linspace(positions[i]+mu+self.action_space.low, positions[i]+mu+self.action_space.high , 20) 
+                    x_values = np.linspace(positions[i]+mu+self.action_space.low, positions[i]+mu+self.action_space.high , 30) 
                     plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0] )
                     
                 break
