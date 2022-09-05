@@ -1,27 +1,16 @@
 runs/*
 __pycache__/*
-SAC/spinup_utils/__pycache__/*
-SAC/data/
-SAC/actors/__pycache__/*
-SAC/envs/__pycache__/*
-SAC/envs/.DS_Store
-SAC/envs/max-entropy-gym-env/.DS_Store
-SAC/envs/.DS_Store
-SAC/envs/max-entropy-gym-env/gym_max_entropy/.DS_Store
 ToyExperiments/figs
 .DS_Store
 .vscode
 .vscode/settings.json
-max_entropy_plots_/*
 actors/__pycache__/*
-spinup_utils/__pycache__/*
 STAC/__pycache__/*
 STAC/actors/__pycache__/*
 STAC/envs/__pycache__/*
-STAC/spinup_utils/__pycache__/*
 data/*
 envs/*
-
-
+STAC/max_entropy_plots_/*
+STAC/multi_goal_plots_/*
 
 
