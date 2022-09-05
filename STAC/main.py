@@ -51,6 +51,7 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_steps', type=int, default=5)
     parser.add_argument('--svgd_lr', type=float, default=0.1)
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
+    parser.add_argument('--sql_test_deterministic', type=bool, default=False)
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
@@ -77,7 +78,7 @@ if __name__ == '__main__':
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, 
+            svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic, 
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l)
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic)
