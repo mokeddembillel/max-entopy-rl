@@ -186,7 +186,7 @@ class MaxEntrRL():
                 
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 
-                self.test_env.collect_data_for_logging(self.ac)    
+                self.test_env.collect_data_for_logging(self.ac, o, a)    
 
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
