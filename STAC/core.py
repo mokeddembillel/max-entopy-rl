@@ -62,8 +62,8 @@ class MaxEntrRL():
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
-        # a2 = a2.detach()
-        # logp_a2 = logp_a2.detach()
+        a2 = a2.detach()
+        logp_a2 = logp_a2.detach()
 
         with torch.no_grad(): 
             # Target Q-values
@@ -182,14 +182,11 @@ class MaxEntrRL():
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             while not(d or (ep_len == self.env.max_steps)):
-                o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                
-                a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                
+                o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
+                o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 self.test_env.collect_data_for_logging(self.ac, o, a)    
-
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
-                
                 ep_ret += r
                 ep_len += 1
         
@@ -230,6 +227,7 @@ class MaxEntrRL():
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
+                
             
             # Step the env
             o2, r, d, info = self.env.step(a)
@@ -260,10 +258,9 @@ class MaxEntrRL():
             
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
-                #print('Update The Agent')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    print('update')
+                    print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
                     self.update(data=batch, itr=step_itr)
 
             
