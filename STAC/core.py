@@ -200,7 +200,9 @@ class MaxEntrRL():
             TestEpRet += ep_ret
             TestEpLen += ep_len
             
-        self.test_env.render(num_episodes=1, itr=itr)
+        
+        self.test_env.render(itr=itr)
+        self.test_env.plot_policy(itr=itr)
         
         # tensorboard logging
         self.tb_logger.add_scalar('TestEpRet', TestEpRet/self.RL_kwargs.num_test_episodes , itr)
