@@ -23,7 +23,7 @@ class ActorSql(nn.Module):
         
         self.kernel = RBF()
 
-        self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = device
         self.to(self.device)
     
     def forward(self,state, action):
@@ -33,9 +33,9 @@ class ActorSql(nn.Module):
     def act(self, state,  deterministic=None, with_logprob=None):
         # .view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1)
         if with_logprob:
-            action_0 = torch.rand((self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim)
+            action_0 = torch.rand((self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
         else:
-            action_0 = torch.rand((1, self.num_particles, self.act_dim)).view(-1,self.act_dim)
+            action_0 = torch.rand((1, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
 
         action = self.forward(state, action_0)
 
