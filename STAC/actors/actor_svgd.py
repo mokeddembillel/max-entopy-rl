@@ -24,7 +24,7 @@ class ActorSvgd(torch.nn.Module):
         self.test_deterministic = test_deterministic
         self.batch_size = batch_size
 
-        if actor == "ActorSvgdNonParam":
+        if actor == "svgd_nonparam":
             self.a0 = torch.normal(0, 1, size=(2 * batch_size * num_svgd_particles, self.act_dim)).to(device)
         else:
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
@@ -74,7 +74,7 @@ class ActorSvgd(torch.nn.Module):
         return a, logp, q_s_a
 
     def act(self, obs, deterministic=False, with_logprob=True):
-        if self.actor == "ActorSvgdNonParam":
+        if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
             a0 = self.act_limit * torch.tanh(a0) 
         else:
@@ -99,6 +99,9 @@ class ActorSvgd(torch.nn.Module):
             beta = 1
             soft_max_porbs = torch.exp(beta * q_s_a - q_s_a.max())
             dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=-1))
-            a = a[dist.sample()]
+            a = a[:,dist.sample(),:]
+        else:
+            a = a.view(-1,self.act_dim) 
+
         return a, logp_a
 
