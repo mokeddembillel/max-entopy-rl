@@ -22,7 +22,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn(self.tb_logger), env_fn(self.tb_logger)
+        self.env, self.test_env = env_fn(self.tb_logger, actor), env_fn(self.tb_logger, actor)
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -62,10 +62,9 @@ class MaxEntrRL():
         # Target actions come from *current* policy
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
-        # a2 = a2.detach()
-        # logp_a2 = logp_a2.detach()
+        a2 = a2.detach()
+        logp_a2 = logp_a2.detach()
 
         with torch.no_grad(): 
             # Target Q-values
@@ -79,13 +78,13 @@ class MaxEntrRL():
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)
-            
-
+                #backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1)) 
+        
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
         loss_q2 = ((q2 - backup)**2).mean()
         loss_q = loss_q1 + loss_q2
-
+        
         self.tb_logger.add_scalar('loss_q/loss_q1',loss_q1, itr)
         self.tb_logger.add_scalar('loss_q/loss_q2',loss_q2, itr)
         self.tb_logger.add_scalar('loss_q/total',loss_q, itr)
@@ -111,7 +110,6 @@ class MaxEntrRL():
             self.tb_logger.add_scalar('loss_pi/logp_pi', logp_pi.mean(), itr)
             # pi_info = AttrDict(LogPi=logp_pi.detach().cpu().numpy())
         
-
         self.tb_logger.add_scalar('loss_pi/q_pi',-q_pi.mean(), itr)
         self.tb_logger.add_scalar('loss_pi/total',loss_pi, itr)
 
@@ -177,7 +175,7 @@ class MaxEntrRL():
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
 
     def test_agent(self, itr=None):
-
+        
         self.test_env.reset_rendering()
 
         TestEpRet = 0
@@ -190,7 +188,8 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
                 
                 a, _ = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                self.test_env.collect_plotting_data(self.ac)    
+                
+                self.test_env.collect_data_for_logging(self.ac)    
 
                 o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
@@ -201,10 +200,8 @@ class MaxEntrRL():
             TestEpRet += ep_ret
             TestEpLen += ep_len
             
-        self.test_env.render(itr=itr)
-        # self.test_env.save_fig('./max_entropy_plots_/'+ str(itr))   
-        self.test_env.save_fig('./STAC/multi_goal_plots_/'+ str(itr)+".pdf")   
-
+        self.test_env.render(num_episodes=1, itr=itr)
+        
         # tensorboard logging
         self.tb_logger.add_scalar('TestEpRet', TestEpRet/self.RL_kwargs.num_test_episodes , itr)
         self.tb_logger.add_scalar('TestEpLen', TestEpLen/self.RL_kwargs.num_test_episodes , itr)
@@ -228,7 +225,7 @@ class MaxEntrRL():
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, _ = self.ac(o_, deterministic=False, with_logprob=False)
+                a, _ = self.ac(o_, deterministic = False, with_logprob=False)
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
