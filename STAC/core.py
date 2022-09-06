@@ -178,9 +178,6 @@ class MaxEntrRL():
         
         self.test_env.reset_rendering(self.fig_path)
 
-        TestEpRet = []
-        TestEpLen = []
-
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
@@ -190,24 +187,18 @@ class MaxEntrRL():
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                self.debugger.collect_data(o, a, r, d, info)    
+                self.debugger.collect_data(o, a, o2, r, d, info)    
                 
                 ep_ret += r
                 ep_len += 1
                 
                 o = o2
         
-            #print('ep_ret ', ep_ret)
-            TestEpRet.append(ep_ret)
-            TestEpLen.append(ep_len)
-            
+        self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+        self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
         
-        self.test_env.render(itr=itr, fig_path=self.fig_path)
-        self.debugger.plot_policy(itr=itr, fig_path=self.fig_path)
         self.debugger.log_to_tensorboard(itr=itr)
-        # tensorboard logging
-        self.debugger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
-        self.debugger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
+
         
 
     def forward(self):
