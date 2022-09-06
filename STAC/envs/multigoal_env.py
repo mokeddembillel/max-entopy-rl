@@ -56,8 +56,7 @@ class MultiGoalEnv(Env, EzPickle):
         self.episode_observations = [] 
         self.ep_len = 0
         # remove the content of the fig folder
-        figs = glob.glob('./STAC/multi_goal_plots_/*')
-        [os.remove(fig) for fig in figs]
+
     
     def reset(self, init_state=None):
         if init_state:
@@ -108,7 +107,10 @@ class MultiGoalEnv(Env, EzPickle):
         if done:
             reward += self.goal_reward
 
-        if done or (self.ep_len == self.max_steps):
+        if self.ep_len == self.max_steps:
+            done = True
+
+        if done: 
             self.episode_observations.append(self.observation)
         
         self.observation = np.copy(self.observation)
@@ -177,14 +179,13 @@ class MultiGoalEnv(Env, EzPickle):
         self.number_of_hits_mode = np.zeros(self.num_goals)
         
     
-    def render(self, itr, fig_path):
-        
-        ax = self._init_plot()
-
-        positions = np.stack(self.episode_observations)
-        ax.plot(positions[:, 0], positions[:, 1], '+b')
-        plt.savefig(fig_path+ 'env_' + str(itr)+".pdf")   
-        plt.close()
+    def render(self, itr, fig_path, plot):
+        if plot:
+            ax = self._init_plot()
+            positions = np.stack(self.episode_observations)
+            ax.plot(positions[:, 0], positions[:, 1], '+b')
+            plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
+            plt.close()
 
         modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
         ind = modes_dist[np.where(modes_dist.min(-1)<1)[0]].argmin(-1)
