@@ -120,7 +120,6 @@ class Debugger():
         q_hess_min = list(map(lambda x: x.min(), q_hess_))
         q_hess_max = list(map(lambda x: x.max(), q_hess_))
         
-
         self.tb_logger.add_scalars('smoothness/q_score',  {'Mean ': np.mean(q_score_mean), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
         self.tb_logger.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess_mean), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
         
