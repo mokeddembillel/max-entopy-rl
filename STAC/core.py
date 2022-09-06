@@ -13,7 +13,6 @@ class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
         RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None, fig_path=None):
         self.env_fn = env_fn
-        self.tb_logger = tb_logger
         self.fig_path = fig_path
         self.env_name = env
         self.actor = actor 
@@ -52,7 +51,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(self.tb_logger, self.ac, self.test_env)
+        self.debugger = Debugger(tb_logger, self.ac, self.test_env)
 
 
     def compute_loss_q(self, data, itr):
@@ -88,7 +87,7 @@ class MaxEntrRL():
         loss_q2 = ((q2 - backup)**2).mean()
         loss_q = loss_q1 + loss_q2
         
-        self.tb_logger.add_scalars('Loss_q',  {'loss_q1 ': loss_q1, 'loss_q2': loss_q2, 'total': loss_q  }, itr)
+        self.debugger.add_scalars('Loss_q',  {'loss_q1 ': loss_q1, 'loss_q2': loss_q2, 'total': loss_q  }, itr)
         
         # plz add this to debugger/logger
         #Q1Vals.append(q1.cpu().detach().numpy())
@@ -112,7 +111,7 @@ class MaxEntrRL():
             loss_pi = (-q_pi).mean()
         else:
             loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
-            self.tb_logger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
+            self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
             
         return loss_pi
 
@@ -207,8 +206,8 @@ class MaxEntrRL():
         self.debugger.plot_policy(itr=itr, fig_path=self.fig_path)
         self.debugger.log_to_tensorboard(itr=itr)
         # tensorboard logging
-        self.tb_logger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
-        self.tb_logger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
+        self.debugger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
+        self.debugger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
         
 
     def forward(self):
@@ -278,10 +277,10 @@ class MaxEntrRL():
                 
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
-                        self.tb_logger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
+                        self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
                 
-                self.tb_logger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
-                self.tb_logger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
+                self.debugger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
+                self.debugger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
 
                 EpRet = []
                 EpLen = []

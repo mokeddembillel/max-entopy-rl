@@ -4,15 +4,15 @@ import matplotlib.pyplot as plt
 from utils import gaussian
 
 class Debugger():
-    def __init__(self, writer, ac, env):
+    def __init__(self, tb_logger, ac, env):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
-        self.writer = writer
+        self.tb_logger = tb_logger
         self.env = env
         self.episodes_information = []
             
 
-    def collect_data(self, o, a, r, d, info): # if we can pass ac from the beginning it would be better. I still didn't experiment with that
+    def collect_data(self, o, a, r, d, info):
         
         if self.env.ep_len == 1:
             self.episodes_information.append({
@@ -46,18 +46,12 @@ class Debugger():
     def plot_policy(self, itr, fig_path):
         
         ax = self.env._init_plot()
-        
         path = self.episodes_information[0]
-            
         positions = np.stack(path['observations'])
-
         ax.plot(positions[:, 0], positions[:, 1], '+b')
-
         for i in range(len(positions)):
             ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
-
         for i in range(len(positions)-1):
-
             if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
                 mu = path['mu'][i][0]
                 std = path['sigma'][i][0]
@@ -65,16 +59,19 @@ class Debugger():
                 mu = 0
                 std = 1
 
-            x_values = np.linspace(positions[i]+mu+self.env.action_space.low, positions[i]+mu+self.env.action_space.high , 30) 
+            x_values = np.linspace(positions[i] + mu + self.env.action_space.low, positions[i] + mu + self.env.action_space.high , 30) 
             plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0] )
-
         plt.savefig(fig_path + 'path_vis_'+ str(itr)+".pdf")   
         plt.close()
 
-    def log_to_tensorboard_from_core(self, tb_path=None, value=None, operation=None):
-        pass
-        # every call to tensorboard from core with a call to this function
-        # I will do it tomorrwo
+    def add_scalar(self, tb_path=None, value=None, itr=None):
+            self.tb_logger.add_scalar(tb_path, value, itr)
+    
+    def add_scalars(self, tb_path=None, value=None, itr=None):
+            self.tb_logger.add_scalars(tb_path, value, itr)
+
+    def add_histogram(self, tb_path=None, value=None, itr=None):
+            self.tb_logger.add_histogram(tb_path, value, itr)
 
     def log_to_tensorboard(self, itr):
         
@@ -91,14 +88,14 @@ class Debugger():
 
         # number of hits per mode
         
-        self.writer.add_scalar('modes/num_modes',(self.env.number_of_hits_mode>0).sum(), itr)
-        self.writer.add_scalar('modes/total_number_of_hits_mode',self.env.number_of_hits_mode.sum(), itr)
+        self.tb_logger.add_scalar('modes/num_modes',(self.env.number_of_hits_mode>0).sum(), itr)
+        self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.env.number_of_hits_mode.sum(), itr)
         
         for ind in range(self.env.num_goals):
-            self.writer.add_scalar('modes/prob_mod_'+str(ind),self.env.number_of_hits_mode[ind]/self.env.number_of_hits_mode.sum(), itr)
+            self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.env.number_of_hits_mode[ind]/self.env.number_of_hits_mode.sum() if self.env.number_of_hits_mode.sum() != 0 else 0.0, itr)
         
-        self.writer.add_scalars('smoothness/q_score',  {'Mean ': np.mean(q_score_mean), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
-        self.writer.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess_mean), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
+        self.tb_logger.add_scalars('smoothness/q_score',  {'Mean ': np.mean(q_score_mean), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
+        self.tb_logger.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess_mean), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
 
         self.episodes_information = []
 
