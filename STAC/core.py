@@ -51,7 +51,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugging(self.fig_path)
+        self.debugger = Debugging(self.tb_logger, self.actor, self.env.action_space, fig_path)
 
 
     def compute_loss_q(self, data, itr):
@@ -189,7 +189,7 @@ class MaxEntrRL():
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
-                self.debugger.collect_data(self.ac, o, a, r, d, info, phase='test')    
+                self.debugger.collect_data(self.ac, o, a, r, d, info, phase='test', ep_len=ep_len)    
                 ep_ret += r
                 ep_len += 1
                 o = o2
@@ -201,7 +201,7 @@ class MaxEntrRL():
         
         self.test_env.render(itr=itr)
         self.debugger.plot_path_with_gaussian(itr=itr, phase='test')
-        self.debugger.log_data_to_tensorboard(itr=itr, phase='test')
+        self.debugger.log_to_tensorboard(itr=itr, phase='test')
         # tensorboard logging
         self.tb_logger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
         self.tb_logger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
