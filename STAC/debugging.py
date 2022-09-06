@@ -4,13 +4,31 @@ import matplotlib.pyplot as plt
 from utils import gaussian
 
 class Debugging():
-    def __init__(self, fig_path):
-        
+    def __init__(self, writer, actor, env_action_space, fig_path):
+        # Still need some improvements that i will do tomorrow
+        self.actor = actor
+        self.writer = writer
         self.fig_path = fig_path
+
+
+        self.action_space = env_action_space
+        self.xlim = (-7, 7)
+        self.ylim = (-7, 7)
+        self.vel_bound = 1.
+        self._ax = None
+        self._env_lines = []
+        self.goal_positions = np.array(((5, 0),(-5, 0),(0, 5),(0, -5)), dtype=np.float32)
+        self.num_goals = len(self.goal_positions)
+
 
         self.episodes_information = {}
         for phase in ['train', 'test']:
-            self.episodes_information[phase] = [{
+            self.episodes_information[phase] = []
+            
+
+    def collect_data(self, ac, o, a, r, d, info, phase=None, ep_len=None): # if we can pass ac from the beginning it would be better. I still didn't experiment with that
+        if ep_len == 0:
+            self.episodes_information[phase].append({
                 'observations':[],
                 'actions': [],
                 'rewards': [],
@@ -20,12 +38,9 @@ class Debugging():
                 'sigma': [],
                 'q_hess' : [],
                 'q_score': [],
-                }]
-            
-
-    def collect_data(self, ac, o, a, r, d, info, phase=None): # if we can pass ac from the beginning it would be better. I still didn't experiment with that
-        self.episodes_information[phase][-1]['observations'].append(o)
-        self.episodes_information[phase][-1]['actions'].append(a)
+                })
+        self.episodes_information[phase][-1]['observations'].append(o.detach().cpu().numpy().squeeze())
+        self.episodes_information[phase][-1]['actions'].append(a.detach().cpu().numpy().squeeze())
         self.episodes_information[phase][-1]['rewards'].append(r)
 
         if self.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
@@ -41,17 +56,7 @@ class Debugging():
         if d:
             self.episodes_information[phase][-1]['goal'] = info['goal']
             self.episodes_information[phase][-1]['status'] = info['status']
-            self.episodes_informations[phase].append({
-            'observations':[],
-            'actions': [],
-            'rewards': [],
-            'status': None,
-            'goal': None, 
-            'mu': [],
-            'sigma': [],
-            'q_hess' : [],
-            'q_score': [],
-            })
+            
 
 
     def plot_path_with_gaussian(self, itr, phase=None):
@@ -85,19 +90,22 @@ class Debugging():
         plt.savefig(self.fig_path + 'path_vis_'+ str(itr)+".pdf")   
         plt.close()
 
+    def log_to_tensorboard_from_core(self, tb_path=None, value=None, operation=None):
+        pass
+        # every call to tensorboard from core with a call to this function
+        # I will do it tomorrwo
 
-    def log_data_to_tensorboard(self, itr, phase=None):
+    def log_to_tensorboard(self, itr, phase=None):
+        q_score_ = list(map(lambda x: np.array(x['q_score']), self.episodes_information[phase]))
+        q_score_mean = list(map(lambda x: x.mean(), q_score_))
+        q_score_min = list(map(lambda x: x.min(), q_score_))
+        q_score_max = list(map(lambda x: x.max(), q_score_))
 
-        q_score_ = np.array(list(map(lambda x: x['q_score'], self.episodes_information[phase])))
-        q_score_mean = q_score_.mean(axis=1)
-        q_score_min = q_score_.min(axis=1)
-        q_score_max = q_score_.max(axis=1)
 
-
-        q_hess_ = np.array(list(map(lambda x: x['q_hess'], self.episodes_information[phase])))
-        q_hess_mean = q_hess_.mean(axis=1)
-        q_hess_min = q_hess_.min(axis=1)
-        q_hess_max = q_hess_.max(axis=1)
+        q_hess_ = list(map(lambda x: np.array(x['q_hess']), self.episodes_information[phase]))
+        q_hess_mean = list(map(lambda x: x.mean(), q_hess_))
+        q_hess_min = list(map(lambda x: x.min(), q_hess_))
+        q_hess_max = list(map(lambda x: x.max(), q_hess_))
 
         number_of_hits_mode = np.array(list(map(lambda x: x['goal'], self.episodes_information[phase]))).sum(axis=0)
 
@@ -197,11 +205,6 @@ class Debugging():
         self.writer.add_scalars('init_state/q_var',{'q_up': q_svgd_up_var, 'q_down':q_svgd_down_var, 'q_left':q_svgd_left_var, 'q_right':q_svgd_right_var}, itr)
 
 
-
-
-
-    
- 
 
     def _init_plot(self):
         fig_env = plt.figure(figsize=(7, 7)) 
