@@ -7,13 +7,14 @@ from datetime import datetime
 from actorcritic import ActorCritic
 from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
-from debugging import Debugging
+from debugging import Debugger
 
 class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
         RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None, fig_path=None):
         self.env_fn = env_fn
         self.tb_logger = tb_logger
+        self.fig_path = fig_path
         self.env_name = env
         self.actor = actor 
         self.device = device
@@ -23,7 +24,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn(self.tb_logger, actor, fig_path), env_fn(self.tb_logger, actor, fig_path)
+        self.env, self.test_env = env_fn(), env_fn()
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -51,7 +52,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugging(self.tb_logger, self.actor, self.env.action_space, fig_path)
+        self.debugger = Debugger(self.tb_logger, self.ac, self.test_env)
 
 
     def compute_loss_q(self, data, itr):
@@ -176,7 +177,7 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        self.test_env.reset_rendering()
+        self.test_env.reset_rendering(self.fig_path)
 
         TestEpRet = []
         TestEpLen = []
@@ -189,9 +190,12 @@ class MaxEntrRL():
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
-                self.debugger.collect_data(self.ac, o, a, r, d, info, phase='test', ep_len=ep_len)    
+                
+                self.debugger.collect_data(o, a, r, d, info)    
+                
                 ep_ret += r
                 ep_len += 1
+                
                 o = o2
         
             #print('ep_ret ', ep_ret)
@@ -199,13 +203,13 @@ class MaxEntrRL():
             TestEpLen.append(ep_len)
             
         
-        self.test_env.render(itr=itr)
-        self.debugger.plot_path_with_gaussian(itr=itr, phase='test')
-        self.debugger.log_to_tensorboard(itr=itr, phase='test')
+        self.test_env.render(itr=itr, fig_path=self.fig_path)
+        self.debugger.plot_policy(itr=itr, fig_path=self.fig_path)
+        self.debugger.log_to_tensorboard(itr=itr)
         # tensorboard logging
         self.tb_logger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
         self.tb_logger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
-
+        
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)

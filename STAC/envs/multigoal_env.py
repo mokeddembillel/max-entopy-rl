@@ -3,7 +3,6 @@ from gym import spaces
 from gym import Env
 import numpy as np
 import matplotlib.pyplot as plt
-import torch
 import glob
 import os
 
@@ -32,7 +31,7 @@ class MultiGoalEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, writer=None, actor=None, fig_path=None, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0,
+    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0,
                  init_sigma=0.05, max_steps=30):
         EzPickle.__init__(**locals())
 
@@ -52,15 +51,12 @@ class MultiGoalEnv(Env, EzPickle):
         self.xlim = (-7, 7)
         self.ylim = (-7, 7)
         self.vel_bound = 1.
-        self._ax = None
-        self._env_lines = []
+        
         # logging
-        self.writer = writer
-        self.actor = actor
-        self.episodes_information = []
-        self.fig_path = fig_path
+        self.episode_observations = [] 
+        self.ep_len = 0
         # remove the content of the fig folder
-        figs = glob.glob(self.fig_path + '*')
+        figs = glob.glob('./STAC/multi_goal_plots_/*')
         [os.remove(fig) for fig in figs]
     
     def reset(self, init_state=None):
@@ -70,14 +66,7 @@ class MultiGoalEnv(Env, EzPickle):
             unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
-        self.episodes_information.append({
-            'observations':[self.observation],
-            # 'actions': [],
-            # 'rewards': [],
-            # 'status': None,
-            # 'goal': None, 
-            })
-        
+        self.ep_len = 0
         return self.observation
 
     @property
@@ -101,39 +90,32 @@ class MultiGoalEnv(Env, EzPickle):
         # compute action
         action = action.ravel()
         action = np.clip(action, self.action_space.low, self.action_space.high).ravel()
-        # self.episodes_information[-1]['actions'].append(action)
 
         # compute observation
-        observation = self.dynamics.forward(self.observation, action)
-        observation = np.clip(observation, self.observation_space.low,self.observation_space.high)
-        self.episodes_information[-1]['observations'].append(observation)
+        self.observation = self.dynamics.forward(self.observation, action)
+        self.observation = np.clip(self.observation, self.observation_space.low,self.observation_space.high)
+        self.ep_len += 1
 
         # compute reward
-        reward = self.compute_reward(observation, action)
+        reward = self.compute_reward(self.observation, action)
 
         # compute done
-        distance_to_goals = [np.linalg.norm(observation - goal_position)for goal_position in self.goal_positions]
+        distance_to_goals = [np.linalg.norm(self.observation - goal_position)for goal_position in self.goal_positions]
         min_dist_index = np.argmin(distance_to_goals)
         done = distance_to_goals[min_dist_index] < self.goal_threshold
         
-        goal, status = None, None
         # reward at the goal
         if done:
-            goal = np.zeros((self.num_goals,))[min_dist_index] = 1.
-            status = 'succeded'
             reward += self.goal_reward
 
-        else:
-            if len(self.episodes_information[-1]['observations']) == self.max_steps - 1:
-                done = True
-                status = 'Failed'
-                goal = np.zeros((self.num_goals,))
-            
-        # self.episodes_information[-1]['rewards'].append(reward)
+        if done or (self.ep_len == self.max_steps):
+            self.episode_observations.append(self.observation)
+        
+        self.observation = np.copy(self.observation)
 
-        self.observation = np.copy(observation)
+        self.number_of_hits_mode = np.zeros(self.num_goals)
 
-        return observation, reward, done, {'goal': goal, 'status': status}
+        return self.observation, reward, done, None
     
 
     def compute_reward(self, observation, action): 
@@ -142,7 +124,7 @@ class MultiGoalEnv(Env, EzPickle):
         action_cost = np.sum(action ** 2) * self.action_cost_coeff
 
         # penalize squared dist to goal
-        cur_position = observation
+        cur_position = self.observation
 
         # noinspection PyTypeChecker
         goal_cost = self.distance_cost_coeff * np.amin([
@@ -156,14 +138,22 @@ class MultiGoalEnv(Env, EzPickle):
         return reward
     
 
-    def _plot_position_cost(self, ax):
-        delta = 0.01
+    def _init_plot(self):
+        fig_env = plt.figure(figsize=(7, 7)) 
+        ax = fig_env.add_subplot(111)
+        ax.axis('equal')
+        ax.set_xlim((-7, 7))
+        ax.set_ylim((-7, 7))
+        ax.set_title('Multigoal Environment')
+        ax.set_xlabel('x')
+        ax.set_ylabel('y')
+
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
         y_min, y_max = tuple(1.1 * np.array(self.ylim))
 
         X, Y = np.meshgrid(
-            np.arange(x_min, x_max, delta),
-            np.arange(y_min, y_max, delta)
+            np.arange(x_min, x_max, 0.01),
+            np.arange(y_min, y_max, 0.01)
         )
 
         goal_costs = np.amin([
@@ -177,48 +167,29 @@ class MultiGoalEnv(Env, EzPickle):
         ax.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
         ax.set_xlim([x_min, x_max])
         ax.set_ylim([y_min, y_max])
-        goal = ax.plot(self.goal_positions[:, 0],
-                       self.goal_positions[:, 1], 'ro')
-        
-        return [contours, goal]
+        ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
+        #goal = ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
+        return ax #, [contours, goal]
     
 
-    def _init_plot(self):
-        fig_env = plt.figure(figsize=(7, 7)) 
-        self._ax = fig_env.add_subplot(111)
-        self._ax.axis('equal')
-
-        self._env_lines = []
-        self._ax.set_xlim((-7, 7))
-        self._ax.set_ylim((-7, 7))
-
-        self._ax.set_title('Multigoal Environment')
-        self._ax.set_xlabel('x')
-        self._ax.set_ylabel('y')
-
-        self._plot_position_cost(self._ax)
-
-    
-    def reset_rendering(self,):
-        self.episodes_information = []
+    def reset_rendering(self, fig_path):
+        self.episode_observations = []
+        self.number_of_hits_mode = np.zeros(self.num_goals)
         
     
-    def render(self, itr):
-        """Rendering the past rollouts of the environment.""" 
-        self._init_plot()
-
-        # noinspection PyArgumentList
-        [line.remove() for line in self._env_lines]
-        self._env_lines = []
+    def render(self, itr, fig_path):
         
-        # compute the number of runs reaching the goals
-        for _, path in enumerate(self.episodes_information):
-            positions = np.stack(path['observations'])
-            # self._env_lines += self._ax.plot(positions[-1, 0], positions[-1, 1], '+b)
-            self._env_lines += self._ax.plot(positions[:, 0], positions[:, 1])
+        ax = self._init_plot()
 
-        plt.savefig(self.fig_path+ str(itr)+".pdf")   
+        positions = np.stack(self.episode_observations)
+        ax.plot(positions[:, 0], positions[:, 1], '+b')
+        plt.savefig(fig_path+ 'env_' + str(itr)+".pdf")   
         plt.close()
+
+        modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
+        ind = modes_dist[np.where(modes_dist.min(-1)<1)[0]].argmin(-1)
+        self.number_of_hits_mode[ind]+=1
+        
 
 
         
