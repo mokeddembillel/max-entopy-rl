@@ -19,3 +19,8 @@ def init_weights(m):
     if isinstance(m, torch.nn.Linear):
         torch.nn.init.xavier_uniform(m.weight)
         m.bias.data.fill_(0.01)
+
+def gaussian(x, mu, sig):
+    out = np.exp(-np.power(x - mu, 2.) / (2 * np.power(sig, 2.)))
+    out = np.tanh(out)
+    return out 
