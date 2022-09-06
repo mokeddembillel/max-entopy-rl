@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--num_episodes', type=int, default=500)
-    parser.add_argument('--exploration_episodes', type=int, default=0)
+    parser.add_argument('--exploration_episodes', type=int, default=30)
     #parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=50)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
@@ -115,7 +115,7 @@ if __name__ == '__main__':
     
     stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger)
+        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path)
 
     stac.forward()
 
