@@ -88,8 +88,6 @@ class Debugger():
         q_hess_mean = list(map(lambda x: x.mean(), q_hess_))
         q_hess_min = list(map(lambda x: x.min(), q_hess_))
         q_hess_max = list(map(lambda x: x.max(), q_hess_))
-
-        # number of hits per mode
         
         self.writer.add_scalar('modes/num_modes',(self.env.number_of_hits_mode>0).sum(), itr)
         self.writer.add_scalar('modes/total_number_of_hits_mode',self.env.number_of_hits_mode.sum(), itr)
