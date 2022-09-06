@@ -7,10 +7,11 @@ from datetime import datetime
 from actorcritic import ActorCritic
 from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
+from debugging import Debugging
 
 class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
-        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None):
+        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None, fig_path=None):
         self.env_fn = env_fn
         self.tb_logger = tb_logger
         self.env_name = env
@@ -22,7 +23,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn(self.tb_logger, actor), env_fn(self.tb_logger, actor)
+        self.env, self.test_env = env_fn(self.tb_logger, actor, fig_path), env_fn(self.tb_logger, actor, fig_path)
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -50,6 +51,8 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
+        self.debugger = Debugging(self.fig_path)
+
 
     def compute_loss_q(self, data, itr):
         o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
@@ -62,8 +65,8 @@ class MaxEntrRL():
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
-        a2 = a2.detach()
-        logp_a2 = logp_a2.detach()
+        # a2 = a2.detach()
+        # logp_a2 = logp_a2.detach()
 
         with torch.no_grad(): 
             # Target Q-values
@@ -185,10 +188,11 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                self.test_env.collect_data_for_logging(self.ac, o, a)    
-                o, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
+                o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
+                self.debugger.collect_data(self.ac, o, a, r, d, info, phase='test')    
                 ep_ret += r
                 ep_len += 1
+                o = o2
         
             #print('ep_ret ', ep_ret)
             TestEpRet.append(ep_ret)
@@ -196,8 +200,8 @@ class MaxEntrRL():
             
         
         self.test_env.render(itr=itr)
-        self.test_env.plot_policy(itr=itr)
-        
+        self.debugger.plot_path_with_gaussian(itr=itr, phase='test')
+        self.debugger.log_data_to_tensorboard(itr=itr, phase='test')
         # tensorboard logging
         self.tb_logger.add_scalars('TestEpRet',  {'Mean ': np.mean(TestEpRet), 'Min': np.min(TestEpRet), 'Max': np.max(TestEpRet)  }, itr)
         self.tb_logger.add_scalar('TestEpLen', np.mean(TestEpLen) , itr)
