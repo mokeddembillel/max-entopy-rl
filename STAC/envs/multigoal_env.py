@@ -116,7 +116,7 @@ class MultiGoalEnv(Env, EzPickle):
         min_dist_index = np.argmin(distance_to_goals)
         done = distance_to_goals[min_dist_index] < self.goal_threshold
         
-        
+        goal, status = None, None
         # reward at the goal
         if done:
             goal = np.zeros((self.num_goals,))[min_dist_index] = 1.
@@ -124,7 +124,7 @@ class MultiGoalEnv(Env, EzPickle):
             reward += self.goal_reward
 
         else:
-            if len(self.episode_information[-1]['observations']) == self.max_steps - 1:
+            if len(self.episodes_information[-1]['observations']) == self.max_steps - 1:
                 done = True
                 status = 'Failed'
                 goal = np.zeros((self.num_goals,))
