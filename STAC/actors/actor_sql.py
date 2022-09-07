@@ -18,7 +18,7 @@ class ActorSql(nn.Module):
         
         self.q1 = q1
         self.q2 = q2
-        self.concat = mlp([self.obs_dim + self.act_dim] + list(hidden_sizes),activation)
+        self.concat = mlp([self.obs_dim + self.act_dim] + list(hidden_sizes), activation)
         self.layer2 =  mlp(list(hidden_sizes) + [self.act_dim], nn.Tanh, nn.Tanh)
         
         self.kernel = RBF()
