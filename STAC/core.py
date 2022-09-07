@@ -64,7 +64,7 @@ class MaxEntrRL():
         # Target actions come from *current* policy
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
+        a2, logp_a2, _ = self.ac(o2, deterministic=False, with_logprob=True) 
         a2 = a2.detach()
         logp_a2 = logp_a2.detach()
 
@@ -99,7 +99,7 @@ class MaxEntrRL():
     def compute_loss_pi(self, data, itr):
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
-        a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
+        a, logp_pi, _ = self.ac(o, deterministic=False, with_logprob=True)
         
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles)
@@ -133,8 +133,8 @@ class MaxEntrRL():
 
             if self.actor == 'svgd_sql':
                 o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, _ = self.ac(o, deterministic=False, with_logprob=True)
-                fixed_a, _ = self.ac(o, deterministic=False, with_logprob=True)
+                a, _, _ = self.ac(o, deterministic=False, with_logprob=True)
+                fixed_a, _, _ = self.ac(o, deterministic=False, with_logprob=True)
 
                 q1_pi = self.ac.q1(o, fixed_a).view(-1, self.ac.pi.num_particles)
                 q2_pi = self.ac.q2(o, fixed_a).view(-1, self.ac.pi.num_particles)
@@ -184,10 +184,10 @@ class MaxEntrRL():
             while not(d or (ep_len == self.env.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
-                a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                a, _, all_actions = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                self.debugger.collect_data(o, a, o2, r, d, info)    
+                self.debugger.collect_data(o, a, all_actions, o2, r, d, info)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -221,7 +221,7 @@ class MaxEntrRL():
             # use the learned policy. 
             if episode_itr > self.RL_kwargs.exploration_episodes:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, _ = self.ac(o_, deterministic = False, with_logprob=False)
+                a, _, _ = self.ac(o_, deterministic = False, with_logprob=False)
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  

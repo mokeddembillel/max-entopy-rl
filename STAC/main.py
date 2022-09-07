@@ -84,13 +84,8 @@ if __name__ == '__main__':
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic, 
-<<<<<<< HEAD
-            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l)
-    
-=======
+            svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic,     
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l, activation=args.actor_activation)
->>>>>>> 2c3173544cec2961a9e249627ce9117f1b429b68
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic, activation=args.actor_activation)
     

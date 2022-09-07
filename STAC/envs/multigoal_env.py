@@ -228,7 +228,7 @@ class MultiGoalEnv(Env, EzPickle):
         for i in range(len(self._obs_lst)):
             with torch.no_grad():
                 o = torch.FloatTensor(self._obs_lst[i]).repeat([self._n_samples,1]).to(ac.pi.device)
-                actions, _ = ac(o, deterministic=False, with_logprob=False)
+                actions, _, _ = ac(o, deterministic=False, with_logprob=False)
                 actions = actions.cpu().detach().numpy().squeeze()
             x, y = actions[:, 0], actions[:, 1]
             self._ax_lst[i+1].title.set_text(str(self._obs_lst[i]))
