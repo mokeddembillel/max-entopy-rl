@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import glob
 import os
+import torch
 
 class PointDynamics(object):
     """
@@ -55,9 +56,16 @@ class MultiGoalEnv(Env, EzPickle):
         # logging
         self.episode_observations = [] 
         self.ep_len = 0
-        # remove the content of the fig folder
 
-    
+        # Plotter params, to be cleaned tomorrow. 
+        self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
+        self._n_samples=100
+        self.n_plots = len(self._obs_lst)
+        self.x_size = (2.5 * self.n_plots + 1)
+        self.y_size = 11.5 
+        
+
+
     def reset(self, init_state=None):
         if init_state:
             unclipped_observation = init_state
@@ -141,49 +149,56 @@ class MultiGoalEnv(Env, EzPickle):
     
 
     def _init_plot(self):
-        fig_env = plt.figure(figsize=(7, 7)) 
-        ax = fig_env.add_subplot(111)
-        ax.axis('equal')
-        ax.set_xlim((-7, 7))
-        ax.set_ylim((-7, 7))
-        ax.set_title('Multigoal Environment')
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-
+        self._ax_lst = []
+        ###### Setup the environment plot ######
+        self.fig_env = plt.figure(figsize=(self.x_size, self.y_size), constrained_layout=True) 
+        self._ax_lst.append(plt.subplot2grid((4,3), (0,0), colspan=3, rowspan=3))
+        self._ax_lst[0].axis('equal')
+        self._ax_lst[0].set_xlim(self.xlim)
+        self._ax_lst[0].set_ylim(self.xlim)
+        self._ax_lst[0].set_title('Multigoal Environment')
+        self._ax_lst[0].set_xlabel('x')
+        self._ax_lst[0].set_ylabel('y')
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
         y_min, y_max = tuple(1.1 * np.array(self.ylim))
-
         X, Y = np.meshgrid(
             np.arange(x_min, x_max, 0.01),
             np.arange(y_min, y_max, 0.01)
         )
-
         goal_costs = np.amin([
             (X - goal_x) ** 2 + (Y - goal_y) ** 2
             for goal_x, goal_y in self.goal_positions
         ], axis=0)
-
         costs = goal_costs
+        contours = self._ax_lst[0].contour(X, Y, costs, 20)
+        self._ax_lst[0].clabel(contours, inline=1, fontsize=10, fmt='%.0f')
+        self._ax_lst[0].set_xlim([x_min, x_max])
+        self._ax_lst[0].set_ylim([y_min, y_max])
+        self._ax_lst[0].plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
 
-        contours = ax.contour(X, Y, costs, 20)
-        ax.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
-        ax.set_xlim([x_min, x_max])
-        ax.set_ylim([y_min, y_max])
-        ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
-        #goal = ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
-        return ax #, [contours, goal]
-    
+        ###### Setup Q Contours plot ######
+        for i in range(self.n_plots):
+            ax = plt.subplot2grid((4,3), (3,i))
+            ax.set_xlim((-1, 1))
+            ax.set_ylim((-1, 1))
+            ax.grid(True)
+            self._ax_lst.append(ax)
+        self._line_objects = list()
+
 
     def reset_rendering(self, fig_path):
         self.episode_observations = []
         self.number_of_hits_mode = np.zeros(self.num_goals)
         
     
-    def render(self, itr, fig_path, plot):
+    def render(self, itr, fig_path, plot, ac=None):
         if plot:
-            ax = self._init_plot()
+            self._init_plot()
             positions = np.stack(self.episode_observations)
-            ax.plot(positions[:, 0], positions[:, 1], '+b')
+            self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
+            self._plot_level_curves(ac)
+            self._plot_action_samples(ac)
+            plt.plot()
             plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
             plt.close()
 
@@ -192,6 +207,30 @@ class MultiGoalEnv(Env, EzPickle):
         self.number_of_hits_mode[ind]+=1
         
 
+    def _plot_level_curves(self, ac):
+        # Create mesh grid.
+        xs = np.linspace(-1, 1, 50)
+        ys = np.linspace(-1, 1, 50)
+        xgrid, ygrid = np.meshgrid(xs, ys)
+        a = np.concatenate((np.expand_dims(xgrid.ravel(), -1), np.expand_dims(ygrid.ravel(), -1)), -1)
+        a = torch.from_numpy(a.astype(np.float32))
+        for i in range(len(self._obs_lst)):
+            o = torch.Tensor(self._obs_lst[i]).repeat([a.shape[0],1]).to(ac.pi.device)
+            with torch.no_grad():
+                qs = ac.q1(o.to(ac.pi.device), a).cpu().detach().numpy()
+            qs = qs.reshape(xgrid.shape)
+            cs = self._ax_lst[i+1].contour(xgrid, ygrid, qs, 20)
+            self._line_objects += cs.collections
+            self._line_objects += self._ax_lst[i+1].clabel(
+                cs, inline=1, fontsize=10, fmt='%.2f')
 
-        
-
+    def _plot_action_samples(self, ac):
+        for i in range(len(self._obs_lst)):
+            with torch.no_grad():
+                o = torch.FloatTensor(self._obs_lst[i]).repeat([self._n_samples,1]).to(ac.pi.device)
+                actions, _ = ac(o, deterministic=False, with_logprob=False)
+                actions = actions.cpu().detach().numpy().squeeze()
+            x, y = actions[:, 0], actions[:, 1]
+            self._ax_lst[i+1].title.set_text(str(self._obs_lst[i]))
+            self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
+            
