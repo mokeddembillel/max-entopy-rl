@@ -35,7 +35,7 @@ class ActorSql(nn.Module):
         if with_logprob:
             action_0 = torch.rand((self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
         else:
-            action_0 = torch.rand((1, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
+            action_0 = torch.rand((state.shape[0]//self.num_particles, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
 
         action = self.forward(state, action_0)
 
