@@ -12,7 +12,7 @@ class Debugger():
         self.episodes_information = []
             
 
-    def collect_data(self, o, a, all_actions, o2, r, d, info):
+    def collect_data(self, o, a, o2, r, d, info):
         
         if self.env.ep_len == 1:
             self.episodes_information.append({
@@ -35,7 +35,7 @@ class Debugger():
                 'q_hess_end': None, 
                 })
         self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
-        self.episodes_information[-1]['actions'].append(all_actions.detach().cpu().numpy().squeeze())
+        self.episodes_information[-1]['actions'].append(self.ac.pi.actions.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
         q1_value = self.ac.q1(o,a)

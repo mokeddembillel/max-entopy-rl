@@ -45,18 +45,18 @@ class ActorSql(nn.Module):
         q2_values = self.q2(state, actions)
         q_values = torch.min(q1_values, q2_values)
 
-        actions = actions.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
+        self.actions = actions.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
         q_values = q_values.view(-1, self.num_particles) # (-1, np)
 
         if (with_logprob == False) and (deterministic == True):
-            action = actions[:,torch.max(q_values, dim=1)[1]]
+            action = self.actions[:,torch.max(q_values, dim=1)[1]]
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
             nominator = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
             dist = Categorical((nominator / torch.sum(nominator, dim=1, keepdim=True)))
-            action = actions[:,dist.sample()]
+            action = self.actions[:,dist.sample()]
         else:
-            action = actions
+            action = self.actions
         action = action.view(-1, self.act_dim)
-        return action, None, actions
+        return action, None
