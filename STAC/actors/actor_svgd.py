@@ -103,6 +103,7 @@ class ActorSvgd(torch.nn.Module):
             a = self.a[:,dist.sample(),:]
         else:
             a = self.a
+        
         a = a.view(-1, self.act_dim)
         return a, logp_a
 

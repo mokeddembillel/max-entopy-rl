@@ -53,9 +53,6 @@ class MaxEntrRL():
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
         self.debugger = Debugger(tb_logger, self.ac, self.test_env)
 
-        # sql 
-        self.anneal = 1.
-
 
     def compute_loss_q(self, data, itr):
         o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
@@ -79,8 +76,7 @@ class MaxEntrRL():
                 V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
             else:
-                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)
-                
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)        
         
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
@@ -111,16 +107,13 @@ class MaxEntrRL():
             # actions used to compute the expectation indexed by `i`
             a_updated = a.clone()
 
-            # actions used to compute the expectation indexed by `j`
-            a = a.detach()
-
             # compte grad q wrt a
             grad_q = torch.autograd.grad(q_pi.sum(), a)[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
             
             # 
-            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a_updated, input_2=a).unsqueeze(-1)
-            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(self.anneal * kappa * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
+            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a_updated, input_2=a.detach())
+            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(kappa.unsqueeze(-1) * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
             
             #
             loss_pi = -a_updated
