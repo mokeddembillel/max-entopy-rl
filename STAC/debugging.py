@@ -73,7 +73,7 @@ class Debugger():
 
     def plot_policy(self, itr, fig_path, plot):
         if plot:
-            self._init_plot()
+            self.env._init_plot()
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
             
