@@ -110,6 +110,7 @@ class MaxEntrRL():
             # compte grad q wrt a
             grad_q = torch.autograd.grad(q_pi.sum(), a.detach())[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
+
             
             # compute fixes actions used to evaluate the expectation indexed by j
             a_update, _ = self.ac(o, deterministic=False, with_logprob=True)
@@ -276,7 +277,7 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                #self.test_agent(episode_itr)
+                self.test_agent(episode_itr)
                 
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
