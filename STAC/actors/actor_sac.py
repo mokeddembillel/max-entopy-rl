@@ -27,13 +27,13 @@ class ActorSac(torch.nn.Module):
         pi_distribution = Normal(self.mu, self.sigma)
         
         if deterministic:
-            pi_action = self.mu
+            a = self.mu
         else:
-            pi_action = pi_distribution.rsample()
+            a = pi_distribution.rsample()
         
-        logp_pi = self.log_prob(pi_distribution, pi_action) if with_logprob else None
+        logp_pi = self.log_prob(pi_distribution, a) if with_logprob else None
         
-        pi_action = torch.tanh(pi_action)
-        pi_action = self.act_limit * pi_action
+        a = torch.tanh(a)
+        a = self.act_limit * a
         
-        return pi_action.reshape(-1,pi_action.size()[-1]), logp_pi
+        return a.reshape(-1, self.act_dim), logp_pi

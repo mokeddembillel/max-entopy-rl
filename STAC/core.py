@@ -64,9 +64,7 @@ class MaxEntrRL():
         # Target actions come from *current* policy
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2= self.ac(o2, deterministic=False, with_logprob=True) 
-        # a2 = a2.detach()
-        # logp_a2 = logp_a2.detach()
+        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
 
         with torch.no_grad(): 
             # Target Q-values
@@ -75,8 +73,7 @@ class MaxEntrRL():
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
 
             if self.actor == 'svgd_sql':
-                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)
-                V_soft_ += self.act_dim * torch.log(torch.tensor([2.]).to(self.device))
+                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)+self.act_dim * np.log(self.act_dim) 
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)
@@ -92,7 +89,6 @@ class MaxEntrRL():
         # plz add this to debugger/logger
         #Q1Vals.append(q1.cpu().detach().numpy())
         #Q2Vals.append(q2.cpu().detach().numpy())
-
         return loss_q
 
 
@@ -108,7 +104,7 @@ class MaxEntrRL():
 
         # Entropy-regularized policy loss
         if self.actor == 'svgd_sql':
-            loss_pi = (-q_pi).mean()
+            loss_pi = None
         else:
             loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
             self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
@@ -136,6 +132,7 @@ class MaxEntrRL():
                 a, _ = self.ac(o, deterministic=False, with_logprob=True)
                 fixed_a, _ = self.ac(o, deterministic=False, with_logprob=True)
 
+                #compute q value for fixed_a 
                 q1_pi = self.ac.q1(o, fixed_a).view(-1, self.ac.pi.num_particles)
                 q2_pi = self.ac.q2(o, fixed_a).view(-1, self.ac.pi.num_particles)
                 q_pi = torch.min(q1_pi, q2_pi)
@@ -158,6 +155,7 @@ class MaxEntrRL():
                 self.pi_optimizer.zero_grad()
                 torch.autograd.backward(-a, grad_tensors=action_gradients)
                 self.pi_optimizer.step()
+            
             else:
                 # Next run one gradient descent step for pi.
                 self.pi_optimizer.zero_grad()

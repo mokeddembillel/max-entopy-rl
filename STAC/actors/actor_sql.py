@@ -18,45 +18,41 @@ class ActorSql(nn.Module):
         
         self.q1 = q1
         self.q2 = q2
-        self.concat = mlp([self.obs_dim + self.act_dim] + list(hidden_sizes), activation)
-        self.layer2 =  mlp(list(hidden_sizes) + [self.act_dim], activation)
+
+        self.amortized_svgd_net_l1 = mlp([self.obs_dim + self.act_dim] + list(hidden_sizes), activation)
+        self.amortized_svgd_net_l2 =  mlp(list(hidden_sizes) + [self.act_dim], nn.Tanh, nn.Tanh)
         
         self.kernel = RBF()
 
-        self.device = device
-        self.to(self.device)
+        self.a_0 = torch.rand((5*self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
     
-    def forward(self,state, action):
-        samples = self.concat(torch.cat([state, action],dim=-1))
-        samples = self.layer2(samples)
-        return samples
-    def act(self, state,  deterministic=None, with_logprob=None):
-        # .view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1)
-        if with_logprob:
-            actions_0 = torch.rand((self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
-        else:
-            actions_0 = torch.rand((state.shape[0]//self.num_particles, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
 
-        actions = self.forward(state, actions_0)
-        actions = torch.tanh(actions)
-        actions = self.act_limit * actions
+    def amortized_svgd_net(self,obs, a):
+        out = self.amortized_svgd_net_l1(torch.cat([obs, a],dim=-1))
+        out = self.amortized_svgd_net_l2(out)
+        return out
+    
+    
+    def act(self, obs, deterministic=None, with_logprob=None):   
+        a_0 = self.a_0[torch.randint(len(self.a_0), (len(obs),))]
+        a = self.amortized_svgd_net(obs, a_0)
 
-        q1_values = self.q1(state, actions)
-        q2_values = self.q2(state, actions)
+        q1_values = self.q1(obs, a)
+        q2_values = self.q2(obs, a)
         q_values = torch.min(q1_values, q2_values)
 
-        self.actions = actions.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
+        self.a = a.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
         q_values = q_values.view(-1, self.num_particles) # (-1, np)
 
         if (with_logprob == False) and (deterministic == True):
-            action = self.actions[:,torch.max(q_values, dim=1)[1]]
+            a = self.a[:,q_values.view(-1, self.num_particles).argmax(-1)]
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
-            nominator = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
-            dist = Categorical((nominator / torch.sum(nominator, dim=1, keepdim=True)))
-            action = self.actions[:,dist.sample()]
+            soft_max_porbs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
+            dist = Categorical((soft_max_porbs / torch.sum(soft_max_porbs, dim=1, keepdim=True)))
+            a = self.a[:,dist.sample()].view(-1, self.act_dim)
         else:
-            action = self.actions
-        action = action.view(-1, self.act_dim)
-        return action, None
+            a = self.a.view(-1, self.act_dim)
+        
+        return a, None
