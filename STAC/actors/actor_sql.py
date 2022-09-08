@@ -59,5 +59,4 @@ class ActorSql(nn.Module):
             a = self.a[:,dist.sample()]
         else:
             a = self.a
-        a = a.view(-1, self.act_dim)
-        return a, None
+        return a.view(-1, self.act_dim), None

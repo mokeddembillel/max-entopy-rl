@@ -106,16 +106,18 @@ class MaxEntrRL():
         if self.actor == 'svgd_sql':
             # actions used to compute the expectation indexed by `i`
             a_updated = a.clone()
-
+            
             # compte grad q wrt a
             grad_q = torch.autograd.grad(q_pi.sum(), a)[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
             
+            a = a.view(-1, self.ac.pi.num_particles, self.act_dim).detach()
+            a_updated = a_updated.view(-1, self.ac.pi.num_particles, self.act_dim)
+
+            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a_updated, input_2=a)
+            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(self.anneal * kappa.unsqueeze(-1) * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
+
             # 
-            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a_updated, input_2=a.detach())
-            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(kappa.unsqueeze(-1) * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
-            
-            #
             loss_pi = -a_updated
             grad_loss_pi = a_grad
 
@@ -245,7 +247,7 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                #self.test_agent(episode_itr)
+                self.test_agent(episode_itr)
                 
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:

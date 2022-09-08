@@ -147,7 +147,7 @@ class MultiGoalEnv(Env, EzPickle):
     
     def render(self, itr, fig_path, plot, ac=None):
         if plot:
-            self._init_plot()
+            self._init_plot(self.x_size, self.y_size)
             positions = np.stack(self.episode_observations)
             self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
             self._plot_level_curves(ac)
@@ -161,11 +161,11 @@ class MultiGoalEnv(Env, EzPickle):
         self.number_of_hits_mode[ind]+=1
     
     
-    def _init_plot(self):
+    def _init_plot(self, x_size, y_size, grid_size=(4,3), debugging=False):
         self._ax_lst = []
         ###### Setup the environment plot ######
-        self.fig_env = plt.figure(figsize=(self.x_size, self.y_size), constrained_layout=True) 
-        self._ax_lst.append(plt.subplot2grid((4,3), (0,0), colspan=3, rowspan=3))
+        self.fig_env = plt.figure(figsize=(x_size, y_size), constrained_layout=True) 
+        self._ax_lst.append(plt.subplot2grid(grid_size, (0,0), colspan=3, rowspan=3))
         self._ax_lst[0].axis('equal')
         self._ax_lst[0].set_xlim(self.xlim)
         self._ax_lst[0].set_ylim(self.xlim)
@@ -188,16 +188,16 @@ class MultiGoalEnv(Env, EzPickle):
         self._ax_lst[0].set_xlim([x_min, x_max])
         self._ax_lst[0].set_ylim([y_min, y_max])
         self._ax_lst[0].plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
-
-        ###### Setup Q Contours plot ######
-        for i in range(self.n_plots):
-            ax = plt.subplot2grid((4,3), (3,i))
-            ax.set_xlim((-1, 1))
-            ax.set_ylim((-1, 1))
-            ax.grid(True)
-            self._ax_lst.append(ax)
-        self._line_objects = list()
-    
+        if not debugging:
+            ###### Setup Q Contours plot ######
+            for i in range(self.n_plots):
+                ax = plt.subplot2grid((4,3), (3,i))
+                ax.set_xlim((-1, 1))
+                ax.set_ylim((-1, 1))
+                ax.grid(True)
+                self._ax_lst.append(ax)
+            self._line_objects = list()
+        return self._ax_lst[0]
 
     def _plot_level_curves(self, ac):
         # Create mesh grid.
@@ -218,10 +218,9 @@ class MultiGoalEnv(Env, EzPickle):
 
     def _plot_action_samples(self, ac):
         for i in range(len(self._obs_lst)):
-            with torch.no_grad():
-                o = torch.FloatTensor(self._obs_lst[i]).repeat([self._n_samples,1]).to(ac.pi.device)
-                actions, _ = ac(o, deterministic=False, with_logprob=False)
-                actions = actions.cpu().detach().numpy().squeeze()
+            o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
+            actions, _ = ac(o, deterministic=False, with_logprob=False)
+            actions = actions.cpu().detach().numpy().squeeze()
             x, y = actions[:, 0], actions[:, 1]
             self._ax_lst[i+1].title.set_text(str(self._obs_lst[i]))
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')

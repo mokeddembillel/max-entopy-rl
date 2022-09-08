@@ -39,13 +39,14 @@ class Debugger():
         self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
+        a.requires_grad = True
         q1_value = self.ac.q1(o,a)
         q2_value = self.ac.q2(o,a)
+
 
         if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(self.ac.pi.sigma.detach().cpu().numpy())
-        
         
         grad_q_ = torch.autograd.grad(torch.min(q1_value, q2_value), a, retain_graph=True, create_graph=True)[0].squeeze()
         hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
@@ -54,7 +55,6 @@ class Debugger():
 
         self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
         self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
-
         
         if (self.env.ep_len >= self.env.max_steps) or d: 
             self.episodes_information[-1]['observations'].append(o2.squeeze())
@@ -74,19 +74,19 @@ class Debugger():
 
     def plot_policy(self, itr, fig_path, plot):
         if plot:
-            self.env._init_plot()
+            ax = self.env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
-            
-            for i in [5, 15, 25]:
-                if len(positions) > i:
-                    new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
-                    self.ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color='green')
-            
-            self.ax.plot(positions[:, 0], positions[:, 1], '+b')
+            if self.ac.pi.actor != 'sac':
+                for i in [5, 15, 25]:
+                    if len(positions) > i:
+                        new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
+                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color='green')
+                
+            ax.plot(positions[:, 0], positions[:, 1], '+b')
 
             for i in range(len(positions)):
-                self.ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
+                ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
 
             for i in range(len(positions)-1):
                 if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
