@@ -98,6 +98,7 @@ class MaxEntrRL():
     def compute_loss_pi(self, data, itr):
         
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+        
         a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
 
         # get the final action
@@ -107,23 +108,30 @@ class MaxEntrRL():
 
         # Entropy-regularized policy loss
         if self.actor == 'svgd_sql':
+            # actions used to compute the expectation indexed by `i`
+            a_updated = a.clone()
+
+            # actions used to compute the expectation indexed by `j`
+            a = a.detach()
+
             # compte grad q wrt a
-            grad_q = torch.autograd.grad(q_pi.sum(), a.detach())[0]
+            grad_q = torch.autograd.grad(q_pi.sum(), a)[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
             
-            # compute fixes actions used to evaluate the expectation indexed by j
-            a_update, _ = self.ac(o, deterministic=False, with_logprob=True)
+            # 
+            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a_updated, input_2=a).unsqueeze(-1)
+            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(self.anneal * kappa * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
             
-
-            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a, input_2=a).unsqueeze(-1)
-            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(self.anneal * kappa * grad_pi + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
-
+            #
+            loss_pi = -a_updated
+            grad_loss_pi = a_grad
 
         else:
             loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
+            grad_loss_pi = None
             self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
             
-        return loss_pi
+        return loss_pi, grad_loss_pi
 
 
     def update(self, data, itr):
@@ -139,44 +147,12 @@ class MaxEntrRL():
             for p in self.q_params:
                 p.requires_grad = False
             
-            loss_pi = self.compute_loss_pi(data, itr)
+            loss_pi, grad_loss_pi = self.compute_loss_pi(data, itr)
 
-            if self.actor == 'svgd_sql':
-
-                o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                
-                a, _ = self.ac(o, deterministic=False, with_logprob=True)
-                fixed_a, _ = self.ac(o, deterministic=False, with_logprob=True)
-
-                #compute q value for fixed_a 
-                q1_pi = self.ac.q1(o, fixed_a).view(-1, self.ac.pi.num_particles)
-                q2_pi = self.ac.q2(o, fixed_a).view(-1, self.ac.pi.num_particles)
-                q_pi = torch.min(q1_pi, q2_pi)
-
-                grad_pi = torch.autograd.grad(q_pi.sum(), fixed_a)[0]
-                grad_pi = grad_pi.view(self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, self.act_dim).unsqueeze(2)
-                grad_pi = grad_pi.detach()
-                assert grad_pi.shape == (self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, 1, self.act_dim)
-                
-                a = a.view(self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, self.act_dim)
-                fixed_a = fixed_a.view(self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, self.act_dim)
-
-                kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=fixed_a, input_2=a)
-                kappa = kappa.unsqueeze(-1)
-                assert kappa.shape == (self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, self.actor_kwargs.num_svgd_particles, 1)
-                anneal = 1.
-                action_gradients = (1 / self.actor_kwargs.num_svgd_particles) * torch.sum(anneal * kappa * grad_pi + grad_kappa, dim=1)
-                assert action_gradients.shape == (self.optim_kwargs.batch_size, self.actor_kwargs.num_svgd_particles, self.act_dim)
-
-                self.pi_optimizer.zero_grad()
-                torch.autograd.backward(-a, grad_tensors=action_gradients)
-                self.pi_optimizer.step()
-            
-            else:
-                # Next run one gradient descent step for pi.
-                self.pi_optimizer.zero_grad()
-                loss_pi.backward()
-                self.pi_optimizer.step()
+            # Next run one gradient descent step for pi.
+            self.pi_optimizer.zero_grad()
+            loss_pi.backward(grad_loss_pi)
+            self.pi_optimizer.step()
                 
             # Unfreeze Q-networks so you can optimize it at next DDPG step.
             for p in self.q_params:
