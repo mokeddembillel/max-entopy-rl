@@ -34,10 +34,10 @@ class ActorSql(nn.Module):
         return out
     
     
-    def act(self, obs, deterministic=None, with_logprob=None, loss_q=None):   
+    def act(self, obs, deterministic=None, with_logprob=None, in_q_loss=None):   
         a_0 = self.a_0[torch.randint(len(self.a_0), (len(obs),))]
 
-        if loss_q:
+        if in_q_loss:
             return a_0, None
         
         a = self.amortized_svgd_net(obs, a_0)

@@ -12,24 +12,25 @@ class Debugger():
         self.episodes_information = []
             
 
-    def collect_data(self, o, a, o2, r, d, info):
+    def collect_data(self, o, a, o2, r, d):
         
         if self.env.ep_len == 1:
             self.episodes_information.append({
                 'observations':[],
                 'actions': [],
                 'rewards': [],
-                #'status': None,
-                #'goal': None, 
-                'mu': [],
-                'sigma': [],
-                'q_hess' : [],
-                'q_score': [],
                 'expected_reward': None, 
                 'episode_length': None,
+                # p_0
+                'mu': [],
+                'sigma': [],
+                # scores
+                'q_score': [],
                 'q_score_start': None, 
                 'q_score_mid': None, 
                 'q_score_end': None, 
+                # hessian
+                'q_hess' : [],
                 'q_hess_start': None, 
                 'q_hess_mid': None, 
                 'q_hess_end': None, 
@@ -55,7 +56,7 @@ class Debugger():
         self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().item())
         self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
         
-        if (self.env.ep_len >= self.env.max_steps): 
+        if (self.env.ep_len >= self.env.max_steps) or d: 
             self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
             self.episodes_information[-1]['episode_length'] = self.env.ep_len
@@ -113,14 +114,14 @@ class Debugger():
 
 
     def log_to_tensorboard(self, itr):
-        
+        # related to the modes
         self.tb_logger.add_scalar('modes/num_modes',(self.env.number_of_hits_mode>0).sum(), itr)
         self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.env.number_of_hits_mode.sum(), itr)
         
         for ind in range(self.env.num_goals):
             self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.env.number_of_hits_mode[ind]/self.env.number_of_hits_mode.sum() if self.env.number_of_hits_mode.sum() != 0 else 0.0, itr)
         
-
+        # investigating smoothness of the q-landscape by computing the 1st and 2nd order derivatives
         q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))
         q_score_mean = list(map(lambda x: x.mean(), q_score_))
         q_score_min = list(map(lambda x: x.min(), q_score_))
@@ -147,11 +148,12 @@ class Debugger():
         self.tb_logger.add_scalars('smoothness/q_score_averaged',  {'Start ': q_score_averaged[0], 'Mid': q_score_averaged[1], 'End': q_score_averaged[2] }, itr)
         self.tb_logger.add_scalars('smoothness/q_hess_averaged', {'Start ': q_hess_averaged[0], 'Mid': q_hess_averaged[1], 'End': q_hess_averaged[2] }, itr)
 
+        # 
         expected_rewards = list(map(lambda x: x['expected_reward'], self.episodes_information))
         episode_length = list(map(lambda x: x['episode_length'], self.episodes_information))
 
-        self.tb_logger.add_scalars('test_episode_return',  {'Mean ': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
-        self.tb_logger.add_scalar('test_episode_length', np.mean(episode_length) , itr)
+        self.tb_logger.add_scalars('Test_EpRet',  {'Mean ': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
+        self.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
         
         self.episodes_information = []
 

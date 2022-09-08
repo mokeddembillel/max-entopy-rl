@@ -73,7 +73,7 @@ class ActorSvgd(torch.nn.Module):
 
         return a, logp, q_s_a
 
-    def act(self, obs, deterministic=False, with_logprob=True, loss_q=None):
+    def act(self, obs, deterministic=False, with_logprob=True, loss_q_=None):
         if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
             a0 = self.act_limit * torch.tanh(a0) 

@@ -63,7 +63,7 @@ class MaxEntrRL():
         # Bellman backup for Q functions
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, loss_q=True) 
+        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, in_q_loss=True) 
         
         with torch.no_grad(): 
             # Target Q-values
@@ -72,7 +72,8 @@ class MaxEntrRL():
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
             
             if self.actor == 'svgd_sql':
-                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)+self.act_dim * np.log(self.act_dim) 
+                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)
+                V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)
@@ -182,9 +183,9 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
-                o2, r, d, info = self.test_env.step(a.detach().cpu().numpy().squeeze())
+                o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                self.debugger.collect_data(o, a, o2, r, d, info)    
+                self.debugger.collect_data(o, a, o2, r, d)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -259,7 +260,7 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                self.test_agent(episode_itr)
+                #self.test_agent(episode_itr)
                 
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:

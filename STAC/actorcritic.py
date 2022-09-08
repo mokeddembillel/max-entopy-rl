@@ -31,8 +31,8 @@ class ActorCritic(nn.Module):
         self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs)
 
 
-    def forward(self, obs, deterministic=False, with_logprob=True):
-    	return self.pi.act(obs, deterministic, with_logprob)
+    def forward(self, obs, deterministic=False, with_logprob=True, in_q_loss=False):
+    	return self.pi.act(obs, deterministic, with_logprob, in_q_loss)
 
 
 
