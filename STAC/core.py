@@ -65,7 +65,7 @@ class MaxEntrRL():
         # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
-        
+
         with torch.no_grad(): 
             # Target Q-values
             q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)

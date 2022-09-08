@@ -6,7 +6,7 @@ from actors.kernels import RBF
 
 
 class ActorSql(nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=nn.ReLU):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=None):
         super(ActorSql, self).__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -41,18 +41,18 @@ class ActorSql(nn.Module):
         q2_values = self.q2(obs, a)
         q_values = torch.min(q1_values, q2_values)
 
-        a = a.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
+        self.a = a.view(-1, self.num_particles, self.act_dim) # (-1, np, ad)
         q_values = q_values.view(-1, self.num_particles) # (-1, np)
 
         if (with_logprob == False) and (deterministic == True):
-            a = a[:,q_values.view(-1, self.num_particles).argmax(-1)]
+            a = self.a[:,q_values.view(-1, self.num_particles).argmax(-1)]
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
             soft_max_porbs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
             dist = Categorical((soft_max_porbs / torch.sum(soft_max_porbs, dim=1, keepdim=True)))
-            a = a[:,dist.sample()].view(-1, self.act_dim)
+            a = self.a[:,dist.sample()].view(-1, self.act_dim)
         else:
-            a = a.view(-1, self.act_dim)
+            a = self.a.view(-1, self.act_dim)
         
         return a, None
