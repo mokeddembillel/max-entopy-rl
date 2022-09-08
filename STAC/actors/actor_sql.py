@@ -56,8 +56,8 @@ class ActorSql(nn.Module):
             beta = 1
             soft_max_porbs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
             dist = Categorical((soft_max_porbs / torch.sum(soft_max_porbs, dim=1, keepdim=True)))
-            a = self.a[:,dist.sample()].view(-1, self.act_dim)
+            a = self.a[:,dist.sample()]
         else:
-            a = self.a.view(-1, self.act_dim)
-        
+            a = self.a
+        a = a.view(-1, self.act_dim)
         return a, None

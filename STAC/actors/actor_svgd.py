@@ -90,18 +90,19 @@ class ActorSvgd(torch.nn.Module):
             logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)+ (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
             logp_a = (logp0 + logp_a).mean(-1)
         
-        a = a.view(-1, self.num_particles, self.act_dim)
+        self.a =  a.view(-1, self.num_particles, self.act_dim)
+
         # at test time
         if (with_logprob == False) and (deterministic == True):
-            a = a[:,q_s_a.view(-1, self.num_particles).argmax(-1)]
+            a = self.a[:,q_s_a.view(-1, self.num_particles).argmax(-1)]
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
             soft_max_porbs = torch.exp(beta * q_s_a - q_s_a.max())
             dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=-1))
-            a = a[:,dist.sample(),:]
+            a = self.a[:,dist.sample(),:]
         else:
-            a = a.view(-1,self.act_dim) 
-
+            a = self.a
+        a = a.view(-1, self.act_dim)
         return a, logp_a
 
