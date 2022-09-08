@@ -21,25 +21,23 @@ if __name__ == '__main__':
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l', type=int, default=2)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-
-    parser.add_argument('--alpha', type=float, default=5)
+    parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
-    parser.add_argument('--num_episodes', type=int, default=500)
+    parser.add_argument('--num_episodes', type=int, default=1000)
     parser.add_argument('--exploration_episodes', type=int, default=30)
     #parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     parser.add_argument('--update_after', type=int, default=1000)
     # parser.add_argument('--update_after', type=int, default=50000)
+    #parser.add_argument('--update_every', type=int, default=100)
     parser.add_argument('--update_every', type=int, default=50)
-    #parser.add_argument('--update_every', type=int, default=1000)
     #parser.add_argument('--max_ep_len', type=int, default=1000)
     # parser.add_argument('--max_ep_len', type=int, default=500)
     ######optim 
@@ -85,12 +83,7 @@ if __name__ == '__main__':
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
             svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic, 
-<<<<<<< HEAD
-            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l)
-    
-=======
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l, activation=args.actor_activation)
->>>>>>> 2c3173544cec2961a9e249627ce9117f1b429b68
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l, test_deterministic=args.sac_test_deterministic, activation=args.actor_activation)
     
@@ -106,7 +99,7 @@ if __name__ == '__main__':
         os.makedirs(args.tensorboard_path + datetime_folder)
     
     tb_logger = SummaryWriter(args.tensorboard_path + datetime_folder + '/' + project_name)
-    
+
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,

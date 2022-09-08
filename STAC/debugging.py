@@ -141,9 +141,7 @@ class Debugger():
 
         self.tb_logger.add_scalars('test_episode_return',  {'Mean ': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
         self.tb_logger.add_scalar('test_episode_length', np.mean(episode_length) , itr)
-
-
-  
+        
         self.episodes_information = []
 
     
