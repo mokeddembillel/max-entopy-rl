@@ -15,7 +15,8 @@ class ActorSql(nn.Module):
         self.test_deterministic = test_deterministic
         self.num_particles = num_svgd_particles
         self.batch_size = batch_size
-        
+        self.device = device
+
         self.q1 = q1
         self.q2 = q2
 
@@ -33,8 +34,12 @@ class ActorSql(nn.Module):
         return out
     
     
-    def act(self, obs, deterministic=None, with_logprob=None):   
+    def act(self, obs, deterministic=None, with_logprob=None, loss_q=None):   
         a_0 = self.a_0[torch.randint(len(self.a_0), (len(obs),))]
+
+        if loss_q:
+            return a_0, None
+        
         a = self.amortized_svgd_net(obs, a_0)
 
         q1_values = self.q1(obs, a)

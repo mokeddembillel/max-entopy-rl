@@ -35,7 +35,7 @@ class Debugger():
                 'q_hess_end': None, 
                 })
         self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
-        self.episodes_information[-1]['actions'].append(self.ac.pi.actions.detach().cpu().numpy().squeeze())
+        self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
         q1_value = self.ac.q1(o,a)
@@ -76,12 +76,14 @@ class Debugger():
             self._init_plot()
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
+            
             for i in [5, 15, 25]:
                 if len(positions) > i:
                     new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
                     self.ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color='green')
-            self.ax.plot(positions[:, 0], positions[:, 1], '+b')
             
+            self.ax.plot(positions[:, 0], positions[:, 1], '+b')
+
             for i in range(len(positions)):
                 self.ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
 

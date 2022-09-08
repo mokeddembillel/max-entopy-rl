@@ -62,22 +62,21 @@ class MaxEntrRL():
 
         # Bellman backup for Q functions
         # Target actions come from *current* policy
-        # print('########## :', self.obs_dim)
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True) 
-
+        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, loss_q=True) 
+        
         with torch.no_grad(): 
             # Target Q-values
             q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)
             q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-
+            
             if self.actor == 'svgd_sql':
                 V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)+self.act_dim * np.log(self.act_dim) 
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)
-                #backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1)) 
+                
         
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
@@ -208,6 +207,7 @@ class MaxEntrRL():
 
         episode_itr = 0
         step_itr = 0
+        
         EpRet = []
         EpLen = []
 
