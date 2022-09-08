@@ -41,10 +41,6 @@ class Debugger():
 
         q1_value = self.ac.q1(o,a)
         q2_value = self.ac.q2(o,a)
-        
-        self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
-        self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
-
 
         if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
@@ -55,6 +51,10 @@ class Debugger():
         hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
         self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().item())
         self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
+
+        self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
+        self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
+
         
         if (self.env.ep_len >= self.env.max_steps) or d: 
             self.episodes_information[-1]['observations'].append(o2.squeeze())

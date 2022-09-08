@@ -96,10 +96,10 @@ class MaxEntrRL():
 
 
     def compute_loss_pi(self, data, itr):
+        
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        
         a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
-        
+
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles)
         q2_pi = self.ac.q2(o, a).view(-1, self.ac.pi.num_particles)
@@ -107,11 +107,16 @@ class MaxEntrRL():
 
         # Entropy-regularized policy loss
         if self.actor == 'svgd_sql':
-            grad_pi = torch.autograd.grad(q_pi.sum(), a)[0]
-            grad_pi = grad_pi.view(-1, self.ac.pi.num_svgd_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
+            # compte grad q wrt a
+            grad_q = torch.autograd.grad(q_pi.sum(), a.detach())[0]
+            grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
             
+            # compute fixes actions used to evaluate the expectation indexed by j
+            a_update, _ = self.ac(o, deterministic=False, with_logprob=True)
+            
+
             kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a, input_2=a).unsqueeze(-1)
-            
+            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(self.anneal * kappa * grad_pi + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
 
 
         else:
@@ -196,7 +201,7 @@ class MaxEntrRL():
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                self.debugger.collect_data(o, a, o2, r, d)    
+                self.debugger.collect_data(o, a.detach(), o2, r, d)    
                 
                 ep_ret += r
                 ep_len += 1
