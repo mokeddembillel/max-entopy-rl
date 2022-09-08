@@ -192,7 +192,7 @@ class MaxEntrRL():
                 
                 o = o2
         
-        self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+        self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
         self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
         
         self.debugger.log_to_tensorboard(itr=itr)

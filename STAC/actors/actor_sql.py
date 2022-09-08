@@ -26,6 +26,7 @@ class ActorSql(nn.Module):
 
         self.a_0 = torch.rand((5*self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
     
+<<<<<<< HEAD
     def amortized_svgd_net(self,obs, a):
         out = self.amortized_svgd_net_l1(torch.cat([obs, a],dim=-1))
         out = self.amortized_svgd_net_l2(out)
@@ -34,7 +35,7 @@ class ActorSql(nn.Module):
     def act(self, obs, deterministic=None, with_logprob=None):   
         a_0 = self.a_0[torch.randint(len(self.a_0), (len(obs),))]
         a = self.amortized_svgd_net(obs, a_0)
-
+        
         q1_values = self.q1(obs, a)
         q2_values = self.q2(obs, a)
         q_values = torch.min(q1_values, q2_values)
