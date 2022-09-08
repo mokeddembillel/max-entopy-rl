@@ -205,7 +205,7 @@ class MultiGoalEnv(Env, EzPickle):
         ys = np.linspace(-1, 1, 50)
         xgrid, ygrid = np.meshgrid(xs, ys)
         a = np.concatenate((np.expand_dims(xgrid.ravel(), -1), np.expand_dims(ygrid.ravel(), -1)), -1)
-        a = torch.from_numpy(a.astype(np.float32))
+        a = torch.from_numpy(a.astype(np.float32)).to(ac.device)
         for i in range(len(self._obs_lst)):
             o = torch.Tensor(self._obs_lst[i]).repeat([a.shape[0],1]).to(ac.pi.device)
             with torch.no_grad():
