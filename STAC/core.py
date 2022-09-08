@@ -53,6 +53,9 @@ class MaxEntrRL():
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
         self.debugger = Debugger(tb_logger, self.ac, self.test_env)
 
+        # sql 
+        self.anneal = 1.
+
 
     def compute_loss_q(self, data, itr):
         o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
@@ -104,7 +107,13 @@ class MaxEntrRL():
 
         # Entropy-regularized policy loss
         if self.actor == 'svgd_sql':
-            loss_pi = None
+            grad_pi = torch.autograd.grad(q_pi.sum(), a)[0]
+            grad_pi = grad_pi.view(-1, self.ac.pi.num_svgd_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
+            
+            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a, input_2=a).unsqueeze(-1)
+            
+
+
         else:
             loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
             self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
@@ -128,7 +137,9 @@ class MaxEntrRL():
             loss_pi = self.compute_loss_pi(data, itr)
 
             if self.actor == 'svgd_sql':
+
                 o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+                
                 a, _ = self.ac(o, deterministic=False, with_logprob=True)
                 fixed_a, _ = self.ac(o, deterministic=False, with_logprob=True)
 
