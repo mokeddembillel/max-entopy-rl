@@ -194,7 +194,6 @@ class MaxEntrRL():
         
         self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
         self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
-        
         self.debugger.log_to_tensorboard(itr=itr)
 
         
@@ -223,7 +222,6 @@ class MaxEntrRL():
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()  
-                
             
             # Step the env
             o2, r, d, info = self.env.step(a)
@@ -249,8 +247,7 @@ class MaxEntrRL():
 
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
-                d = True
-                
+                d = True    
             
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:

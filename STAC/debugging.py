@@ -55,10 +55,11 @@ class Debugger():
         self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().item())
         self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
         
-        if d: 
+        if (self.env.ep_len >= self.env.max_steps): 
             self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
             self.episodes_information[-1]['episode_length'] = self.env.ep_len
+            
             if self.env.ep_len >= 5:
                 self.episodes_information[-1]['q_score_start'] = np.mean(self.episodes_information[-1]['q_score'][:5])
                 self.episodes_information[-1]['q_hess_start'] = np.mean(self.episodes_information[-1]['q_hess'][:5])
@@ -68,37 +69,7 @@ class Debugger():
             if self.env.ep_len >= 30:
                 self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:self.env.ep_len])
                 self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.env.ep_len])
-
-    def _init_plot(self):
-        self.fig_env = plt.figure(figsize=(7, 7)) 
-        self.ax = self.fig_env.add_subplot(111)
-        self.ax.axis('equal')
-        self.ax.set_xlim((-7, 7))
-        self.ax.set_ylim((-7, 7))
-        self.ax.set_title('Multigoal Environment')
-        self.ax.set_xlabel('x')
-        self.ax.set_ylabel('y')
-
-        x_min, x_max = tuple(1.1 * np.array(self.env.xlim))
-        y_min, y_max = tuple(1.1 * np.array(self.env.ylim))
-
-        X, Y = np.meshgrid(
-            np.arange(x_min, x_max, 0.01),
-            np.arange(y_min, y_max, 0.01)
-        )
-
-        goal_costs = np.amin([
-            (X - goal_x) ** 2 + (Y - goal_y) ** 2
-            for goal_x, goal_y in self.env.goal_positions
-        ], axis=0)
-
-        costs = goal_costs
-        contours = self.ax.contour(X, Y, costs, 20)
-        self.ax.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
-        self.ax.set_xlim([x_min, x_max])
-        self.ax.set_ylim([y_min, y_max])
-        self.ax.plot(self.env.goal_positions[:, 0], self.env.goal_positions[:, 1], 'ro')
-        #goal = ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
+    
 
     def plot_policy(self, itr, fig_path, plot):
         if plot:
@@ -106,8 +77,10 @@ class Debugger():
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
             self.ax.plot(positions[:, 0], positions[:, 1], '+b')
+
             for i in range(len(positions)):
                 self.ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
+
             for i in range(len(positions)-1):
                 if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
                     mu = path['mu'][i][0]
@@ -118,6 +91,7 @@ class Debugger():
 
                 x_values = np.linspace(positions[i] + mu + self.env.action_space.low, positions[i] + mu + self.env.action_space.high , 30)
                 plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
+            
             plt.savefig(fig_path + '/path_vis_'+ str(itr)+".pdf")   
             plt.close()
 

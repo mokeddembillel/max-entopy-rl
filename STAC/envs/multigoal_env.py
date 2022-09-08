@@ -116,15 +116,8 @@ class MultiGoalEnv(Env, EzPickle):
             reward += self.goal_reward
 
         if self.ep_len == self.max_steps:
-            done = True
-
-        if done: 
             self.episode_observations.append(self.observation)
         
-        self.observation = np.copy(self.observation)
-
-        self.number_of_hits_mode = np.zeros(self.num_goals)
-
         return self.observation, reward, done, None
     
 
@@ -147,7 +140,27 @@ class MultiGoalEnv(Env, EzPickle):
         reward = -np.sum(costs)
         return reward
     
+    def reset_rendering(self, fig_path):
+        self.episode_observations = []
+        self.number_of_hits_mode = np.zeros(self.num_goals)
+        
+    
+    def render(self, itr, fig_path, plot, ac=None):
+        if plot:
+            self._init_plot()
+            positions = np.stack(self.episode_observations)
+            self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
+            self._plot_level_curves(ac)
+            self._plot_action_samples(ac)
+            plt.plot()
+            plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
+            plt.close()
 
+        modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
+        ind = modes_dist[np.where(modes_dist.min(-1)<1)[0]].argmin(-1)
+        self.number_of_hits_mode[ind]+=1
+    
+    
     def _init_plot(self):
         self._ax_lst = []
         ###### Setup the environment plot ######
@@ -184,28 +197,7 @@ class MultiGoalEnv(Env, EzPickle):
             ax.grid(True)
             self._ax_lst.append(ax)
         self._line_objects = list()
-
-
-    def reset_rendering(self, fig_path):
-        self.episode_observations = []
-        self.number_of_hits_mode = np.zeros(self.num_goals)
-        
     
-    def render(self, itr, fig_path, plot, ac=None):
-        if plot:
-            self._init_plot()
-            positions = np.stack(self.episode_observations)
-            self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
-            self._plot_level_curves(ac)
-            self._plot_action_samples(ac)
-            plt.plot()
-            plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
-            plt.close()
-
-        modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
-        ind = modes_dist[np.where(modes_dist.min(-1)<1)[0]].argmin(-1)
-        self.number_of_hits_mode[ind]+=1
-        
 
     def _plot_level_curves(self, ac):
         # Create mesh grid.
