@@ -13,15 +13,15 @@ def mlp(sizes, activation, output_activation=nn.Identity):
         layers += [nn.Linear(sizes[j], sizes[j+1]), act()]
     return nn.Sequential(*layers)
 
-class MLPQFunction(nn.Module):
-    def __init__(self, obs_dim, act_dim, hidden_sizes, activation=nn.Identity):
+class MLPFunction(nn.Module):
+    def __init__(self, obs_dim, act_dim, out_dim, hidden_sizes, activation=nn.Identity):
         super().__init__()
         # print('activation ', activation)
-        self.q = mlp([obs_dim + act_dim] + list(hidden_sizes) + [1], activation)
+        self.net = mlp([obs_dim + act_dim] + list(hidden_sizes) + [out_dim], activation)
 
     def forward(self, obs, act):
-        q = self.q(torch.cat([obs, act], dim=-1))
-        return torch.squeeze(q, -1) # Critical to ensure q has right shape.
+        out = self.net(torch.cat([obs, act], dim=-1))
+        return torch.squeeze(out, -1) # Critical to ensure q has right shape.
 
 
 class MLPSquashedGaussian(nn.Module):

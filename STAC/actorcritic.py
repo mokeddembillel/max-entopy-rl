@@ -1,5 +1,5 @@
 import torch.nn as nn
-from networks import mlp, MLPQFunction
+from networks import mlp, MLPFunction
 from actors.actor_sac import ActorSac
 from actors.actor_svgd import ActorSvgd
 from actors.actor_sql import ActorSql
@@ -21,8 +21,8 @@ class ActorCritic(nn.Module):
             'svgd_sql': ActorSql,
             'diffusion': ActorDiffusion}
 
-        self.q1 = MLPQFunction(obs_dim, act_dim, **critic_kwargs)
-        self.q2 = MLPQFunction(obs_dim, act_dim, **critic_kwargs)
+        self.q1 = MLPFunction(obs_dim, act_dim, 1, **critic_kwargs)
+        self.q2 = MLPFunction(obs_dim, act_dim, 1, **critic_kwargs)
         
         if 'svgd' in actor:
             actor_kwargs.q1 = self.q1.forward

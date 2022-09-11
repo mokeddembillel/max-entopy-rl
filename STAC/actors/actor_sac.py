@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from torch.distributions import Normal
 
 class ActorSac(torch.nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, hidden_sizes, activation=torch.nn.Identity, test_deterministic=False):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, hidden_sizes, device, activation=torch.nn.Identity, test_deterministic=False):
         super(ActorSac, self).__init__()
         self.num_particles = 1
         self.actor = actor
@@ -13,8 +13,9 @@ class ActorSac(torch.nn.Module):
         self.act_dim = act_dim
         self.act_limit = act_limit
         self.test_deterministic = test_deterministic
+        self.device = device 
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
-    
+
 
     def log_prob(self, pi_distribution, pi_action):
         logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)

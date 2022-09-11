@@ -71,6 +71,7 @@ class MultiGoalEnv(Env, EzPickle):
             unclipped_observation = init_state
         else: 
             unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
+            # unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
         self.ep_len = 0
