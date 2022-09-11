@@ -21,7 +21,9 @@ class ActorSql(nn.Module):
         self.q2 = q2
 
         self.svgd_net = MLPFunction(self.obs_dim, self.act_dim, self.act_dim, hidden_sizes, activation)
-
+        # self.concat = mlp([self.obs_dim + self.act_dim] + list(hidden_sizes),nn.ReLU, nn.ReLU)
+        # self.layer2 =  mlp(list(hidden_sizes) + [self.act_dim], nn.Tanh, nn.Tanh)
+        
 
 
         self.kernel = RBF()
@@ -30,6 +32,9 @@ class ActorSql(nn.Module):
     
 
     def amortized_svgd_net(self,obs, a):
+        # samples = self.concat(torch.cat([obs, a],dim=-1))
+        # samples = self.layer2(samples)
+        # return samples
         out = self.svgd_net(obs, a)
         out = torch.tanh(out) * self.act_limit
         return out

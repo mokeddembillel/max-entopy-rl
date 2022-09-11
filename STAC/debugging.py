@@ -10,7 +10,7 @@ class Debugger():
         self.tb_logger = tb_logger
         self.env = env
         self.episodes_information = []
-            
+        self.colors = ['red', 'orange', 'yellow']
 
     def collect_data(self, o, a, o2, r, d):
         
@@ -36,7 +36,8 @@ class Debugger():
                 'q_hess_end': None, 
                 })
         self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
-        self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
+        if self.ac.pi.actor != 'sac':
+            self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
         a.requires_grad = True
@@ -78,10 +79,10 @@ class Debugger():
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
             if self.ac.pi.actor != 'sac':
-                for i in [5, 15, 25]:
-                    if len(positions) > i:
+                for indx, i in enumerate([0, 10, 25]):
+                    if len(positions) > i+1:
                         new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
-                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color='green')
+                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color=self.colors[indx])
                 
             ax.plot(positions[:, 0], positions[:, 1], '+b')
 

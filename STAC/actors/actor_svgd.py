@@ -83,6 +83,7 @@ class ActorSvgd(torch.nn.Module):
         # run svgd
         a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
         q_s_a = q_s_a.view(-1, self.num_particles)
+        
         # compute the entropy 
         if with_logprob:
             logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)+ (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
@@ -96,16 +97,11 @@ class ActorSvgd(torch.nn.Module):
          
         elif (with_logprob == False) and (deterministic == False):
             beta = 1
-            soft_max_porbs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
-            dist = Categorical(soft_max_porbs/ torch.sum(soft_max_porbs, dim=1, keepdim=True))
+            soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
+            dist = Categorical(soft_max_probs/ torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
         else:
             a = self.a
-<<<<<<< HEAD
-        
-        a = a.view(-1, self.act_dim)
-        return a, logp_a
-=======
+
         return a.view(-1, self.act_dim), logp_a
->>>>>>> e6a083279e311b4d13e83a902064725f3a0a5a2f
 
