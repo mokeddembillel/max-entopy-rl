@@ -10,7 +10,7 @@ class Debugger():
         self.tb_logger = tb_logger
         self.env = env
         self.episodes_information = []
-        self.colors = ['red', 'orange', 'yellow']
+        self.colors = ['red', 'orange', 'purple']
 
     def collect_data(self, o, a, o2, r, d):
         

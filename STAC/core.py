@@ -77,8 +77,12 @@ class MaxEntrRL():
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
                 self.debugger.add_scalars('Q_target',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
-                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)        
-        
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)      
+            
+                self.debugger.add_scalars('Q_target/',  {'r ': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
+                    'Entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean()}, itr)
+                self.debugger.add_scalar('Entropy', logp_a2.mean())
+
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
         loss_q2 = ((q2 - backup)**2).mean()
@@ -250,7 +254,7 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                self.test_agent(episode_itr)
+                # self.test_agent(episode_itr)
                 
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:

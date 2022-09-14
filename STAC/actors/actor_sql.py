@@ -4,6 +4,8 @@ from networks import mlp
 from torch.distributions import Categorical
 from actors.kernels import RBF
 from networks import MLPFunction
+import numpy as np
+
 
 class ActorSql(nn.Module):
     def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=None):
@@ -58,11 +60,12 @@ class ActorSql(nn.Module):
             
             if deterministic == True:
                 a = self.a[:,q_values.view(-1, self.num_particles).argmax(-1)]
-         
             else:
-                beta = 1
-                soft_max_probs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
-                dist = Categorical((soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True)))
-                a = self.a[:,dist.sample()]
+                # beta = 1
+                # soft_max_probs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
+                # dist = Categorical((soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True)))
+                # a = self.a[:,dist.sample()]
+                a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
+
         
         return a.view(-1, self.act_dim), None

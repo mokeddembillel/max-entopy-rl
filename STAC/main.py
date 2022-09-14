@@ -22,14 +22,14 @@ if __name__ == '__main__':
     parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
     parser.add_argument('--l_actor', type=int, default=3)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=1.)
+    parser.add_argument('--alpha', type=float, default=0.0)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--num_episodes', type=int, default=1000)
@@ -49,18 +49,20 @@ if __name__ == '__main__':
     parser.add_argument('--lr_actor', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=500)
     ######sac
-    parser.add_argument('--sac_test_deterministic', type=bool, default=False)
+    parser.add_argument('--sac_test_deterministic', type=bool, default=True)
+    ######sql
+    parser.add_argument('--sql_test_deterministic', type=bool, default=True)
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
     parser.add_argument('--svgd_lr', type=float, default=0.1)
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
-    parser.add_argument('--sql_test_deterministic', type=bool, default=False)
+    parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
-    parser.add_argument('--critic_activation', type=object, default=torch.nn.ReLU)
+    parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.Tanh)
 
 
@@ -87,7 +89,7 @@ if __name__ == '__main__':
     # actor arguments
     if (args.actor in ['svgd_nonparam','svgd_p0_pram','svgd_p0_kernel_pram']):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, 
+            svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
     
     elif (args.actor == 'svgd_sql'):
@@ -102,7 +104,7 @@ if __name__ == '__main__':
     project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2]
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr)
+        project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0)
 
     
     os.makedirs(args.tensorboard_path + project_name)

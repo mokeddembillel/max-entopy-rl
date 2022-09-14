@@ -43,7 +43,7 @@ class MultiGoalEnv(Env, EzPickle):
         # goal
         self.goal_positions = np.array(((5, 0),(-5, 0),(0, 5),(0, -5)), dtype=np.float32)
         self.num_goals = len(self.goal_positions)
-        self.goal_threshold = 0.05 #1.0
+        self.goal_threshold = 0.5 #1.0
         self.goal_reward = goal_reward
         # reward
         self.action_cost_coeff = actuation_cost_coeff
@@ -59,7 +59,7 @@ class MultiGoalEnv(Env, EzPickle):
 
         # Plotter params, to be cleaned tomorrow. 
         self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
-        self._n_samples=100
+        self._n_samples = 100
         self.n_plots = len(self._obs_lst)
         self.x_size = (2.5 * self.n_plots + 1)
         self.y_size = 11.5 
@@ -116,7 +116,7 @@ class MultiGoalEnv(Env, EzPickle):
         if done:
             reward += self.goal_reward
 
-        if self.ep_len == self.max_steps:
+        if done or self.ep_len == self.max_steps:
             self.episode_observations.append(self.observation)
         
         return self.observation, reward, done, None
@@ -220,7 +220,7 @@ class MultiGoalEnv(Env, EzPickle):
     def _plot_action_samples(self, ac):
         for i in range(len(self._obs_lst)):
             o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
-            actions, _ = ac(o, deterministic=False, with_logprob=False)
+            actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
             x, y = actions[:, 0], actions[:, 1]
             self._ax_lst[i+1].title.set_text(str(self._obs_lst[i]))

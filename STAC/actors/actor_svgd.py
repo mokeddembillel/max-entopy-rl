@@ -8,7 +8,7 @@ from torch.distributions import Normal, Categorical
 from actors.kernels import RBF
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, num_svgd_steps, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
         super().__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -20,12 +20,13 @@ class ActorSvgd(torch.nn.Module):
         self.device = device
         self.q1 = q1
         self.q2 = q2
+        self.sigma_p0 = svgd_sigma_p0
 
         self.test_deterministic = test_deterministic
         self.batch_size = batch_size
 
         if actor == "svgd_nonparam":
-            self.a0 = torch.normal(0, 1, size=(5 * batch_size * num_svgd_particles, self.act_dim)).to(self.device)
+            self.a0 = torch.normal(0, self.sigma_p0, size=(5 * batch_size * num_svgd_particles, self.act_dim)).to(self.device)
         else:
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
@@ -52,15 +53,15 @@ class ActorSvgd(torch.nn.Module):
             
             X = X.reshape(-1, self.num_particles, self.act_dim)
             score_func = score_func.reshape(X.size())
-            K_XX, K_diff, K_gamma, K_grad = self.Kernel(X, X.detach())
-            phi = (K_XX.detach().matmul(score_func) - K_grad.sum(2)) / self.num_particles 
+            K_XX, K_diff, K_gamma, K_grad = self.Kernel(X, X)
+            phi = (K_XX.matmul(score_func) + K_grad.sum(1)) / self.num_particles 
             
             # compute the entropy
             if with_logprob:
                 #import pdb; pdb.set_trace()
                 tmp1 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
-                tmp2 = -2 * K_gamma.view(-1,1) * ((-K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
-                logp -= self.svgd_lr*(tmp1+tmp2)
+                tmp2 = -2 * K_gamma.view(-1,1) * ((K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
+                logp -= self.svgd_lr * (tmp1+tmp2) 
             
             return phi, log_prob 
         
@@ -68,40 +69,50 @@ class ActorSvgd(torch.nn.Module):
             phi_, q_s_a= phi(a)
             a = self.svgd_optim(a, phi_)
             a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+        
+        a = self.act_limit * torch.tanh(a) 
 
         return a, logp, q_s_a
 
     def act(self, obs, deterministic=False, with_logprob=True, loss_q_=None):
+        logp_a = None
+        # logp_normal = None
+
         if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
-            a0 = self.act_limit * torch.tanh(a0) 
+            # a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
         else:
             self.mu, self.sigma = self.p0(obs)
             a0 = Normal(self.mu, self.sigma).rsample()
             a0 = self.act_limit * torch.tanh(a0)
 
         # run svgd
-        a, logp_a, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
+        a, logp_svgd, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
         q_s_a = q_s_a.view(-1, self.num_particles)
-        
         # compute the entropy 
         if with_logprob:
-            logp0 = (self.act_dim/2) * np.log(2 * np.pi) + (self.act_dim/2)+ (2*(np.log(2) - a0 - F.softplus(-2*a0))).sum(axis=-1).view(-1,self.num_particles)
-            logp_a = (logp0 + logp_a).mean(-1)
+            logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
+            logp_tanh = - ( 2 * (np.log(2) - a - F.softplus(-2 * a))).sum(axis=-1).view(-1,self.num_particles)
+            logp_a = (logp_normal + logp_svgd + logp_tanh).mean(-1)
         
         self.a =  a.view(-1, self.num_particles, self.act_dim)
 
         # at test time
         if (with_logprob == False) and (deterministic == True):
             a = self.a[:,q_s_a.argmax(-1)]
-         
+
         elif (with_logprob == False) and (deterministic == False):
-            beta = 1
-            soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
-            dist = Categorical(soft_max_probs/ torch.sum(soft_max_probs, dim=1, keepdim=True))
-            a = self.a[:,dist.sample()]
+            # beta = 1
+            # soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
+            # dist = Categorical(soft_max_probs/ torch.sum(soft_max_probs, dim=1, keepdim=True))
+            # a = self.a[:,dist.sample()]
+            a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
+            
         else:
             a = self.a
 
+        ########## Debugging. to be removed
+        # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()
+        # return a.view(-1, self.act_dim), logp_normal
         return a.view(-1, self.act_dim), logp_a
 
