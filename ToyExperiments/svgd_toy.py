@@ -11,7 +11,7 @@ alt.data_transformers.enable('default', max_rows=None)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-const = 10
+const = 1
 ############################## Drawing Utilities ##################################
 
 def get_density_chart(P, d=7.0, step=0.1):
@@ -73,7 +73,7 @@ class RBF:
         kappa = (-gamma * dist_sq).exp() 
         
         kappa_grad = -2. * (diff * gamma) * kappa
-        return kappa.squeeze(), diff, h, kappa_grad
+        return kappa.squeeze(), diff, h, kappa_grad, gamma
 
 
 ################################# SVGD Sampler ###############################
@@ -92,16 +92,55 @@ class SVGD:
         log_prob = self.P.log_prob(X)
         score_func = autograd.grad(log_prob.sum(), X)[0].reshape(X.size())
         
-        K_XX, K_diff, K_h, K_grad = self.K.forward(X, X.detach())        
-        phi = (K_XX.detach().matmul(score_func) - K_grad.sum(1)) / X.size(0)
-        phi = phi.detach()
-        
+        K_XX, K_diff, K_h, K_grad, K_gamma = self.K.forward(X, X)        
+        phi = (K_XX.matmul(score_func) + K_grad.sum(0)) / X.size(0)
+        # print('kappa E1 ', K_XX.shape)
+        # print('grad_p E1 ', score_func.shape)
+        # print('grad_kappa E1 ', K_grad.shape)
+        # print('part1  E1 ', K_XX.matmul(score_func))
+        # print('part2 E1 ', K_grad.sum(0))
+        # phi = phi
+        a_grad = (1 / X.size(0)) * torch.sum(K_XX.unsqueeze(-1) * score_func.unsqueeze(1) + K_grad, dim=0)
+        # print('kappa E2 ', K_XX.unsqueeze(-1).shape)
+        # print('grad_p E2 ', score_func.unsqueeze(1).shape)
+        # print('grad_kappa E2 ', K_grad.shape)
+        # print('part1 E2 ', torch.sum(K_XX.unsqueeze(-1) * score_func.unsqueeze(1), dim=0))
+        # print('part2 E2 ', torch.sum(K_grad, dim=0))
+
+        # print(K_XX.matmul(score_func) == torch.sum(K_XX.unsqueeze(-1) * score_func.unsqueeze(1), dim=0))
+        # print(torch.allclose(K_XX.matmul(score_func), torch.sum(K_XX.unsqueeze(-1) * score_func.unsqueeze(1), dim=0)))
+        # print(torch.allclose(phi, a_grad))
+        # print(K_grad.sum(0) == torch.sum(K_grad, dim=0))
+
         if self.with_logprob:
             #import pdb; pdb.set_trace()
-            tmp1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(-1).mean(-1)
-            tmp2 = (-(2/K_h) * K_diff *  K_grad).sum(-1).mean(-1).mean(-1)
-            tmp3 = ((1/K_h.squeeze(-1)) * self.act_limit * K_XX).mean(-1).mean(-1)
-            self.logp -= self.svgd_lr*(tmp1 + tmp2 + tmp3)
+            # tmp1_ = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(-1).mean(-1)
+            # tmp2_ = (-(2/K_h) * K_diff *  K_grad).sum(-1).mean(-1).mean(-1)
+            # tmp3_ = ((1/K_h.squeeze(-1)) * self.act_limit * K_XX).mean(-1).mean(-1)
+
+            tmp1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(0)
+            tmp2 = -2 * K_gamma.view(-1,1) * ((K_grad * K_diff).sum(-1) - X.size(1) * K_XX).mean(0)
+
+
+            ####################################################################################
+
+            tmp1__ = np.zeros((X.size(0)))
+            tmp2__ = np.zeros((X.size(0)))
+            for i in range(X.size(0)):
+                for j in range(X.size(0)):
+                    tmp1__[i] += (K_grad[j, i, :] * score_func[j, :]).sum(-1)
+                    tmp2__[i] += -2 * K_gamma.squeeze() * ((K_grad[j, i, :] * K_diff[j, i, :]).sum(-1) - X.size(1) * K_XX[j, i])
+                   
+                tmp1__[i] /= X.size(0)
+                tmp2__[i] /= X.size(0)
+
+
+
+
+            ####################################################################################
+            self.logp -= self.svgd_lr * (tmp1+tmp2) 
+
+            # self.logp -= self.svgd_lr*(tmp1 + tmp2 +)
         
         return phi 
     
@@ -112,7 +151,8 @@ class SVGD:
     
     def step(self, X):
         X = self.svgd_optim(X, self.phi(X))
-        X = torch.clamp(X, -self.act_limit, self.act_limit).detach()
+        # X = torch.clamp(X, -self.act_limit, self.act_limit).detach()
+        X = X.detach()
         return X 
         
         
@@ -122,8 +162,15 @@ class SVGD:
 gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]).to(device),
     covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]]).to(device))
 
-num_particles = 100
+num_particles = 10
 X_init = (3 * torch.randn(num_particles, *gauss.event_shape)).to(device)
+
+
+logp_normal = - 2 * 0.5 * np.log(2 * np.pi * 0.5) - (0.5 / 0.5) * (X_init**2).sum(-1).view(-1, num_particles)
+
+
+
+
 
 gauss_chart = get_density_chart(gauss, d=7.0, step=0.1)
 
@@ -137,11 +184,41 @@ svgd = SVGD(gauss, with_logprob=True)
 for t in range(1000):
     X = svgd.step(X)
 
+logp_a = (logp_normal + svgd.logp).mean(-1)
+
+
 chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
 save(chart,'./ToyExperiments/figs/unimodal_gaussian_k2_sig_'+str(const)+'.pdf') 
 
+target_dist_samples = gauss.sample((num_particles,))
+# target_dist_samples.probs()
+target_samples_logp = gauss.log_prob(target_dist_samples)
+
 print('entropy gt: ', gauss.entropy() ) 
-print('entropy svgd: ', svgd.logp ) 
+print('logp gt: ', -target_samples_logp.mean()) 
+print('entropy svgd: ', -logp_a) 
+
+
+chart = gauss_chart + get_particles_chart(target_dist_samples)
+save(chart,'./ToyExperiments/figs/unimodal_gaussian_k2_sig_'+str(const)+'_debugging.pdf') 
+
+
+
+
+
+logp_a.shape
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 ################################# Experiment: Mixture of 2 Gaussians ###############################
@@ -190,7 +267,7 @@ print('entropy gt: ', -mog2.log_prob(X).mean() )
 print('entropy svgd: ', svgd.logp ) 
 
 
-################################# Experiment: Mixture of 6 Gaussians ###############################
+# ################################# Experiment: Mixture of 6 Gaussians ###############################
 
 class MoG6(MoG):
     def __init__(self, device=None):
@@ -213,7 +290,7 @@ X = X_init.clone()
 svgd = SVGD(mog6, with_logprob=False)
 
 for t in range(1000):
-    X = svgd.step(X, t)
+    X = svgd.step(X)
 
 chart = (mog6_chart + get_particles_chart(X_init.cpu().numpy())) | (mog6_chart + get_particles_chart(X.detach().cpu().numpy()))
 save(chart,'./ToyExperiments/figs/MoG6_k2_svgd2_sig_'+str(const)+'.pdf')  
