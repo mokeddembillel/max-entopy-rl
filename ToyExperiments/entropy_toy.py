@@ -14,7 +14,7 @@ from datetime import datetime
 
 alt.data_transformers.enable('default', max_rows=None)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 identity_mat = torch.eye(2).to(device)
 
 const = 1
@@ -216,25 +216,24 @@ dim = 2
 n = 500 
 
 # Initial distribution of SVGD
-mu = torch.zeros((dim,)) + 4
+mu = (torch.zeros((dim,)) + 4)
 sigma_ = 1.
 sigma = torch.eye(dim) * sigma_
 
-init_dist = torch.distributions.MultivariateNormal(mu,covariance_matrix=sigma)
+init_dist = torch.distributions.MultivariateNormal(mu,covariance_matrix=sigma).to(device)
 X_init = init_dist.sample_n(n)
 
 
 
-
 # sigma = torch.eye(dim) * sigma
-dist = torch.distributions.MultivariateNormal(mu, sigma)
+dist = torch.distributions.MultivariateNormal(mu, sigma).to(device)
 
 
 
 # writer = SummaryWriter('./runs/new/g/'+alg+'/svgd_lr_'+str(svgd_lr)+'/const_'+str(const)+'/n_'+str(n)+'/'+datetime.now().strftime("%b_%d_%Y_%H_%M_%S"))
 
-gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]).to(device),
-    covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]]).to(device))
+gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]),
+    covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]])).to(device)
 
 
 
