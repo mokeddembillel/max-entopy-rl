@@ -10,11 +10,11 @@ from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 from datetime import datetime
-
+import glob, os
 
 alt.data_transformers.enable('default', max_rows=None)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = 'cpu'#torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 identity_mat = torch.eye(2).to(device)
 
 const = 1
@@ -98,7 +98,7 @@ class AdamOptim():
         self.m_dx, self.v_dx = 0, 0
         self.lr = lr
     
-    def step(self, t, x, dx, itr=None): 
+    def step(self,x, dx): 
         dx = dx.view(x.size())
         phi_x = self.lr * dx
         x = x +  phi_x
@@ -109,14 +109,21 @@ class SVGD_v2:
         self.P = P
         self.K = K
         self.optim = optimizer
+
         
         self.logp = 0
         self.logp_line1 = 0
         self.logp_line2 = 0
         self.entropy = 0
-
+        self.entropy_line1_ld = 0
+        self.entropy_line2_ld = 0
         self.with_logprob = with_logprob
         self.act_limit = 1
+
+        #########
+        mu_ld_noise = torch.zeros((dim,)) 
+        sigma_ld_noise = torch.eye(dim) * 0.1
+        self.init_dist_ld = torch.distributions.MultivariateNormal(mu_ld_noise,covariance_matrix=sigma_ld_noise)
 
     def phi(self, X):
         X = X.requires_grad_(True)
@@ -138,7 +145,40 @@ class SVGD_v2:
         self.phi_term2 = self.K_grad.sum(0) / X.size(0)
         phi = self.phi_term1 + self.phi_term2
 
+        # print(self.phi_term1)
+        # print(self.phi_term2)
         return phi
+    
+    def LD(self, X):
+        X = X.requires_grad_(True)
+        log_prob = self.P.log_prob(X)
+        score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0].reshape(X.size())
+        
+        ld = self.optim.lr * score_func 
+        ld += (np.sqrt(self.optim.lr) * self.init_dist_ld.sample((len(X),)) ).to(device)
+        
+        print('tmp1: ', (score_func).mean() )
+        #print('tmp2: ', (torch.sqrt(torch.tensor(self.optim.lr)) * torch.normal(torch.tensor(0.), torch.tensor(0.5))).mean() )
+        return ld
+
+    def compute_entropy_LD(self, phi, X):
+        grad_phi =[]
+        for i in range(len(X)):
+            grad_phi_tmp = []
+            for j in range(X.size(1)):
+                grad_ = autograd.grad(phi[i][j], X, retain_graph=True)[0][i].detach()
+                grad_phi_tmp.append(grad_)
+            grad_phi_tmp = torch.stack(grad_phi_tmp)
+            grad_phi.append(grad_phi_tmp)
+
+        ###############################################debugging entropy###################################################
+        self.grad_phi = torch.stack(grad_phi) 
+        #self.logp_line1 -= torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + self.optim.lr * self.grad_phi)))
+        self.logp_line1 -= torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + self.grad_phi)))
+        self.logp_line2 -= torch.stack([torch.trace(self.grad_phi[i]) for i in range(len(X))])
+        
+        self.entropy_line1_ld -= self.optim.lr * self.logp_line1.squeeze()
+        self.entropy_line2_ld -= self.optim.lr * self.logp_line2.squeeze()
 
 
     def compute_entropy(self, phi, X):
@@ -154,7 +194,7 @@ class SVGD_v2:
             for j in range(X.size(1)):
                 grad_ = autograd.grad(phi[i][j], X, retain_graph=True)[0][i].detach()
                 grad_phi_tmp.append(grad_)
-                grad_phi_term1_tmp.append(autograd.grad(self.phi_term1[i][j], X, retain_graph=True)[0][i] )
+                grad_phi_term1_tmp.append(autograd.grad(self.phi_term1[i][j], X, retain_graph=True)[0][i])
                 grad_phi_term2_tmp.append(autograd.grad(self.phi_term2[i][j], X, retain_graph=True)[0][i] )
 
             grad_phi_tmp = torch.stack(grad_phi_tmp)
@@ -172,8 +212,8 @@ class SVGD_v2:
         
 
         #import pdb; pdb.set_trace()
-        self.logp_line1 -= torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + self.optim.lr * self.grad_phi)))
-        
+        #self.logp_line1 -= torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + self.optim.lr * self.grad_phi)))
+        self.logp_line1 -= torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + self.grad_phi)))
         trace_grad_phi = torch.stack([torch.trace(self.grad_phi[i]) for i in range(len(X))])
         #self.logp_line2 -= self.optim.lr*trace_grad_phi
         self.logp_line2 -= trace_grad_phi
@@ -190,30 +230,30 @@ class SVGD_v2:
         
         self.entropy -= self.optim.lr * (line_4+line_5).squeeze()
 
-        #import pdb; pdb.set_trace()
-        # try:
-        #     assert(((line_4-tr_phi_term1)<1e-3).all())
-        #     assert(((line_5-tr_phi_term2)<1e-3).all())
-        #     assert(((self.logp_line2-self.entropy)<1e-3).all())
-        # except:
-        #     import pdb;pdb.set_trace()
+
 
     def step(self, X, itr):
-        phi_X = self.phi(X) 
-        print('Phi :', phi_X[0])
-        X_new, phi_X_new = self.optim.step(t+1, X, phi_X, itr) 
+        # phi_X = self.phi(X) 
+        phi_X = self.LD(X) 
+        X_new = X + phi_X
+        
+        #X_new, phi_X_new = self.optim.step(X, phi_X) 
 
         if self.with_logprob: 
-            self.compute_entropy(phi_X_new, X)
+            # self.compute_entropy(phi_X_new, X)
+            self.compute_entropy_LD(phi_X, X)
         
         X = X_new.detach()
         return X, phi_X 
 
 
 ################################# Experiment: Unimodal Gaussian ###############################
-lr = 0.1
+files = glob.glob(save_folder_path + '*')
+[os.remove(file) for file in files]
+
+lr = 0.5
 dim = 2
-n = 500 
+n = 10 
 
 # Initial distribution of SVGD
 mu = torch.zeros((dim,)) + 4
@@ -221,18 +261,10 @@ sigma_ = 1.
 sigma = torch.eye(dim) * sigma_
 
 init_dist = torch.distributions.MultivariateNormal(mu,covariance_matrix=sigma)
-X_init = init_dist.sample_n(n)
-
-
-
-
-# sigma = torch.eye(dim) * sigma
-dist = torch.distributions.MultivariateNormal(mu, sigma)
-
+X_init = init_dist.sample((n,))
 
 
 # writer = SummaryWriter('./runs/new/g/'+alg+'/svgd_lr_'+str(svgd_lr)+'/const_'+str(const)+'/n_'+str(n)+'/'+datetime.now().strftime("%b_%d_%Y_%H_%M_%S"))
-
 gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]).to(device),
     covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]]).to(device))
 
@@ -263,10 +295,16 @@ K = RBF()
 svgd = SVGD_v2(gauss, K, AdamOptim(lr), with_logprob=True) 
 
 X_svgd_=[]
-for t in tqdm(range(1000)): 
+for t in tqdm(range(300)): 
     X, phi_X = svgd.step(X, t)
     X_svgd_.append(X.clone())
+    
+    #print(X_svgd_)
 
+    if (t%40)==0: 
+        chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
+        chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), torch.stack(X_svgd_).detach().cpu().numpy())
+        save(alt.hconcat(chart, chart_),save_folder_path + 'unimodal_gaussian_svgd_sig_'+str(const)+ '_iteration_' + str(t) +'.pdf') 
     # writer.add_scalar('stein_identity', phi_X.mean(), t) 
     # writer.add_scalar('entropy/total_line1',  -(init_dist.log_prob(X_init) + svgd.logp_line1).mean(), t) 
     # writer.add_scalar('entropy/total_line2',  -(init_dist.log_prob(X_init) + svgd.logp_line2).mean(), t) 
@@ -286,21 +324,23 @@ for t in tqdm(range(1000)):
     # writer.add_scalar('entropy_intermediate/abs(det(I+grad_phi))' ,torch.abs(torch.det(identity_mat.reshape(-1,2,2) + svgd.grad_phi)).mean(), t)
     # writer.add_scalar('entropy_intermediate/log(abs(det(I+grad_phi)))' ,torch.log(torch.abs(torch.det(identity_mat.reshape(-1,2,2) + svgd.grad_phi))).mean(), t)
 
+'''
 X_svgd_ = torch.stack(X_svgd_)
 
 chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
 chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())
 save(alt.hconcat(chart, chart_),save_folder_path + 'unimodal_gaussian_svgd_sig_'+str(const)+'.pdf') 
-
+'''
 
 print('___________Gaussian____________')
 print('stein at convergence: ', phi_X.mean() )
 print(' ')
-print('logp_gt: ', -gauss.log_prob(X).mean() )
+
 # print('logp_gt: ', gauss.entropy())
 #print('logp_svgd: ',  init_dist_entr_by_hand + svgd.logp)
 
 print(' ')
+print('logp_gt: ', -gauss.log_prob(X).mean() )
 print('entropy gt: ', gauss.entropy() )  
 print('entropy svgd (line 1): ',  -(init_dist.log_prob(X_init) + svgd.logp_line1).mean())
 print(' ')

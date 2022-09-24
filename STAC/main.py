@@ -9,6 +9,7 @@ from envs.multigoal_env import MultiGoalEnv
 from envs.max_entropy_env import MaxEntropyEnv
 import numpy as np
 import gym
+import mujoco_py
 from datetime import datetime
 from utils import AttrDict
 import glob
@@ -16,28 +17,29 @@ import glob
 
 if __name__ == '__main__':
     
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
     
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal'])
+    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
     parser.add_argument('--l_actor', type=int, default=3)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=0.0)
+    parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
+    parser.add_argument('--max_experiment_steps', type=float, default=1e6)
     parser.add_argument('--num_episodes', type=int, default=1000)
-    parser.add_argument('--exploration_episodes', type=int, default=90)
+    parser.add_argument('--exploration_episodes', type=int, default=30)
     #parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=50)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
-    parser.add_argument('--update_after', type=int, default=3000)
+    parser.add_argument('--update_after', type=int, default=1000)
     # parser.add_argument('--update_after', type=int, default=50000)
     #parser.add_argument('--update_every', type=int, default=100)
     parser.add_argument('--update_every', type=int, default=50)
@@ -47,7 +49,7 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=500)
+    parser.add_argument('--batch_size', type=int, default=100)
     ######sac
     parser.add_argument('--sac_test_deterministic', type=bool, default=True)
     ######sql
@@ -58,12 +60,16 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_lr', type=float, default=0.1)
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
+    # parser.add_argument('--max_steps', type=int, default=30)
+    parser.add_argument('--max_steps', type=int, default=1000)
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
-    parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
+    parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
+    parser.add_argument('--fig_path', type=str, default='./STAC/mujoco_plots_/')
+    # parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
-    parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
-    parser.add_argument('--actor_activation', type=object, default=torch.nn.Tanh)
+    parser.add_argument('--critic_activation', type=object, default=torch.nn.ReLU)
+    parser.add_argument('--actor_activation', type=object, default=torch.nn.ReLU)
 
 
     args = parser.parse_args()    
@@ -106,19 +112,20 @@ if __name__ == '__main__':
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0)
 
-    
+
     os.makedirs(args.tensorboard_path + project_name)
-    
+    os.makedirs(args.evaluation_data_path + project_name)
+
     tb_logger = SummaryWriter(args.tensorboard_path + project_name)
 
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
-        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot)
+        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
-    
+
     # critic args
     critic_kwargs = AttrDict(hidden_sizes=[args.hid]*args.l_critic, activation=args.critic_activation)
 
@@ -127,6 +134,8 @@ if __name__ == '__main__':
         env_fn = MultiGoalEnv
     elif args.env == 'max-entropy-v0':
         env_fn = MaxEntropyEnv
+    else: 
+        env_fn = lambda : gym.make(args.env)
     
         
 

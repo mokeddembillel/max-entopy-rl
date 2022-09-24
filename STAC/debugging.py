@@ -93,6 +93,7 @@ class Debugger():
                 if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
                     mu = path['mu'][i][0]
                     std = path['sigma'][i][0]
+                    print('########################## ', mu, std)
                 else:
                     mu = 0
                     std = 1

@@ -8,6 +8,7 @@ from actorcritic import ActorCritic
 from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
 from debugging import Debugger
+import pickle
 
 class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -32,7 +33,8 @@ class MaxEntrRL():
         self.act_limit = self.env.action_space.high[0]
 
         # Create actor-critic module and target networks
-        self.ac = ActorCritic(self.actor, self.env.observation_space, self.env.action_space, self.critic_kwargs, self.actor_kwargs)
+        self.ac = ActorCritic(self.actor, self.env.observation_space, self.env.action_space, self.RL_kwargs.evaluation_data_path, self.critic_kwargs, self.actor_kwargs)
+        # self.ac.state_dict
         self.ac_targ = deepcopy(self.ac)
 
         # move models to device
@@ -51,6 +53,8 @@ class MaxEntrRL():
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
         self.debugger = Debugger(tb_logger, self.ac, self.test_env)
+
+        self.evaluation_data = AttrDict()
 
 
     def compute_loss_q(self, data, itr):
@@ -168,29 +172,35 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        self.test_env.reset_rendering(self.fig_path)
+        # self.test_env.reset_rendering(self.fig_path)
 
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
-            while not(d or (ep_len == self.env.max_steps)):
+            while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                self.debugger.collect_data(o, a.detach(), o2, r, d)    
+                # self.debugger.collect_data(o, a.detach(), o2, r, d)    
                 
                 ep_ret += r
                 ep_len += 1
                 
                 o = o2
-        
-        self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-        self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
-        self.debugger.log_to_tensorboard(itr=itr)
+            self.evaluation_data['test_episodes_return'].append(ep_ret)
+            self.evaluation_data['test_episodes_length'].append(ep_len)
 
         
+        # self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
+        # self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+        # self.debugger.log_to_tensorboard(itr=itr)
+
+        
+    def save_data(self):
+        pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
+        self.ac.save()
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -206,8 +216,14 @@ class MaxEntrRL():
         EpRet = []
         EpLen = []
 
+        self.evaluation_data['train_episodes_return'] = []
+        self.evaluation_data['train_episodes_length'] = []
+        self.evaluation_data['test_episodes_return'] = []
+        self.evaluation_data['test_episodes_length'] = []
+        
         # Main loop: collect experience in env and update/log each epoch
-        while episode_itr < self.RL_kwargs.num_episodes:
+        while step_itr < self.RL_kwargs.max_experiment_steps:
+        # while episode_itr < self.RL_kwargs.num_episodes:
             # Until exploration_episodes have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
@@ -226,7 +242,7 @@ class MaxEntrRL():
             # Ignore the "done" signal if it comes from hitting the time
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
-            d = False if ep_len==self.env.max_steps else d
+            d = False if ep_len == self.RL_kwargs.max_steps else d
 
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
@@ -236,9 +252,11 @@ class MaxEntrRL():
             o = o2
 
             # End of trajectory handling
-            if d or (ep_len == self.env.max_steps):
+            if d or (ep_len == self.RL_kwargs.max_steps):
                 EpRet.append(ep_ret)
                 EpLen.append(ep_len)
+                self.evaluation_data['train_episodes_return'].append(ep_ret)
+                self.evaluation_data['train_episodes_length'].append(ep_len)
 
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
@@ -254,8 +272,8 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                # self.test_agent(episode_itr)
-                
+                self.test_agent(episode_itr)
+                self.save_data()
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
