@@ -42,7 +42,7 @@ class ActorSvgd(torch.nn.Module):
             self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma)
         
         # identity
-        self.identity = torch.eye(self.num_particles).to(self.device)
+        #self.identity = torch.eye(self.num_particles).to(self.device)
         
 
     def svgd_optim(self, x, dx, dq): 
