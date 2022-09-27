@@ -8,7 +8,8 @@ from torch.distributions import Normal, Categorical
 from actors.kernels import RBF
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, device, hidden_sizes, q1, q2, activation=torch.nn.ReLU):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, 
+    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=True):
         super().__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -25,18 +26,34 @@ class ActorSvgd(torch.nn.Module):
         self.test_deterministic = test_deterministic
         self.batch_size = batch_size
 
+        #optimizer parameters
+        self.adaptive_lr = adaptive_lr
+        self.beta = 0.999
+        self.v_dx = 0
+
         if actor == "svgd_nonparam":
             self.a0 = torch.normal(0, self.sigma_p0, size=(5 * batch_size * num_svgd_particles, self.act_dim)).to(self.device)
         else:
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
         if actor == "svgd_p0_kernel_pram":
-            self.Kernel = RBF(True, act_dim, hidden_sizes)
+            self.Kernel = RBF(True, act_dim, hidden_sizes, sigma=kernel_sigma)
         else:
-            self.Kernel = RBF(num_particles=self.num_particles)
+            self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma)
+        
+        # identity
+        self.identity = torch.eye(self.num_particles).to(self.device)
+        
 
-    def svgd_optim(self, x, dx): 
+    def svgd_optim(self, x, dx, dq): 
         dx = dx.view(x.size())
+
+        if self.adaptive_lr:
+            self.v_dx = self.beta * self.v_dx + (1-self.beta) * dq**2
+            v_x_hat = self.v_dx/(1-self.beta)
+            self.svgd_lr = self.svgd_lr * 1/(torch.sqrt(v_x_hat)+1e-8)
+            self.svgd_lr = self.svgd_lr.mean()
+        
         x = x + self.svgd_lr * dx
         return x
 
@@ -58,16 +75,18 @@ class ActorSvgd(torch.nn.Module):
             
             # compute the entropy
             if with_logprob:
-                #import pdb; pdb.set_trace()
-                tmp1 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
-                tmp2 = -2 * K_gamma.view(-1,1) * ((K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
-                logp -= self.svgd_lr * (tmp1+tmp2) 
+                term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
+                term2 = -2 * K_gamma * (( self.K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.num_particles * (self.K_XX-self.identity) ).mean(1)
+                #import pdb; pdb.set_trace()#
+                #tmp1 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
+                #tmp2 = -2 * K_gamma.view(-1,1) * ((K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)
+                logp = logp - self.svgd_lr * (term1 + term2) 
             
-            return phi, log_prob 
+            return phi, log_prob, score_func 
         
         for t in range(self.num_svgd_steps):
-            phi_, q_s_a= phi(a)
-            a = self.svgd_optim(a, phi_)
+            phi_, q_s_a, dq = phi(a)
+            a = self.svgd_optim(a, phi_, dq)
             a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
         
         a = self.act_limit * torch.tanh(a) 

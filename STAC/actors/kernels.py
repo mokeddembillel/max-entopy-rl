@@ -3,10 +3,11 @@ import numpy as np
 from networks import mlp
 
 class RBF(torch.nn.Module):
-    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None):
+    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None, sigma=None):
         super(RBF, self).__init__()
         self.parametrized = parametrized
         self.num_particles = num_particles
+        self.sigma = sigma
 
         if parametrized:
             self.log_std_layer = mlp([num_particles*num_particles] + list(hidden_sizes) + [act_dim] , activation)
@@ -25,7 +26,9 @@ class RBF(torch.nn.Module):
         dist_sq = diff.pow(2).sum(-1)
         dist_sq = dist_sq.unsqueeze(-1)
         
-        if self.parametrized == False:
+        if self.sigma is not None:
+            sigma = self.sigma
+        elif self.parametrized == False:
             # Get median.
             median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
             median_sq = median_sq.reshape(-1,1,1,1)
@@ -39,4 +42,5 @@ class RBF(torch.nn.Module):
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
         kappa = (-gamma * dist_sq).exp()
         kappa_grad = -2. * (diff * gamma) * kappa
+        
         return kappa.squeeze(-1), diff, gamma, kappa_grad
