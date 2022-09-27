@@ -67,7 +67,7 @@ def get_particles_chart(X, X_svgd=None):
 class RBF:
     def __init__(self, sigma=None):
         #self.sigma = sigma
-        self.sigma = 10.0 #sigma
+        self.sigma = 5.0#10.0 #sigma
 
     def forward(self, input_1, input_2):
         _, out_dim1 = input_1.size()[-2:]
@@ -95,7 +95,10 @@ class RBF:
         
         kappa = (-gamma * dist_sq).exp() 
         
+        #kappa_grad = -2. * (diff * gamma) * kappa
+        #kappa = kappa - torch.eye(len(kappa)).unsqueeze(-1).to(device) 
         kappa_grad = -2. * (diff * gamma) * kappa
+
         return kappa.squeeze(), diff, h, kappa_grad, gamma
 
 
@@ -175,6 +178,7 @@ class Entropy_toy():
         # entropy
         self.logp_line1 = 0
         self.logp_line2 = 0
+        self.logp_line3 = 0
         self.logp_line4 = 0
     
     def SVGD(self,X):
@@ -187,13 +191,16 @@ class Entropy_toy():
         self.score_func = score_func.reshape(X.size())
         self.K_XX, self.K_diff, self.K_h, self.K_grad, self.K_gamma = self.K.forward(X, X)        
         self.num_particles =  X.size(0)
+
         self.phi_term1 = self.K_XX.matmul(score_func) / X.size(0)
         self.phi_term2 = self.K_grad.sum(0) / X.size(0)
+        
         phi = self.phi_term1 + self.phi_term2
 
         phi_entropy = (self.K_XX-torch.eye(X.size(0)).to(device)).matmul(score_func) / X.size(0) + self.phi_term2
-        
-        phi_entropy = phi_entropy * (torch.norm(phi_entropy, dim=1).view(-1,1) > 0.0001).int() 
+        #phi_entropy = self.phi_term1 + self.phi_term2
+        #phi_entropy = self.phi_term1
+        #phi_entropy = phi_entropy * (torch.norm(phi_entropy, dim=1).view(-1,1) > 0.0001).int() 
 
         #print('kernel: ',self.K_XX[0])
         
@@ -222,12 +229,47 @@ class Entropy_toy():
         
         grad_phi_trace = torch.stack( [torch.trace(grad_phi[i]) for i in range(len(grad_phi))] ) 
         self.logp_line2 = self.logp_line2 - self.optim.lr_coeff * grad_phi_trace
-
-        tmp1_ = (self.K_grad * self.score_func.unsqueeze(1)).sum(-1).mean(0)
-        tmp2_ = -2 * self.K_gamma * ((self.K_grad * self.K_diff).sum(-1) - X.size(1) * self.K_XX).mean(0)
-        self.logp_line4 = self.logp_line4 - self.optim.lr_coeff * (tmp1_ + tmp2_)
+        
+        ######################################################################################################
+        '''
+        line3_term1 = []
+        for i in range(len(self.score_func)):
+            mat_1 = 0
+            for j in range(len(self.score_func)):
+                mat_1 += torch.trace(self.score_func[j].unsqueeze(-1).matmul( self.K_grad[i,j].unsqueeze(0)))
+                #print(i," ",j, " ", torch.trace(self.score_func[j].unsqueeze(-1).matmul( self.K_grad[j,i].unsqueeze(0))) )
+            #print('_______________________________')
+            line3_term1.append(mat_1/len(self.score_func))
+            
+        line3_term1 = torch.stack(line3_term1)
 
         
+        line3_term2 = []
+        for i in range(len(self.score_func)):
+            mat_2 = 0
+            for j in range(len(self.score_func)):
+                mat_2 += torch.trace( (-2 * self.K_gamma) * ( self.K_diff[j,i].unsqueeze(-1).matmul( self.K_grad[i,j].unsqueeze(0) )- torch.eye(2).to(device)* (self.K_XX-torch.eye(len(self.K_XX)).to(device))[j,i])    )
+                #print(i," ",j, " ", torch.trace(self.score_func[j].unsqueeze(-1).matmul( self.K_grad[j,i].unsqueeze(0))) )
+            line3_term2.append(mat_2/len(self.score_func))
+        
+        line3_term2 = torch.stack(line3_term2)
+        self.logp_line3 = self.logp_line3 - self.optim.lr_coeff * (line3_term1 + line3_term2)
+        #self.logp_line3 = self.logp_line3 - self.optim.lr_coeff *  line3_term1
+        #self.logp_line3 = self.logp_line3 - self.optim.lr_coeff *  line3_term2
+        
+        #line3_term1 = (self.K_grad * self.score_func.unsqueeze(1)).sum(-1).mean(0)
+        #line3_term2 = -2 * self.K_gamma * ((self.K_grad * self.K_diff).sum(-1) - X.size(1) * (self.K_XX-torch.eye(X.size(0)).to(device)) ).mean(0)
+        #self.logp_line3 = self.logp_line4 - self.optim.lr_coeff * (line4_term1 + line4_term2)
+        '''
+        ######################################################################################################
+        #line4_term1 = (self.K_grad * self.score_func.unsqueeze(1)).sum(-1).mean(0)
+        line4_term1 = (self.K_grad * self.score_func.unsqueeze(0)).sum(-1).mean(1)
+        line4_term2 = -2 * self.K_gamma * (( self.K_grad.permute(1,0,2) * self.K_diff).sum(-1) - X.size(1) * (self.K_XX-torch.eye(len(self.K_XX)).to(device)) ).mean(0)
+        
+        
+        self.logp_line4 = self.logp_line4 - self.optim.lr_coeff * (line4_term1 + line4_term2)
+        #self.logp_line4 = self.logp_line4 - self.optim.lr_coeff * line4_term1
+        #self.logp_line4 = self.logp_line4 - self.optim.lr_coeff * line4_term2
 
 
     def step(self, X, itr, alg=None, adaptive_lr=None):
@@ -288,7 +330,7 @@ experiment = Entropy_toy(gauss, RBF(), Optim(lr), num_particles=n, particles_dim
 gauss_chart = get_density_chart(gauss, d=7.0, step=0.1) 
 chart = gauss_chart + get_particles_chart(X_init.cpu().numpy())
 
-alt_save(chart, "./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")          
+#alt_save(chart, "./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")          
 
 
 
@@ -305,6 +347,7 @@ def main_loop(alg, X, steps, adaptive_lr):
 
     line_1 = []
     line_2 = []
+    line_3 = []
     line_4 = []
 
     for t in range(steps):
@@ -319,17 +362,21 @@ def main_loop(alg, X, steps, adaptive_lr):
         # term2.append(experiment.phi_term2)
         line_1.append( -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item() )
         line_2.append( -(init_dist.log_prob(X_init) + experiment.logp_line2).mean().item() )
+        #line_3.append( -(init_dist.log_prob(X_init) + experiment.logp_line3).mean().item() )
         line_4.append( -(init_dist.log_prob(X_init) + experiment.logp_line4).mean().item() )
         print(t, ' entropy svgd (line 1): ',  line_1[-1])
         print(t, ' entropy svgd (line 2): ',  line_2[-1])
+        #print(t, ' entropy svgd (line 3): ',  line_3[-1])
         print(t, ' entropy svgd (line 4): ',  line_4[-1])
         #print('sampler logprob ', experiment.logp_line1.mean()) 
         #X_svgd_ = torch.stack(X_svgd_)
         # Plotting the results 
+        
         if (t%100)==0: 
             chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
             alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
             charts.append(chart)
+        
         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())
         print()
         # print('entropy gt: ', gauss.entropy().item())  
@@ -338,11 +385,12 @@ def main_loop(alg, X, steps, adaptive_lr):
         print()
         print('init_dist_entr_GT ', init_dist.log_prob(X_init).mean()) 
         print('sampler logprob ', experiment.logp_line1.mean()) 
-    return charts, line_1, line_2
+    return charts, line_1, line_2, line_4
 
 
 """# Run SVGD"""
-charts, line_1, line_2, line_4 = main_loop('svgd', X_init.clone(), steps=400, adaptive_lr=False)
+charts, line_1, line_2, line_4 = main_loop('svgd', X_init.clone(), steps=1000, adaptive_lr=False)
+
 alt_save(charts[-1], "./ToyExperiments/figs/gmm_"+str(gmm)+".png")  
 
 print('gmm: ', gmm)

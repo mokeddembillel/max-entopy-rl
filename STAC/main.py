@@ -20,10 +20,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
     
-    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2'])
+    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
@@ -60,6 +60,8 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_lr', type=float, default=0.1)
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
+    parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
+    parser.add_argument('--svgd_adaptive_lr', type=bool, default=True)
     # parser.add_argument('--max_steps', type=int, default=30)
     parser.add_argument('--max_steps', type=int, default=1000)
     # tensorboard
@@ -96,7 +98,8 @@ if __name__ == '__main__':
     if (args.actor in ['svgd_nonparam','svgd_p0_pram','svgd_p0_kernel_pram']):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, 
             svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
-            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
+            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation, 
+            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr)
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
