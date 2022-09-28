@@ -32,8 +32,7 @@ class MultiGoalEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0,
-                 init_sigma=0.05, max_steps=30):
+    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
