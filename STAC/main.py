@@ -5,7 +5,6 @@ import random
 import torch
 import os
 from torch.utils.tensorboard import SummaryWriter
-from envs.multigoal_env import MultiGoalEnv
 from envs.max_entropy_env import MaxEntropyEnv
 import numpy as np
 import gym
@@ -20,10 +19,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
     
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
+    parser.add_argument('--env', type=str, default='HalfCheetah-v2', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
@@ -35,8 +34,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--max_experiment_steps', type=float, default=1e6)
     parser.add_argument('--num_episodes', type=int, default=1000)
+    #parser.add_argument('--exploration_episodes', type=int, default=30)
     parser.add_argument('--exploration_episodes', type=int, default=30)
-    #parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=50)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     parser.add_argument('--update_after', type=int, default=1000)
@@ -45,6 +44,8 @@ if __name__ == '__main__':
     parser.add_argument('--update_every', type=int, default=50)
     #parser.add_argument('--max_ep_len', type=int, default=1000)
     # parser.add_argument('--max_ep_len', type=int, default=500)
+    parser.add_argument('--max_steps', type=int, default=1000)
+    #parser.add_argument('--max_steps', type=int, default=1000)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
@@ -61,9 +62,8 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
-    parser.add_argument('--svgd_adaptive_lr', type=bool, default=True)
-    # parser.add_argument('--max_steps', type=int, default=30)
-    parser.add_argument('--max_steps', type=int, default=1000)
+    parser.add_argument('--svgd_adaptive_lr', type=bool, default=False)
+    
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
@@ -73,6 +73,7 @@ if __name__ == '__main__':
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ReLU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ReLU)
 
+    parser.add_argument('--epoch', type=int, default=4000)
 
     args = parser.parse_args()    
     
@@ -110,7 +111,7 @@ if __name__ == '__main__':
     
     # Logging
     #
-    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2]
+    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2]+ '_seed_' + str(args.seed)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0)
@@ -124,7 +125,8 @@ if __name__ == '__main__':
     # RL args
     RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
-        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
+        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
+        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, epoch=args.epoch)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
@@ -134,11 +136,11 @@ if __name__ == '__main__':
 
     # stac
     if args.env =='Multigoal':
-        env_fn = MultiGoalEnv
+        env_fn = MultiGoalEnv(max_steps=RL_kwargs.max_steps)
     elif args.env == 'max-entropy-v0':
-        env_fn = MaxEntropyEnv
+        env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps)
     else: 
-        env_fn = lambda : gym.make(args.env)
+        env_fn = gym.make(args.env)
     
         
 

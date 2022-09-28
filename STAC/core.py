@@ -24,7 +24,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn(), env_fn()
+        self.env, self.test_env = env_fn, env_fn
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -172,7 +172,8 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        # self.test_env.reset_rendering(self.fig_path)
+        if self.env_name == 'Multigoal':
+            self.test_env.reset_rendering(self.fig_path)
 
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
@@ -183,7 +184,8 @@ class MaxEntrRL():
                 a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                # self.debugger.collect_data(o, a.detach(), o2, r, d)    
+                if self.env_name == 'Multigoal':
+                    self.debugger.collect_data(o, a.detach(), o2, r, d)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -192,10 +194,10 @@ class MaxEntrRL():
             self.evaluation_data['test_episodes_return'].append(ep_ret)
             self.evaluation_data['test_episodes_length'].append(ep_len)
 
-        
-        # self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-        # self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
-        # self.debugger.log_to_tensorboard(itr=itr)
+        if self.env_name == 'Multigoal':
+            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
+            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+            self.debugger.log_to_tensorboard(itr=itr)
 
         
     def save_data(self):
@@ -216,6 +218,7 @@ class MaxEntrRL():
         EpRet = []
         EpLen = []
 
+
         self.evaluation_data['train_episodes_return'] = []
         self.evaluation_data['train_episodes_length'] = []
         self.evaluation_data['test_episodes_return'] = []
@@ -224,6 +227,7 @@ class MaxEntrRL():
         # Main loop: collect experience in env and update/log each epoch
         while step_itr < self.RL_kwargs.max_experiment_steps:
         # while episode_itr < self.RL_kwargs.num_episodes:
+            print('step: ', step_itr)
             # Until exploration_episodes have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
@@ -272,6 +276,8 @@ class MaxEntrRL():
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
+                print('___test___')
+                
                 self.test_agent(episode_itr)
                 self.save_data()
                 for tag, value in self.ac.named_parameters():    ### commented right now ###

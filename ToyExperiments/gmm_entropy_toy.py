@@ -16,50 +16,18 @@ import altair as alt
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-from altair_saver import save as alt_save
+# from altair_saver import save as alt_save
+import pickle
+import argparse
+
 alt.data_transformers.enable('default', max_rows=None)
+
+from utils import get_density_chart, get_particles_chart, GMMDist, run_experiment
 
 """# Global Variables"""
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 const = 1
-
-"""# Plotting Functions"""
-
-def get_density_chart(P, d=7.0, step=0.1):
-    xv, yv = torch.meshgrid([torch.arange(-d, d, step), torch.arange(-d, d, step)])
-    pos_xy = torch.cat((xv.unsqueeze(-1), yv.unsqueeze(-1)), dim=-1)
-    p_xy = P.log_prob(pos_xy.to(device)).exp().unsqueeze(-1).cpu()
-
-    df = torch.cat([pos_xy, p_xy], dim=-1).numpy()
-    df = pd.DataFrame({
-        'x': df[:, :, 0].ravel(),
-        'y': df[:, :, 1].ravel(),
-        'p': df[:, :, 2].ravel(),})
-
-    chart = alt.Chart(df).mark_point().encode(
-    x='x:Q',
-    y='y:Q',
-    color=alt.Color('p:Q', scale=alt.Scale(scheme='viridis')),
-    tooltip=['x','y','p'])
-
-    return chart
-
-
-def get_particles_chart(X, X_svgd=None):
-    df = pd.DataFrame({
-        'x': X[:, 0],
-        'y': X[:, 1],})
-
-    chart = alt.Chart(df).mark_circle(color='red').encode(x='x:Q',y='y:Q')
-
-    if X_svgd is not None:
-        #import pdb; pdb.set_trace()
-        for i in range(np.shape(X_svgd)[1]):
-            df_trajectory = pd.DataFrame({'x': X_svgd[:,i,0],'y': X_svgd[:,i,1],})
-            chart += alt.Chart(df_trajectory).mark_line().mark_circle(color='green').encode(x='x:Q',y='y:Q')
-
-    return chart
 
 """# Kernels"""
 
@@ -101,37 +69,6 @@ class RBF:
 
         return kappa.squeeze(), diff, h, kappa_grad, gamma
 
-
-class GMMDist(object):
-    def __init__(self, dim, n_gmm):
-        def _compute_mu(i):
-            return 4.0 * torch.Tensor([[torch.tensor(i * math.pi / (n_gmm//2)).sin(),torch.tensor(i * math.pi / (n_gmm//2)).cos()]])
-        
-        self.mix_probs = 0.25 * torch.ones(n_gmm).to(device)
-        # self.means = torch.stack([5 * torch.ones(dim), -torch.ones(dim) * 5], dim=0)
-        # self.mix_probs = torch.tensor([0.1, 0.1, 0.8])
-        # self.means = torch.stack([5 * torch.ones(dim), torch.zeros(dim), -torch.ones(dim) * 5], dim=0)
-        self.means = torch.cat([_compute_mu(i) for i in range(n_gmm)], dim=0).to(device)
-        #self.means = torch.stack([5 * torch.ones(dim).to(device), -torch.ones(dim).to(device) * 5], dim=0)
-        self.sigma = 1.0
-        self.std = torch.stack([torch.ones(dim).to(device) * self.sigma for i in range(len(self.mix_probs))], dim=0)
-
-    def sample(self, n):
-        n = n[0]
-        mix_idx = torch.multinomial(self.mix_probs, n, replacement=True)
-        means = self.means[mix_idx]
-        stds = self.std[mix_idx]
-        return torch.randn_like(means) * stds + means
-
-    def log_prob(self, samples):
-        logps = []
-        for i in range(len(self.mix_probs)):
-            logps.append((-((samples - self.means[i]) ** 2).sum(dim=-1) / (2 * self.sigma ** 2) - 0.5 * np.log(
-                2 * np.pi * self.sigma ** 2)) + self.mix_probs[i].log())
-        logp = torch.logsumexp(torch.stack(logps, dim=0), dim=0)
-        return logp
-
-
 """# Optimizer"""
 class Optim():
     def __init__(self, lr=None):
@@ -161,8 +98,9 @@ class Optim():
 """# Entropy Toy Class"""
 
 class Entropy_toy():
-    def __init__(self, P, K, optimizer, num_particles, particles_dim, with_logprob):
+    def __init__(self, P, init_dist, K, optimizer, num_particles, particles_dim, with_logprob):
         self.P = P
+        self.init_dist = init_dist
         self.optim = optimizer
         self.num_particles = num_particles
         self.particles_dim = particles_dim
@@ -175,6 +113,7 @@ class Entropy_toy():
         self.init_dist_ld = torch.distributions.MultivariateNormal(mu_ld_noise,covariance_matrix=sigma_ld_noise)
         self.identity_mat = torch.eye(self.particles_dim).to(device)
 
+        
         # entropy
         self.logp_line1 = 0
         self.logp_line2 = 0
@@ -289,81 +228,79 @@ class Entropy_toy():
         
         return X, phi_X
 
-"""# Initializations"""
 
-lr = .5
-dim = 2
-# number of particles
-n = 200
-
-gmm = 1
-sig = 1
-# Initial distribution of SVGD
-if (gmm == 1):
-    mu = torch.zeros((dim,)) + 4 
-    sigma_ = 0.2 #6
-else:
-    mu = torch.zeros((dim,)) 
-    #mu[0]=-4
-    #mu[1]=4
-    sigma_ = 0.2 #6
-#
-sigma = torch.eye(dim) * sigma_
-init_dist = torch.distributions.MultivariateNormal(mu.to(device),covariance_matrix=sigma.to(device))
+def run_experiment(exper_params, gauss, gauss_chart, expers_data, particles_dim, steps, lr_adaptive):
+    
+    num_particles = int(exper_params[0])
+    lr = exper_params[1]
+    kernel_sigma = exper_params[2]
+    init_dist_mu = exper_params[3]
+    init_dist_sigma = exper_params[4]
+    target_dist_sigma = exper_params[5]
+    gmm = exper_params[6]
 
 
-X_init = init_dist.sample((n,))
+    mu = torch.zeros((particles_dim,)) + init_dist_mu
+    sigma = torch.eye(particles_dim) * init_dist_sigma
 
-# Target distribution of SVGD
-if (gmm == 1):
-    #gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]).to(device),covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]]).to(device)
-    sig = 1.0 #0.2
-    print('sig ', sig)
-    gauss = torch.distributions.MultivariateNormal(torch.Tensor([0.0,0.0]).to(device),covariance_matrix= sig * torch.Tensor([[1.0,0.0],[0.0,1.0]]).to(device))
-else:
-    gauss = GMMDist(dim=2, n_gmm=gmm)
-    #gauss = MoG2(device=device)
-# Initialize the experiment
-experiment = Entropy_toy(gauss, RBF(), Optim(lr), num_particles=n, particles_dim=dim, with_logprob=True) 
+    init_dist = torch.distributions.MultivariateNormal(mu.to(device), covariance_matrix=sigma.to(device))
+    X_init = init_dist.sample((num_particles,))
 
-# Plotting the Target distribution with the initial particles 
-gauss_chart = get_density_chart(gauss, d=7.0, step=0.1) 
-chart = gauss_chart + get_particles_chart(X_init.cpu().numpy())
+    init_chart = gauss_chart + get_particles_chart(X_init.cpu().numpy())
+    
 
-#alt_save(chart, "./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")          
+    experiment = Entropy_toy(gauss, init_dist, RBF(sigma=kernel_sigma), Optim(lr), num_particles=num_particles, particles_dim=particles_dim, with_logprob=True) 
+
+    
+    charts, line_1, line_2, line_4 = main_loop('svgd', experiment, gauss_chart, X_init, steps,lr_adaptive)
 
 
+    """# Run Lengevin Dynamics"""
+    #charts = main_loop('ld', X_init.clone(), steps=200)
+    #charts[-1]
+    plt.plot(np.arange(len(line_1)),line_1, c="r", label="line_1")
+    plt.plot(np.arange(len(line_2)),line_2, c="b", label="line_2")
+    plt.title('Comparison between the entropy of Line 1 and Line 2')
+    plt.xlabel('Training iterations')
+    plt.ylabel('Entropy')
+    plt.legend()
+    plt.savefig('./ToyExperiments/figs/line_1_line_2.png')
+    plt.close()
 
-"""# Main Loop"""
+    expers_data['parameters'][-1]['num_particles'] = num_particles
+    expers_data['parameters'][-1]['lr'] = lr
+    expers_data['parameters'][-1]['kernel_sigma'] = kernel_sigma
+    expers_data['parameters'][-1]['init_dist_mu'] = init_dist_mu
+    expers_data['parameters'][-1]['init_dist_sigma'] = init_dist_sigma
+    expers_data['parameters'][-1]['target_dist_sigma'] = target_dist_sigma
+    expers_data['parameters'][-1]['gmm'] = gmm
+    expers_data['results'][-1]['init_chart'] = init_chart
+    expers_data['results'][-1]['charts'] = charts
+    expers_data['results'][-1]['line_1'] = line_1
+    expers_data['results'][-1]['line_2'] = line_2
+    expers_data['results'][-1]['line_4'] = line_4
 
-# Main_loop
-charts = []
-term1 = []
-term2 = []
 
-def main_loop(alg, X, steps, adaptive_lr):
-
+def main_loop(alg, experiment, gauss_chart, X_init, steps, adaptive_lr):
+    X = X_init.clone()
     print('steps ', steps)
 
+    charts = []
     line_1 = []
     line_2 = []
     line_3 = []
     line_4 = []
+    X_svgd_ = []
 
     for t in range(steps):
         print(t)
         X, _ = experiment.step(X, t, alg, adaptive_lr)
-        #X_svgd_.append(X.clone())
+        X_svgd_.append(X.clone())
         
-        #if (t%10)==0: 
-        #chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
-        #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), torch.stack(X_svgd_).detach().cpu().numpy())
-        # term1.append(experiment.phi_term1)
-        # term2.append(experiment.phi_term2)
-        line_1.append( -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item() )
-        line_2.append( -(init_dist.log_prob(X_init) + experiment.logp_line2).mean().item() )
-        #line_3.append( -(init_dist.log_prob(X_init) + experiment.logp_line3).mean().item() )
-        line_4.append( -(init_dist.log_prob(X_init) + experiment.logp_line4).mean().item() )
+        line_1.append( -(experiment.init_dist.log_prob(X_init) + experiment.logp_line1).mean().item())
+        line_2.append( -(experiment.init_dist.log_prob(X_init) + experiment.logp_line2).mean().item())
+        # line_3.append( -(init_dist.log_prob(X_init) + experiment.logp_line3).mean().item() )
+        line_4.append( -(experiment.init_dist.log_prob(X_init) + experiment.logp_line4).mean().item())
         print(t, ' entropy svgd (line 1): ',  line_1[-1])
         print(t, ' entropy svgd (line 2): ',  line_2[-1])
         #print(t, ' entropy svgd (line 3): ',  line_3[-1])
@@ -373,38 +310,77 @@ def main_loop(alg, X, steps, adaptive_lr):
         # Plotting the results 
         
         if (t%100)==0: 
-            chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
-            alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
+            chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), device=device)
+            # alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
             charts.append(chart)
         
         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())
         print()
         # print('entropy gt: ', gauss.entropy().item())  
         print('entropy gt (logp): ', - gauss.log_prob(X).mean())  
-        print('entropy svgd/LD (line 1): ',  -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item())
+        print('entropy svgd/LD (line 1): ',  -(experiment.init_dist.log_prob(X_init) + experiment.logp_line1).mean().item())
         print()
-        print('init_dist_entr_GT ', init_dist.log_prob(X_init).mean()) 
+        print('init_dist_entr_GT ', experiment.init_dist.log_prob(X_init).mean()) 
         print('sampler logprob ', experiment.logp_line1.mean()) 
     return charts, line_1, line_2, line_4
 
 
-"""# Run SVGD"""
-charts, line_1, line_2, line_4 = main_loop('svgd', X_init.clone(), steps=1000, adaptive_lr=False)
+if __name__ == '__main__':
+    
+    parser = argparse.ArgumentParser()
 
-alt_save(charts[-1], "./ToyExperiments/figs/gmm_"+str(gmm)+".png")  
+    parser.add_argument('--num_particles', type=float, default=200)
+    parser.add_argument('--lr', type=float, default=0.5)
+    parser.add_argument('--lr_adaptive', type=float, default=True)
+    parser.add_argument('--kernel_sigma', type=float, default=None)
+    parser.add_argument('--init_dist_mu', type=float, default=None)
+    parser.add_argument('--init_dist_sigma', type=float, default=None)
+    parser.add_argument('--targer_dist_sigma', type=float, default=1.)
+    parser.add_argument('--target_dist_sigma', type=float, default=None)
+    parser.add_argument('--gmm', type=float, default=1)
 
-print('gmm: ', gmm)
-print('sig ', sig)
-"""# Run Lengevin Dynamics"""
-#charts = main_loop('ld', X_init.clone(), steps=200)
-#charts[-1]
-plt.plot(np.arange(len(line_1)),line_1, c="r", label="line_1")
-plt.plot(np.arange(len(line_2)),line_2, c="b", label="line_2")
-plt.title('Comparison between the entropy of Line 1 and Line 2')
-plt.xlabel('Training iterations')
-plt.ylabel('Entropy')
-plt.legend()
-plt.savefig('./ToyExperiments/figs/line_1_line_2.png')
-plt.close()
+    parser.add_argument('--steps', type=int, default=500)
+    args = parser.parse_args()    
+
+
+    expers_data = {
+        'parameters':[],
+        'results':[]
+    }
+
+    particles_dim = 2
+    steps = args.steps
+    gmm = args.gmm
+
+    if (gmm == 1):
+        args.init_dist_mu = 4 
+        args.init_dist_sigma = 0.2 #6
+        args.target_dist_sigma = 1.0
+        gauss = torch.distributions.MultivariateNormal(torch.Tensor([0.0,0.0]).to(device),covariance_matrix= args.target_dist_sigma * torch.Tensor([[1.0,0.0],[0.0,1.0]]).to(device))
+    else:
+        args.init_dist_mu = 1
+        args.init_dist_sigma = 0.2 #6
+        gauss = GMMDist(dim=2, n_gmm=gmm, deevice=device)
+
+    exper_params = [args.num_particles, args.lr, args.kernel_sigma, args.init_dist_mu, args.init_dist_sigma, args.target_dist_sigma, args.gmm]
+
+    gauss_chart = get_density_chart(gauss, d=7.0, step=0.1, device=device) 
+
+    expers_data['entropy_gt'] = gauss.entropy().item()
+
+    
+    print('Experiment run : num_particles--> ', exper_params[0],' lr--> ', exper_params[1],' kernel_sigma--> ', exper_params[2],' init_dist_mu--> ', exper_params[3], ' init_dist_sigma--> ', exper_params[4], ' target_dist_sigma--> ', exper_params[5], ' gmm--> ', exper_params[6])
+    expers_data['parameters'].append({})
+    expers_data['results'].append({})
+
+
+    # print()
+    run_experiment(exper_params, gauss, gauss_chart, expers_data, particles_dim, steps, args.lr_adaptive)
+
+    pickle.dump(expers_data, open('exper_result_files/results_experiment_num_particles_'+ str(exper_params[0])+ '_lr_'+ str(exper_params[1])+ '_kernel_sigma_'+ str(exper_params[2])+ '_init_dist_mu_'+ str(exper_params[3])+ '_init_dist_sigma_'+ str(exper_params[4])+ '_target_dist_sigma_' + str(exper_params[5]) + '_gmm_' + str(exper_params[6]) + '_.pkl', "wb"))
+    
+    print('Finished. Results Data Saved !, results_experiment_num_particles_', str(exper_params[0]), '_lr_', str(exper_params[1]), '_kernel_sigma_', str(exper_params[2]), '_init_dist_mu_', str(exper_params[3]), '_init_dist_sigma_', str(exper_params[4]), '_target_dist_sigma_' , str(exper_params[5]) , '_gmm_' , str(exper_params[6]), '_.pkl')
+
+
 
 
