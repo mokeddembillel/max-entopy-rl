@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
     
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['HalfCheetah-v2', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
+    parser.add_argument('--env', type=str, default='HalfCheetah-v2', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
@@ -30,13 +30,13 @@ if __name__ == '__main__':
     parser.add_argument('--l_actor', type=int, default=3)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=0.2)
+    parser.add_argument('--alpha', type=float, default=5.0)
     parser.add_argument('--replay_size', type=int, default=1e6)
 
     parser.add_argument('--max_experiment_steps', type=float, default=1e6)
     parser.add_argument('--num_episodes', type=int, default=1000)
-    parser.add_argument('--exploration_episodes', type=int, default=30)
-    #parser.add_argument('--exploration_episodes', type=int, default=200)
+    #parser.add_argument('--exploration_episodes', type=int, default=30)
+    parser.add_argument('--exploration_episodes', type=int, default=200)
     parser.add_argument('--num_test_episodes', type=int, default=50)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     parser.add_argument('--update_after', type=int, default=1000)
@@ -45,6 +45,8 @@ if __name__ == '__main__':
     parser.add_argument('--update_every', type=int, default=50)
     #parser.add_argument('--max_ep_len', type=int, default=1000)
     # parser.add_argument('--max_ep_len', type=int, default=500)
+    parser.add_argument('--max_steps', type=int, default=30)
+    #parser.add_argument('--max_steps', type=int, default=1000)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
@@ -61,14 +63,13 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
-    parser.add_argument('--svgd_adaptive_lr', type=bool, default=True)
-    # parser.add_argument('--max_steps', type=int, default=30)
-    parser.add_argument('--max_steps', type=int, default=1000)
+    parser.add_argument('--svgd_adaptive_lr', type=bool, default=False)
+    
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
-    parser.add_argument('--fig_path', type=str, default='./STAC/mujoco_plots_/')
-    # parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
+    #parser.add_argument('--fig_path', type=str, default='./STAC/mujoco_plots_/')
+    parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ReLU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ReLU)
@@ -134,11 +135,11 @@ if __name__ == '__main__':
 
     # stac
     if args.env =='Multigoal':
-        env_fn = MultiGoalEnv
+        env_fn = MultiGoalEnv(max_steps=RL_kwargs.max_steps)
     elif args.env == 'max-entropy-v0':
-        env_fn = MaxEntropyEnv
+        env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps)
     else: 
-        env_fn = lambda : gym.make(args.env)
+        env_fn = gym.make(args.env)
     
         
 

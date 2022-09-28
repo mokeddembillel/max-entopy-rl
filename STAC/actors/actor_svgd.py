@@ -42,18 +42,19 @@ class ActorSvgd(torch.nn.Module):
             self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma)
         
         # identity
-        #self.identity = torch.eye(self.num_particles).to(self.device)
+        self.identity = torch.eye(self.num_particles).to(self.device)
         
 
     def svgd_optim(self, x, dx, dq): 
         dx = dx.view(x.size())
 
-        if self.adaptive_lr:
+        if self.adaptive_lr and dq.mean()>1.0:
             self.v_dx = self.beta * self.v_dx + (1-self.beta) * dq**2
             v_x_hat = self.v_dx/(1-self.beta)
             self.svgd_lr = self.svgd_lr * 1/(torch.sqrt(v_x_hat)+1e-8)
             self.svgd_lr = self.svgd_lr.mean()
         
+        # print('self.svgd_lr', self.svgd_lr)
         x = x + self.svgd_lr * dx
         return x
 
@@ -76,7 +77,7 @@ class ActorSvgd(torch.nn.Module):
             # compute the entropy
             if with_logprob:
                 term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
-                term2 = -2 * K_gamma * (( self.K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.num_particles * (self.K_XX-self.identity) ).mean(1)
+                term2 = -2 * K_gamma * ( (K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.num_particles * (K_XX-self.identity) ).mean(1)
                 #import pdb; pdb.set_trace()#
                 #tmp1 = (K_grad * score_func.reshape(-1,1,self.num_particles,self.act_dim)).sum(-1).mean(-1)
                 #tmp2 = -2 * K_gamma.view(-1,1) * ((K_grad * K_diff).sum(-1) - self.act_dim * K_XX).mean(-1)

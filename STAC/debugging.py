@@ -35,7 +35,9 @@ class Debugger():
                 'q_hess_mid': None, 
                 'q_hess_end': None, 
                 })
+
         self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
+
         if self.ac.pi.actor != 'sac':
             self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
@@ -48,6 +50,8 @@ class Debugger():
         if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(self.ac.pi.sigma.detach().cpu().numpy())
+        
+        print('***********************',len( self.episodes_information[-1]['observations'] ),'********', len(self.episodes_information[-1]['mu']))
         
         grad_q_ = torch.autograd.grad(torch.min(q1_value, q2_value), a, retain_graph=True, create_graph=True)[0].squeeze()
         hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
@@ -78,6 +82,7 @@ class Debugger():
             ax = self.env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
+
             if self.ac.pi.actor != 'sac':
                 for indx, i in enumerate([0, 10, 25]):
                     if len(positions) > i+1:
@@ -93,7 +98,7 @@ class Debugger():
                 if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
                     mu = path['mu'][i][0]
                     std = path['sigma'][i][0]
-                    print('########################## ', mu, std)
+                    # print('########################## ', mu, std)
                 else:
                     mu = 0
                     std = 1

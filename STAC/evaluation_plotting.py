@@ -41,14 +41,16 @@ def plot_results(evaluations, moving_average_window=None):
 
 project_name = 'Sep_24_2022_15_36_16_sac_Ant-v2_alpha_0.2_batch_size_100_lr_critic_0.001_lr_actor_0.001_activation_ReLU'
 evaluations = {
-    'experiments': ['sac_halfcheetah', 'sac_hopper', 'sac_walker2d', 'sac_ant', 'sql_hopper', 'sql_walker2d'],
+    'experiments': ['sac_halfcheetah', 'sac_hopper', 'sac_walker2d', 'sac_ant', 'sql_hopper', 'sql_walker2d', 'sql_halfcheetah', 'sql_ant'],
     'projects_names': [
         'Sep_24_2022_15_36_15_sac_HalfCheetah-v2_alpha_0.2_batch_size_100_lr_critic_0.001_lr_actor_0.001_activation_ReLU',
         'Sep_24_2022_15_36_15_sac_Hopper-v2_alpha_0.2_batch_size_100_lr_critic_0.001_lr_actor_0.001_activation_ReLU',
         'Sep_24_2022_15_36_15_sac_Walker2d-v2_alpha_0.2_batch_size_100_lr_critic_0.001_lr_actor_0.001_activation_ReLU',
         'Sep_24_2022_15_36_16_sac_Ant-v2_alpha_0.2_batch_size_100_lr_critic_0.001_lr_actor_0.001_activation_ReLU',
         'Sep_25_2022_19_24_36_svgd_sql_Hopper-v2_alpha_1.0_batch_size_100_lr_critic_0.01_lr_actor_0.001_activation_ReLU',
-        'Sep_25_2022_19_24_36_svgd_sql_Walker2d-v2_alpha_1.0_batch_size_100_lr_critic_0.01_lr_actor_0.001_activation_ReLU'
+        'Sep_25_2022_19_24_36_svgd_sql_Walker2d-v2_alpha_1.0_batch_size_100_lr_critic_0.01_lr_actor_0.001_activation_ReLU',
+        'Sep_25_2022_19_24_36_svgd_sql_HalfCheetah-v2_alpha_1.0_batch_size_100_lr_critic_0.01_lr_actor_0.001_activation_ReLU',
+        'Sep_25_2022_19_24_36_svgd_sql_Ant-v2_alpha_1.0_batch_size_100_lr_critic_0.01_lr_actor_0.001_activation_ReLU'
     ]
 
 }
