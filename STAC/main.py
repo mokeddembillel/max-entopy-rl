@@ -5,7 +5,6 @@ import random
 import torch
 import os
 from torch.utils.tensorboard import SummaryWriter
-from envs.multigoal_env import MultiGoalEnv
 from envs.max_entropy_env import MaxEntropyEnv
 import numpy as np
 import gym
@@ -62,9 +61,9 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
-    parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
-    parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)
     
+    parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
+    parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
     args = parser.parse_args()    
     
     ################# Best parameters for SQL #################
@@ -105,7 +104,7 @@ if __name__ == '__main__':
     
     # Logging
     #
-    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2]
+    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2]+ '_seed_' + str(args.seed)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0)
@@ -119,7 +118,8 @@ if __name__ == '__main__':
     # RL args
     RL_kwargs = AttrDict(stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
-        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
+        update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
+        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, epoch=args.epoch)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
