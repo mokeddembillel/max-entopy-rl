@@ -39,6 +39,8 @@ class RBF(torch.nn.Module):
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
             sigma = torch.exp(log_std)
         
+        print('***** sigma ', sigma[0])
+
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
         kappa = (-gamma * dist_sq).exp()
         kappa_grad = -2. * (diff * gamma) * kappa

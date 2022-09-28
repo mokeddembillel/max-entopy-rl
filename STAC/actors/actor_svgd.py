@@ -17,7 +17,7 @@ class ActorSvgd(torch.nn.Module):
         self.act_limit = act_limit
         self.num_particles = num_svgd_particles
         self.num_svgd_steps = num_svgd_steps
-        self.svgd_lr = svgd_lr
+        self.svgd_lr_init = svgd_lr
         self.device = device
         self.q1 = q1
         self.q2 = q2
@@ -48,16 +48,16 @@ class ActorSvgd(torch.nn.Module):
     def svgd_optim(self, x, dx, dq): 
         dx = dx.view(x.size())
 
-        if self.adaptive_lr and dq.mean()>1.0:
-            self.v_dx = self.beta * self.v_dx + (1-self.beta) * dq**2
-            v_x_hat = self.v_dx/(1-self.beta)
-            self.svgd_lr = self.svgd_lr * 1/(torch.sqrt(v_x_hat)+1e-8)
-            self.svgd_lr = self.svgd_lr.mean()
+        self.svgd_lr = self.svgd_lr_init
         
+        if self.adaptive_lr: 
+            if (self.svgd_lr * torch.sqrt( (dq**2).sum(-1)).mean() ) > 1.0:
+                self.svgd_lr = 0.1 * (1/torch.sqrt( (dq**2).sum(-1))).mean()
+            print(' ')
         # print('self.svgd_lr', self.svgd_lr)
         x = x + self.svgd_lr * dx
         return x
-
+    
     def sampler(self, obs, a, with_logprob=True):
         logp = 0
 
@@ -88,9 +88,14 @@ class ActorSvgd(torch.nn.Module):
         for t in range(self.num_svgd_steps):
             phi_, q_s_a, dq = phi(a)
             a = self.svgd_optim(a, phi_, dq)
-            a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+
+            if (a > self.act_limit).any():
+                break
+            #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+            #print("t: ", t, " ", a[0])
         
         a = self.act_limit * torch.tanh(a) 
+        #print("___________________")
 
         return a, logp, q_s_a
 

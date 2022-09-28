@@ -246,7 +246,7 @@ class MaxEntrRL():
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
             d = False if ep_len == self.RL_kwargs.max_steps else d
-
+            
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
 

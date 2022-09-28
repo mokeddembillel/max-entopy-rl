@@ -19,10 +19,8 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    
-    parser.add_argument('--env', type=str, default='HalfCheetah-v2', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
+    parser.add_argument('--env', type=str, default='Multigoal', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    #parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
@@ -30,23 +28,16 @@ if __name__ == '__main__':
     parser.add_argument('--l_actor', type=int, default=3)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=5.0)
+    parser.add_argument('--alpha', type=float, default=0.0)
     parser.add_argument('--replay_size', type=int, default=1e6)
+    parser.add_argument('--max_experiment_steps', type=float, default=1e5)
+    parser.add_argument('--exploration_episodes', type=int, default=300, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--max_experiment_steps', type=float, default=1e6)
-    parser.add_argument('--num_episodes', type=int, default=1000)
-    #parser.add_argument('--exploration_episodes', type=int, default=30)
-    parser.add_argument('--exploration_episodes', type=int, default=200)
-    parser.add_argument('--num_test_episodes', type=int, default=50)
+    parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--stats_episode_freq', type=int, default=5)
     parser.add_argument('--update_after', type=int, default=1000)
-    # parser.add_argument('--update_after', type=int, default=50000)
-    #parser.add_argument('--update_every', type=int, default=100)
     parser.add_argument('--update_every', type=int, default=50)
-    #parser.add_argument('--max_ep_len', type=int, default=1000)
-    # parser.add_argument('--max_ep_len', type=int, default=500)
     parser.add_argument('--max_steps', type=int, default=30)
-    #parser.add_argument('--max_steps', type=int, default=1000)
     ######optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
@@ -62,25 +53,28 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_lr', type=float, default=0.1)
     parser.add_argument('--svgd_test_deterministic', type=bool, default=True)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
-    parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
-    parser.add_argument('--svgd_adaptive_lr', type=bool, default=False)
+
+    parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
+    parser.add_argument('--svgd_adaptive_lr', type=bool, default=True)
     
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
-    #parser.add_argument('--fig_path', type=str, default='./STAC/mujoco_plots_/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
-    parser.add_argument('--critic_activation', type=object, default=torch.nn.ReLU)
-    parser.add_argument('--actor_activation', type=object, default=torch.nn.ReLU)
-
-
+    parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
+    parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)
+    
     args = parser.parse_args()    
     
     ################# Best parameters for SQL #################
     if args.actor == 'svgd_sql':
         args.lr_critic = 1e-2
         args.alpha = 1.
+
+    if args.actor == 'sac':
+        args.critic_activation = torch.nn.ReLU
+        args.actor_activation = torch.nn.ReLU
     ###########################################################
     # fix the seeds
     torch.backends.cudnn.deterministic = True
@@ -123,7 +117,7 @@ if __name__ == '__main__':
     tb_logger = SummaryWriter(args.tensorboard_path + project_name)
 
     # RL args
-    RL_kwargs = AttrDict(num_episodes=args.num_episodes,stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
+    RL_kwargs = AttrDict(stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
 
