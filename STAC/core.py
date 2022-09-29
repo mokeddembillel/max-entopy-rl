@@ -9,6 +9,7 @@ from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
 from debugging import Debugger
 import pickle
+import tqdm
 
 class MaxEntrRL():
     def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -225,9 +226,10 @@ class MaxEntrRL():
         self.evaluation_data['test_episodes_length'] = []
         
         # Main loop: collect experience in env and update/log each epoch
-        while step_itr < self.RL_kwargs.max_experiment_steps:
+        for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
+        # while step_itr < self.RL_kwargs.max_experiment_steps:
         # while episode_itr < self.RL_kwargs.num_episodes:
-            print('step: ', step_itr)
+            # print('step: ', step_itr)
             # Until exploration_episodes have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
@@ -270,13 +272,13 @@ class MaxEntrRL():
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
+                    # print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
                     self.update(data=batch, itr=step_itr)
 
             
             if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
                 # Test the performance of the deterministic version of the agent.
-                print('___test___')
+                # print('___test___')
                 
                 self.test_agent(episode_itr)
                 self.save_data()
@@ -291,5 +293,5 @@ class MaxEntrRL():
                 EpRet = []
                 EpLen = []
                 
-            step_itr += 1
+            # step_itr += 1
 
