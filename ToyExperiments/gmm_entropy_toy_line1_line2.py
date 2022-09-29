@@ -136,19 +136,18 @@ class Optim():
         self.lr = lr
         ####
         self.beta_2 = 0.999
-        
+        self.svgd_lr_init = lr
     
     def step(self,x, dx, dq, adaptive_lr=None): 
         dx = dx.view(x.size())
-        if not adaptive_lr:
-            self.lr_coeff = self.lr
-        ###
-        else:
-            self.v_dx = self.beta_2 * self.v_dx + (1-self.beta_2) * dq**2
-            v_x_hat = self.v_dx/(1-self.beta_2)
-
-            self.lr_coeff = self.lr * 1/(torch.sqrt(v_x_hat)+1e-8)
-            self.lr_coeff = self.lr_coeff.mean()
+        self.lr_coeff = self.svgd_lr_init
+        
+        if adaptive_lr: 
+            # self.lr_coeff = self.lr_coeff * torch.sqrt(torch.sqrt( (dq**2).sum(-1)).mean())
+            if (self.lr_coeff * torch.sqrt( (dq**2).sum(-1)).mean() ) > 1.0:
+                self.lr_coeff = 0.1 * (1/torch.sqrt( (dq**2).sum(-1))).mean()
+                
+            print(' ')
         print("######################## ", self.lr_coeff)
         
         ### 
@@ -245,9 +244,10 @@ class Entropy_toy():
 """# Initializations"""
 
 lr = .2
+# lr = .001
 dim = 2
 # number of particles
-n = 50
+n = 20
 
 gmm = 1
 sig = 1
@@ -300,7 +300,7 @@ def main_loop(alg, X, steps, adaptive_lr):
 
     line_1 = []
     line_2 = []
-
+    gt_entropy = []
     for t in range(steps):
         print(t)
         X, _ = experiment.step(X, t, alg, adaptive_lr)
@@ -321,24 +321,41 @@ def main_loop(alg, X, steps, adaptive_lr):
         
         if t == 10 : 
             experiment.optim.lr_coeff = 0.08
-        
+        ###############################################################
         if (t%100)==0: 
             chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
             alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
             charts.append(chart)
+            fig = plt.figure(figsize=(8, 6))
+            fig.subplots_adjust(right=0.8)
+            ax = fig.add_subplot(111)
+
+            ax.plot(np.arange(len(line_1)),line_1, c="orange", label="Equation_1")
+            ax.plot(np.arange(len(line_2)),line_2, c="b", label="Equation_2")
+            ax.plot(np.arange(len(line_2)),np.full((len(line_2),), gauss.entropy().detach().cpu().item()), c="green", label="ground_truth")
+            # ax.plot(np.arange(len(line_2)),gt_entropy, c="green", label="ground_truth")
+            ax.set_title('Comparison between the entropy of Equation 1 and Equation 2, and ground truth')
+            ax.set_xlabel('Training iterations')
+            ax.set_ylabel('Entropy')
+            ax.legend(bbox_to_anchor=(1., 1.))
+            plt.savefig('./ToyExperiments/figs/line_1_line_2.png')
+            plt.close()
         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())
         print()
         # print('entropy gt: ', gauss.entropy().item())  
+        gt_entropy.append(- gauss.log_prob(X).mean().detach().cpu().numpy())
+        print('entropy gt gauss: ', gauss.entropy())  
         print('entropy gt (logp): ', - gauss.log_prob(X).mean())  
         print('entropy svgd/LD (line 1): ',  -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item())
         print()
-        print('init_dist_entr_GT ', init_dist.log_prob(X_init).mean()) 
-        print('sampler logprob ', experiment.logp_line1.mean()) 
-    return charts, line_1, line_2
+        
+        # print('init_dist_entr_GT ', init_dist.log_prob(X_init).mean()) 
+        # print('sampler logprob ', experiment.logp_line1.mean()) 
+    return charts, line_1, line_2, gt_entropy
 
 
 """# Run SVGD"""
-charts, line_1, line_2 = main_loop('svgd', X_init.clone(), steps=500, adaptive_lr=False)
+charts, line_1, line_2, gt_entropy = main_loop('svgd', X_init.clone(), steps=1000, adaptive_lr=False)
 alt_save(charts[-1], "./ToyExperiments/figs/gmm_"+str(gmm)+".png")  
 
 print('gmm: ', gmm)
@@ -346,12 +363,18 @@ print('sig ', sig)
 """# Run Lengevin Dynamics"""
 #charts = main_loop('ld', X_init.clone(), steps=200)
 #charts[-1]
-plt.plot(np.arange(len(line_1)),line_1, c="r", label="line_1")
-plt.plot(np.arange(len(line_2)),line_2, c="b", label="line_2")
-plt.title('Comparison between the entropy of Line 1 and Line 2')
-plt.xlabel('Training iterations')
-plt.ylabel('Entropy')
-plt.legend()
+fig = plt.figure(figsize=(8, 6))
+fig.subplots_adjust(right=0.8)
+ax = fig.add_subplot(111)
+
+ax.plot(np.arange(len(line_1)),line_1, c="orange", label="Equation_1")
+ax.plot(np.arange(len(line_2)),line_2, c="b", label="Equation_2")
+ax.plot(np.arange(len(line_2)),np.full((len(line_2),), gauss.entropy().detach().cpu().item()), c="green", label="ground_truth")
+# ax.plot(np.arange(len(line_2)),gt_entropy, c="green", label="ground_truth")
+ax.set_title('Comparison between the entropy of Equation 1 and Equation 2, and ground truth')
+ax.set_xlabel('Training iterations')
+ax.set_ylabel('Entropy')
+ax.legend(bbox_to_anchor=(1., 1.))
 plt.savefig('./ToyExperiments/figs/line_1_line_2.png')
 plt.close()
 

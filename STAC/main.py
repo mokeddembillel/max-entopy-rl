@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--l_actor', type=int, default=3)
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=0.0)
+    parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--max_experiment_steps', type=float, default=1e5)
     parser.add_argument('--exploration_episodes', type=int, default=300, help="pure exploration at the beginning of the training")
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=bool, default=True)
-    
+
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
     args = parser.parse_args()    
@@ -74,6 +74,7 @@ if __name__ == '__main__':
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
         args.actor_activation = torch.nn.ReLU
+        
     ###########################################################
     # fix the seeds
     torch.backends.cudnn.deterministic = True
@@ -119,7 +120,7 @@ if __name__ == '__main__':
     RL_kwargs = AttrDict(stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
-        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, epoch=args.epoch)
+        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)

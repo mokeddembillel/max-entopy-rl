@@ -53,7 +53,7 @@ class ActorSvgd(torch.nn.Module):
         if self.adaptive_lr: 
             if (self.svgd_lr * torch.sqrt( (dq**2).sum(-1)).mean() ) > 1.0:
                 self.svgd_lr = 0.1 * (1/torch.sqrt( (dq**2).sum(-1))).mean()
-            print(' ')
+            #print(' ')
         # print('self.svgd_lr', self.svgd_lr)
         x = x + self.svgd_lr * dx
         return x
