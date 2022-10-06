@@ -16,7 +16,7 @@ import altair as alt
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-# from altair_saver import save as alt_save
+from altair_saver import save as alt_save
 import pickle
 import argparse
 
@@ -311,7 +311,7 @@ def main_loop(alg, experiment, gauss_chart, X_init, steps, adaptive_lr):
         
         if (t%100)==0: 
             chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), device=device)
-            # alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
+            alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
             charts.append(chart)
         
         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())

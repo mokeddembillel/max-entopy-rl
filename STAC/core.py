@@ -226,8 +226,13 @@ class MaxEntrRL():
         self.evaluation_data['test_episodes_length'] = []
         
         # Main loop: collect experience in env and update/log each epoch
+<<<<<<< HEAD
         # while step_itr < self.RL_kwargs.max_experiment_steps:
         for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
+=======
+        for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
+        # while step_itr < self.RL_kwargs.max_experiment_steps:
+>>>>>>> 00c939a00665a690581dcfa51d8bc92cd7b397c6
         # while episode_itr < self.RL_kwargs.num_episodes:
             # print('step: ', step_itr)
             # Until exploration_episodes have elapsed, randomly sample actions
@@ -249,7 +254,11 @@ class MaxEntrRL():
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
             d = False if ep_len == self.RL_kwargs.max_steps else d
+<<<<<<< HEAD
             
+=======
+
+>>>>>>> 00c939a00665a690581dcfa51d8bc92cd7b397c6
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
 

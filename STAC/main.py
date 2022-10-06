@@ -20,7 +20,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--env', type=str, default='Multigoal', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
@@ -74,6 +74,10 @@ if __name__ == '__main__':
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
         args.actor_activation = torch.nn.ReLU
+        args.alpha = 0.2
+    
+    if args.env in ['Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2']:
+        args.fig_path = './STAC/mujoco_plots_/'
         
     ###########################################################
     # fix the seeds

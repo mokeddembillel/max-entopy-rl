@@ -16,7 +16,7 @@ import altair as alt
 import matplotlib.pyplot as plt
 import pandas as pd
 from tqdm import tqdm
-from altair_saver import save as alt_save
+# from altair_saver import save as alt_save
 alt.data_transformers.enable('default', max_rows=None)
 
 """# Global Variables"""
@@ -283,11 +283,11 @@ experiment = Entropy_toy(gauss, RBF(), Optim(lr), num_particles=n, particles_dim
 gauss_chart = get_density_chart(gauss, d=7.0, step=0.1) 
 chart = gauss_chart + get_particles_chart(X_init.cpu().numpy())
 
-alt_save(chart, "./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")          
+# alt_save(chart, "./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")          
+chart.save("./ToyExperiments/figs/init_gmm_" + str(gmm) + ".png")
 
 
-
-"""# Main Loop"""
+# """# Main Loop"""
 
 # Main_loop
 charts = []
@@ -300,31 +300,35 @@ def main_loop(alg, X, steps, adaptive_lr):
 
     line_1 = []
     line_2 = []
+
+    line_1 = []
+    line_2 = []
     gt_entropy = []
+    X_svgd_ = []
     for t in range(steps):
         print(t)
         X, _ = experiment.step(X, t, alg, adaptive_lr)
-        #X_svgd_.append(X.clone())
+        X_svgd_.append(X.clone())
         
-        #if (t%10)==0: 
-        #chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
-        #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), torch.stack(X_svgd_).detach().cpu().numpy())
-        # term1.append(experiment.phi_term1)
-        # term2.append(experiment.phi_term2)
-        line_1.append( -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item() )
-        line_2.append( -(init_dist.log_prob(X_init) + experiment.logp_line2).mean().item() )
-        print(t, ' entropy svgd (line 1): ',  line_1[-1])
-        print(t, ' entropy svgd (line 2): ',  line_2[-1])
-        #print('sampler logprob ', experiment.logp_line1.mean()) 
-        #X_svgd_ = torch.stack(X_svgd_)
-        # Plotting the results 
+#         #if (t%10)==0: 
+#         #chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
+#         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), torch.stack(X_svgd_).detach().cpu().numpy())
+#         # term1.append(experiment.phi_term1)
+#         # term2.append(experiment.phi_term2)
+#         line_1.append( -(init_dist.log_prob(X_init) + experiment.logp_line1).mean().item() )
+#         line_2.append( -(init_dist.log_prob(X_init) + experiment.logp_line2).mean().item() )
+#         print(t, ' entropy svgd (line 1): ',  line_1[-1])
+#         print(t, ' entropy svgd (line 2): ',  line_2[-1])
+#         #print('sampler logprob ', experiment.logp_line1.mean()) 
+#         #X_svgd_ = torch.stack(X_svgd_)
+#         # Plotting the results 
         
         if t == 10 : 
             experiment.optim.lr_coeff = 0.08
         ###############################################################
         if (t%100)==0: 
             chart = gauss_chart + get_particles_chart(X.detach().cpu().numpy())
-            alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
+            # alt_save(chart, "./ToyExperiments/figs/gmm_"+str(gmm)+"_"+str(t)+'_'+str(sig)+".png")  
             charts.append(chart)
             fig = plt.figure(figsize=(8, 6))
             fig.subplots_adjust(right=0.8)
@@ -356,7 +360,7 @@ def main_loop(alg, X, steps, adaptive_lr):
 
 """# Run SVGD"""
 charts, line_1, line_2, gt_entropy = main_loop('svgd', X_init.clone(), steps=1000, adaptive_lr=False)
-alt_save(charts[-1], "./ToyExperiments/figs/gmm_"+str(gmm)+".png")  
+# alt_save(charts[-1], "./ToyExperiments/figs/gmm_"+str(gmm)+".png")  
 
 print('gmm: ', gmm)
 print('sig ', sig)
