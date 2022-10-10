@@ -147,8 +147,8 @@ class Optim():
             if (self.lr_coeff * torch.sqrt( (dq**2).sum(-1)).mean() ) > 1.0:
                 self.lr_coeff = 0.1 * (1/torch.sqrt( (dq**2).sum(-1))).mean()
                 
-            print(' ')
-        print("######################## ", self.lr_coeff)
+            # print(' ')
+        # print("######################## ", self.lr_coeff)
         
         ### 
         x = x + self.lr_coeff * dx 
@@ -180,7 +180,7 @@ class Entropy_toy():
         X = X.requires_grad_(True)
         log_prob = self.P.log_prob(X)
         score_func = autograd.grad(log_prob.sum(), X)[0].reshape(X.size())
-        print('************ score_func ', (score_func**2).sum(-1).mean() )
+        # print('************ score_func ', (score_func**2).sum(-1).mean() )
 
         self.score_func = score_func.reshape(X.size())
         self.K_XX, self.K_diff, self.K_h, self.K_grad, self.K_gamma = self.K.forward(X, X)        
@@ -232,7 +232,7 @@ class Entropy_toy():
         # print('Phi :', phi_X[0])
         X_new = self.optim.step(X, phi_X, self.score_func.mean(0), adaptive_lr=adaptive_lr) 
 
-        print('############## PHIIiiii', phi_X.mean())
+        # print('############## PHIIiiii', phi_X.mean())
 
         if self.with_logprob: 
             self.compute_entropy(phi_X_entropy, X)
@@ -271,7 +271,7 @@ X_init = init_dist.sample((n,))
 if (gmm == 1):
     #gauss = torch.distributions.MultivariateNormal(torch.Tensor([-0.6871,0.8010]).to(device),covariance_matrix=5 * torch.Tensor([[0.2260,0.1652],[0.1652,0.6779]]).to(device)
     sig = 0.2 #0.2
-    print('sig ', sig)
+    # print('sig ', sig)
     gauss = torch.distributions.MultivariateNormal(torch.Tensor([0.0,0.0]).to(device),covariance_matrix= sig * torch.Tensor([[1.0,0.0],[0.0,1.0]]).to(device))
 else:
     gauss = GMMDist(dim=2, n_gmm=gmm)
@@ -296,7 +296,7 @@ term2 = []
 
 def main_loop(alg, X, steps, adaptive_lr):
 
-    print('steps ', steps)
+    # print('steps ', steps)
 
     line_1 = []
     line_2 = []
@@ -306,7 +306,7 @@ def main_loop(alg, X, steps, adaptive_lr):
     gt_entropy = []
     X_svgd_ = []
     for t in range(steps):
-        print(t)
+        # print(t)
         X, _ = experiment.step(X, t, alg, adaptive_lr)
         X_svgd_.append(X.clone())
         
@@ -345,7 +345,7 @@ def main_loop(alg, X, steps, adaptive_lr):
             plt.savefig('./ToyExperiments/figs/line_1_line_2.png')
             plt.close()
         #chart_ = gauss_chart + get_particles_chart(X.detach().cpu().numpy(), X_svgd_.detach().cpu().numpy())
-        print()
+        # print()
         # print('entropy gt: ', gauss.entropy().item())  
         gt_entropy.append(- gauss.log_prob(X).mean().detach().cpu().numpy())
         print('entropy gt gauss: ', gauss.entropy())  

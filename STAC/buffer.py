@@ -41,7 +41,7 @@ class ReplayBuffer:
             
             if env_info['status'] == 'succeeded':
                 self.goals[env_info['goal'] - 1] +=1 # will be removed later
-                print('Adding a success traj episode number ', self.size + 1, self.goals)
+                # print('Adding a success traj episode number ', self.size + 1, self.goals)
                 if self.max_size - self.ptr < self.ptr_tmp:
                     self.ptr = self.max_size - self.ptr_tmp
                 

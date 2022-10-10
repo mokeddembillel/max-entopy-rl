@@ -10,14 +10,27 @@ class Debugger():
         self.tb_logger = tb_logger
         self.env = env
         self.episodes_information = []
+        self.episode_counter = 0
         self.colors = ['red', 'orange', 'purple']
 
-    def collect_data(self, o, a, o2, r, d):
+    def collect_data(self, o, a, o2, r, d, log_p):
         
         if self.env.ep_len == 1:
             self.episodes_information.append({
                 'observations':[],
                 'actions': [],
+                # Debugging ##########
+                'log_p': [],
+                'term1': [],
+                'term2': [],
+                'logp_normal': [],
+                'logp_svgd': [],
+                'logp_tanh': [],
+                # 'logp_toy_line1': [],
+                # 'logp_toy_line2': [],
+                # 'logp_toy_line4': [],
+                # 'logp_wrong': [],
+                ######################
                 'rewards': [],
                 'expected_reward': None, 
                 'episode_length': None,
@@ -46,12 +59,24 @@ class Debugger():
         q1_value = self.ac.q1(o,a)
         q2_value = self.ac.q2(o,a)
 
+        if self.ac.pi.actor in ['svgd_nonparam']:
+            self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
+            self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug)
+            self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug)
+            self.episodes_information[-1]['logp_normal'].append(self.ac.pi.logp_normal_debug.detach().item())
+            self.episodes_information[-1]['logp_svgd'].append(self.ac.pi.logp_svgd_debug.detach().item())
+            self.episodes_information[-1]['logp_tanh'].append(self.ac.pi.logp_tanh_debug.detach().item())
+            # self.episodes_information[-1]['logp_toy_line1'].append(self.ac.pi.logp_line1.mean().cpu().detach().item())
+            # self.episodes_information[-1]['logp_toy_line2'].append(self.ac.pi.logp_line2.mean().cpu().detach().item())
+            # self.episodes_information[-1]['logp_toy_line4'].append(self.ac.pi.logp_line4.mean().cpu().detach().item())
+            # self.episodes_information[-1]['logp_wrong'].append(self.ac.pi.logp_wrong.mean().cpu().detach().item())
+
 
         if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
             self.episodes_information[-1]['sigma'].append(self.ac.pi.sigma.detach().cpu().numpy())
         
-        print('***********************',len( self.episodes_information[-1]['observations'] ),'********', len(self.episodes_information[-1]['mu']))
+        # print('***********************',len( self.episodes_information[-1]['observations'] ),'********', len(self.episodes_information[-1]['mu']))
         
         grad_q_ = torch.autograd.grad(torch.min(q1_value, q2_value), a, retain_graph=True, create_graph=True)[0].squeeze()
         hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0])+torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
@@ -76,7 +101,73 @@ class Debugger():
                 self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:self.env.ep_len])
                 self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.env.ep_len])
     
+    def entropy_plot(self):
+        log_p = []
+        term1 = []
+        term2 = []
+        logp_normal = []
+        logp_svgd = []
+        logp_tanh = []
+        # logp_toy_line1 = []
+        # logp_toy_line2 = []
+        # logp_toy_line4 = []
+        # logp_wrong = []
+        for indx, i in enumerate([0, 10, 25]):
+            if len(self.episodes_information[-1]['log_p']) > i+1:
+                log_p.append(self.episodes_information[-1]['log_p'][i])
+                term1.append(self.episodes_information[-1]['term1'][i])
+                term2.append(self.episodes_information[-1]['term2'][i])
+                logp_normal.append(self.episodes_information[-1]['logp_normal'][i])
+                logp_svgd.append(self.episodes_information[-1]['logp_svgd'][i])
+                logp_tanh.append(self.episodes_information[-1]['logp_tanh'][i])
+                # logp_toy_line1.append(self.episodes_information[-1]['logp_toy_line1'][i])
+                # logp_toy_line2.append(self.episodes_information[-1]['logp_toy_line2'][i])
+                # logp_toy_line4.append(self.episodes_information[-1]['logp_toy_line4'][i])
+                # logp_wrong.append(self.episodes_information[-1]['logp_wrong'][i])
+        if len(log_p) == 3:
+            # print('############################# ', (len(self.episodes_information)- 1))
+            self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1], 'step_25': log_p[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1], 'step_25': term1[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1], 'step_25': term2[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1], 'step_25': logp_normal[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1], 'step_25': logp_svgd[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1], 'step_25': logp_tanh[2]}, itr=self.episode_counter)
 
+            # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1], 'step_25': logp_toy_line1[2]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1], 'step_25': logp_toy_line2[2]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1], 'step_25': logp_toy_line4[2]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1], 'step_25': logp_wrong[2]}, itr=self.episode_counter)
+
+
+        elif len(log_p) == 2:
+            self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1]}, itr=self.episode_counter)
+
+            # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1]}, itr=self.episode_counter)
+
+        elif len(log_p) == 1:
+            self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0]}, itr=self.episode_counter)
+
+            # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0]}, itr=self.episode_counter)
+            # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0]}, itr=self.episode_counter)
+
+        self.episode_counter += 1
+
+         
     def plot_policy(self, itr, fig_path, plot):
         if plot:
             ax = self.env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
@@ -87,7 +178,7 @@ class Debugger():
                 for indx, i in enumerate([0, 10, 25]):
                     if len(positions) > i+1:
                         new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
-                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+b', color=self.colors[indx])
+                        ax.plot(new_positions[:, 0], new_positions[:, 1], color=self.colors[indx])
                 
             ax.plot(positions[:, 0], positions[:, 1], '+b')
 

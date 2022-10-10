@@ -66,7 +66,7 @@ class MaxEntrRL():
         # Bellman backup for Q functions
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, in_q_loss=False) 
+        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, in_q_loss=False, all_particles=True) 
         
         with torch.no_grad(): 
             # Target Q-values
@@ -84,9 +84,9 @@ class MaxEntrRL():
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)      
             
-                self.debugger.add_scalars('Q_target/',  {'r ': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
-                    'Entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean()}, itr)
-                self.debugger.add_scalar('Entropy', logp_a2.mean())
+                self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
+                    'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
+                # self.debugger.add_scalar('Training_Entropy', logp_a2.mean())
 
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
@@ -105,7 +105,7 @@ class MaxEntrRL():
         
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
-        a, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
+        a, logp_pi = self.ac(o, deterministic=False, with_logprob=True, all_particles=True)
 
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles)
@@ -117,7 +117,7 @@ class MaxEntrRL():
         if self.actor == 'svgd_sql':
             # actions used to compute the expectation indexed by `i`
             # a_updated = a.clone()
-            a_updated, logp_pi = self.ac(o, deterministic=False, with_logprob=True)
+            a_updated, logp_pi = self.ac(o, deterministic=False, with_logprob=True, all_particles=True)
             # compte grad q wrt a
             grad_q = torch.autograd.grad((q_pi * self.ac.pi.num_particles).sum(), a)[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
@@ -182,11 +182,11 @@ class MaxEntrRL():
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
-                a, _ = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=False)
+                a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
                 if self.env_name == 'Multigoal':
-                    self.debugger.collect_data(o, a.detach(), o2, r, d)    
+                    self.debugger.collect_data(o, a.detach(), o2, r, d, log_p)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -194,10 +194,11 @@ class MaxEntrRL():
                 o = o2
             self.evaluation_data['test_episodes_return'].append(ep_ret)
             self.evaluation_data['test_episodes_length'].append(ep_len)
+            self.debugger.entropy_plot()
 
         if self.env_name == 'Multigoal':
-            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+            # self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
+            # self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
             self.debugger.log_to_tensorboard(itr=itr)
 
         
@@ -226,13 +227,8 @@ class MaxEntrRL():
         self.evaluation_data['test_episodes_length'] = []
         
         # Main loop: collect experience in env and update/log each epoch
-<<<<<<< HEAD
         # while step_itr < self.RL_kwargs.max_experiment_steps:
         for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
-=======
-        for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
-        # while step_itr < self.RL_kwargs.max_experiment_steps:
->>>>>>> 00c939a00665a690581dcfa51d8bc92cd7b397c6
         # while episode_itr < self.RL_kwargs.num_episodes:
             # print('step: ', step_itr)
             # Until exploration_episodes have elapsed, randomly sample actions
@@ -254,11 +250,6 @@ class MaxEntrRL():
             # horizon (that is, when it's an artificial terminal signal
             # that isn't based on the agent's state)
             d = False if ep_len == self.RL_kwargs.max_steps else d
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> 00c939a00665a690581dcfa51d8bc92cd7b397c6
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
 
@@ -290,7 +281,7 @@ class MaxEntrRL():
                 # print('___test___')
                 
                 self.test_agent(episode_itr)
-                self.save_data()
+                # self.save_data()
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)

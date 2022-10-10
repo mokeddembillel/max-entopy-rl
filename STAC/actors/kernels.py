@@ -28,18 +28,19 @@ class RBF(torch.nn.Module):
         
         if self.sigma is not None:
             sigma = self.sigma
+            # print('Sigma : ', sigma)
         elif self.parametrized == False:
             # Get median.
             median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
             median_sq = median_sq.reshape(-1,1,1,1)
             h = median_sq / (2 * np.log(num_particles + 1.))
-            sigma = torch.sqrt(h)
+            sigma = torch.sqrt(h).squeeze().item()
         else:
             log_std = self.log_std_layer(dist_sq)
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
-            sigma = torch.exp(log_std)
+            sigma = torch.exp(log_std).squeeze().item()
         
-        print('***** sigma ', sigma[0])
+        # print('***** sigma ', sigma[0])
 
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 
         kappa = (-gamma * dist_sq).exp()
