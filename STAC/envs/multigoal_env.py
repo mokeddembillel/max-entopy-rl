@@ -146,11 +146,11 @@ class MultiGoalEnv(Env, EzPickle):
         
     
     def render(self, itr, fig_path, plot, ac=None):
+        positions = np.stack(self.episode_observations)
         if plot:
             self._init_plot(self.x_size, self.y_size)
-            positions = np.stack(self.episode_observations)
             self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
-            self._plot_level_curves(ac)
+            self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
             plt.plot()
             plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
@@ -199,15 +199,15 @@ class MultiGoalEnv(Env, EzPickle):
             self._line_objects = list()
         return self._ax_lst[0]
 
-    def _plot_level_curves(self, ac):
+    def _plot_level_curves(self, _obs_lst, ac):
         # Create mesh grid.
         xs = np.linspace(-1, 1, 50)
         ys = np.linspace(-1, 1, 50)
         xgrid, ygrid = np.meshgrid(xs, ys)
         a = np.concatenate((np.expand_dims(xgrid.ravel(), -1), np.expand_dims(ygrid.ravel(), -1)), -1)
         a = torch.from_numpy(a.astype(np.float32)).to(ac.pi.device)
-        for i in range(len(self._obs_lst)):
-            o = torch.Tensor(self._obs_lst[i]).repeat([a.shape[0],1]).to(ac.pi.device)
+        for i in range(len(_obs_lst)):
+            o = torch.Tensor(_obs_lst[i]).repeat([a.shape[0],1]).to(ac.pi.device)
             with torch.no_grad():
                 qs = ac.q1(o.to(ac.pi.device), a).cpu().detach().numpy()
             qs = qs.reshape(xgrid.shape)

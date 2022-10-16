@@ -33,10 +33,10 @@ if __name__ == '__main__':
     parser.add_argument('--alpha', type=float, default=1)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--max_experiment_steps', type=float, default=3e4)
-    parser.add_argument('--exploration_episodes', type=int, default=30, help="pure exploration at the beginning of the training")
+    parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=10)
-    parser.add_argument('--stats_episode_freq', type=int, default=5)
+    parser.add_argument('--num_test_episodes', type=int, default=50)
+    parser.add_argument('--stats_steps_freq', type=int, default=400)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -44,18 +44,18 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=100)
+    parser.add_argument('--batch_size', type=int, default=500)
     ######sac
     parser.add_argument('--sac_test_deterministic', type=int, default=1)
     ######sql
     parser.add_argument('--sql_test_deterministic', type=int, default=1)
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
-    parser.add_argument('--svgd_steps', type=int, default=5)
-    parser.add_argument('--svgd_lr', type=float, default=0.1)
-    parser.add_argument('--svgd_test_deterministic', type=int, default=1)
+    parser.add_argument('--svgd_steps', type=int, default=10)
+    parser.add_argument('--svgd_lr', type=float, default=0.01)
+    parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
-    parser.add_argument('--svgd_kernel_sigma', type=float, default=5.)
+    parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=None)
    
     # tensorboard
@@ -78,9 +78,13 @@ if __name__ == '__main__':
     debugging = False 
     if debugging:
         print('############################## DEBUGGING ###################################')
-        args.exploration_episodes = 0
+        args.exploration_steps = 0
+        # args.exploration_steps = 100
+        # args.update_after = 3000
+        args.svgd_kernel_sigma = 5.
+        args.svgd_adaptive_lr = False
         print('############################################################################')
-
+    
 
 
     if args.actor == 'svgd_sql':
@@ -137,8 +141,8 @@ if __name__ == '__main__':
     tb_logger = SummaryWriter(args.tensorboard_path + project_name)
 
     # RL args
-    RL_kwargs = AttrDict(stats_episode_freq=args.stats_episode_freq,gamma=args.gamma,
-        alpha=args.alpha,replay_size=int(args.replay_size),exploration_episodes=args.exploration_episodes,update_after=args.update_after,
+    RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
+        alpha=args.alpha,replay_size=int(args.replay_size),exploration_steps=args.exploration_steps,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
         max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
 
@@ -171,4 +175,6 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     stac.forward()
     stop = timeit.default_timer()
-    print('Time: ', stop - start)  
+    print('Time: ', stop - start) 
+    print() 
+    print(project_name)

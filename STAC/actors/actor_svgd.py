@@ -38,9 +38,9 @@ class ActorSvgd(torch.nn.Module):
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
         if actor == "svgd_p0_kernel_pram":
-            self.Kernel = RBF(True, act_dim, hidden_sizes, sigma=kernel_sigma)
+            self.Kernel = RBF(True, act_dim, hidden_sizes, sigma=kernel_sigma, device=device)
         else:
-            self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma)
+            self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, device=device)
         
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
@@ -75,6 +75,8 @@ class ActorSvgd(torch.nn.Module):
         logp = 0
         self.term1_debug = 0
         self.term2_debug = 0
+        self.x_t = [a.detach().cpu().numpy().tolist()]
+        self.phis = []
 
 
         def phi(X):
@@ -102,7 +104,7 @@ class ActorSvgd(torch.nn.Module):
             # compute the entropy
             if with_logprob:
                 term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
-                term2 = -2 * K_gamma * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).mean(1)
+                term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).mean(1)
                 self.term1_debug += term1.mean()
                 self.term2_debug += term2.mean()
                 logp = logp - self.svgd_lr * (term1 + term2) 
@@ -112,6 +114,9 @@ class ActorSvgd(torch.nn.Module):
         for t in range(self.num_svgd_steps):
             phi_, q_s_a, dq = phi(a)
             a = self.svgd_optim(a, phi_, dq)
+            # Collect Data for debugging
+            self.x_t.append(a.detach().cpu().numpy().tolist())
+            self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
 
             if (a > self.act_limit).any():
                 break

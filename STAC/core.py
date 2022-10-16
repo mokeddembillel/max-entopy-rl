@@ -53,7 +53,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.test_env)
+        self.debugger = Debugger(tb_logger, self.ac, self.env, self.test_env)
 
         self.evaluation_data = AttrDict()
 
@@ -83,7 +83,7 @@ class MaxEntrRL():
                 self.debugger.add_scalars('Q_target',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)      
-            
+                
                 self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
                     'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
                 # self.debugger.add_scalar('Training_Entropy', logp_a2.mean())
@@ -197,8 +197,8 @@ class MaxEntrRL():
             self.debugger.entropy_plot()
 
         if self.env_name == 'Multigoal':
-            # self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-            # self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
+            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
             self.debugger.log_to_tensorboard(itr=itr)
 
         
@@ -231,16 +231,24 @@ class MaxEntrRL():
         for step_itr in tqdm(range(self.RL_kwargs.max_experiment_steps)):
         # while episode_itr < self.RL_kwargs.num_episodes:
             # print('step: ', step_itr)
-            # Until exploration_episodes have elapsed, randomly sample actions
+            # Until exploration_steps have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
-            if episode_itr > self.RL_kwargs.exploration_episodes:
+            if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, _ = self.ac(o_, deterministic = False, with_logprob=False)
+                a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
                 a = a.detach().cpu().numpy().squeeze()
+                # Collect Data Here
+                # self.debugger.collect_svgd_data(False, o, logp=logp)
+                # Plot all the particles
+                # self.debugger.plot_svgd_particles_q_contours(self.fig_path)
             else:
                 a = self.env.action_space.sample()  
-            
+                # Collect Data Here
+                # self.debugger.collect_svgd_data(True, o, particles=a)
+                # Plot the final particles 
+                # self.plot_svgd_particles_q_contours()
+
             # Step the env
             o2, r, d, info = self.env.step(a)
             ep_ret += r
@@ -276,11 +284,11 @@ class MaxEntrRL():
                     self.update(data=batch, itr=step_itr)
 
             
-            if d and (episode_itr+1) % self.RL_kwargs.stats_episode_freq == 0:
+            if (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0:
                 # Test the performance of the deterministic version of the agent.
                 # print('___test___')
                 
-                self.test_agent(episode_itr)
+                self.test_agent(step_itr)
                 # self.save_data()
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
@@ -293,5 +301,5 @@ class MaxEntrRL():
                 EpRet = []
                 EpLen = []
                 
-            # step_itr += 1
+            step_itr += 1
 

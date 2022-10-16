@@ -3,11 +3,12 @@ import numpy as np
 from networks import mlp
 
 class RBF(torch.nn.Module):
-    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None, sigma=None):
+    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None, sigma=None, device=None):
         super(RBF, self).__init__()
         self.parametrized = parametrized
         self.num_particles = num_particles
         self.sigma = sigma
+        self.device = device
 
         if parametrized:
             self.log_std_layer = mlp([num_particles*num_particles] + list(hidden_sizes) + [act_dim] , activation)
@@ -26,19 +27,22 @@ class RBF(torch.nn.Module):
         dist_sq = diff.pow(2).sum(-1)
         dist_sq = dist_sq.unsqueeze(-1)
         
+        # print('Sigma : ', self.sigma)
         if self.sigma is not None:
-            sigma = self.sigma
-            # print('Sigma : ', sigma)
+            sigma = torch.tensor(self.sigma).reshape(-1, 1, 1, 1).to(self.device)
         elif self.parametrized == False:
             # Get median.
             median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
             median_sq = median_sq.reshape(-1,1,1,1)
             h = median_sq / (2 * np.log(num_particles + 1.))
-            sigma = torch.sqrt(h).squeeze().item()
+            # try:
+            sigma = torch.sqrt(h)
+            # except:
+            #     print('error here')
         else:
             log_std = self.log_std_layer(dist_sq)
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
-            sigma = torch.exp(log_std).squeeze().item()
+            sigma = torch.exp(log_std)
         
         # print('***** sigma ', sigma[0])
 

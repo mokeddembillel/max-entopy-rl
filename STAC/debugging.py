@@ -4,18 +4,21 @@ import matplotlib.pyplot as plt
 from utils import gaussian
 
 class Debugger():
-    def __init__(self, tb_logger, ac, env):
+    def __init__(self, tb_logger, ac, train_env, test_env):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
         self.tb_logger = tb_logger
-        self.env = env
+        self.train_env = train_env
+        self.test_env = test_env
         self.episodes_information = []
         self.episode_counter = 0
         self.colors = ['red', 'orange', 'purple']
+        self.episodes_information_svgd = []
+
 
     def collect_data(self, o, a, o2, r, d, log_p):
         
-        if self.env.ep_len == 1:
+        if self.test_env.ep_len == 1:
             self.episodes_information.append({
                 'observations':[],
                 'actions': [],
@@ -86,21 +89,97 @@ class Debugger():
         self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
         self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
         
-        if (self.env.ep_len >= self.env.max_steps) or d: 
+        if (self.test_env.ep_len >= self.test_env.max_steps) or d: 
             self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
-            self.episodes_information[-1]['episode_length'] = self.env.ep_len
+            self.episodes_information[-1]['episode_length'] = self.test_env.ep_len
             
-            if self.env.ep_len >= 5:
+            if self.test_env.ep_len >= 5:
                 self.episodes_information[-1]['q_score_start'] = np.mean(self.episodes_information[-1]['q_score'][:5])
                 self.episodes_information[-1]['q_hess_start'] = np.mean(self.episodes_information[-1]['q_hess'][:5])
-            if self.env.ep_len >= 17:
+            if self.test_env.ep_len >= 17:
                 self.episodes_information[-1]['q_score_mid'] = np.mean(self.episodes_information[-1]['q_score'][12:17])
                 self.episodes_information[-1]['q_hess_mid'] = np.mean(self.episodes_information[-1]['q_hess'][12:17])
-            if self.env.ep_len >= 30:
-                self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:self.env.ep_len])
-                self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.env.ep_len])
+            if self.test_env.ep_len >= 30:
+                self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:self.test_env.ep_len])
+                self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.test_env.ep_len])
     
+    def collect_svgd_data(self, exploration, observation, particles=None, logp=None):
+        if self.train_env.ep_len == 0:
+            self.episodes_information_svgd.append({
+                'step': [], 
+                'exploration': [],
+                'entropy': [], 
+                'observations': [], 
+                'particles': [],
+                'gradients': [],
+                'svgd_lr': [],
+            })
+        
+
+        self.episodes_information_svgd[-1]['step'].append(self.train_env.ep_len)
+        self.episodes_information_svgd[-1]['observations'].append(list(observation))
+        self.episodes_information_svgd[-1]['exploration'].append(exploration)
+        if not exploration:
+            self.episodes_information_svgd[-1]['entropy'].append(-logp.detach().cpu().item())
+            self.episodes_information_svgd[-1]['particles'].append(self.ac.pi.x_t)
+            self.episodes_information_svgd[-1]['gradients'].append(self.ac.pi.phis)
+            self.episodes_information_svgd[-1]['svgd_lr'].append(self.ac.pi.svgd_lr)
+        else:
+            self.episodes_information_svgd[-1]['particles'].append(list(particles))
+
+        # print(self.episodes_information_svgd[-1]['exploration'])
+
+    def plot_svgd_particles_q_contours(self, fig_path):
+        self._ax_lst = []
+        _n_samples = 100
+        _obs_lst = self.episodes_information_svgd[-1]['observations']
+        # for i in range(len(_obs_lst)):
+        for episode_step in range(1):
+
+            self.fig_env = plt.figure(figsize=(4, 4), constrained_layout=True) 
+            self._ax_lst.append(plt.subplot2grid((1,1), (0,0), colspan=3, rowspan=3))
+            self._ax_lst[0].set_xlim((-1, 1))
+            self._ax_lst[0].set_ylim((-1, 1))
+            self._ax_lst[0].set_title('SVGD Particles Plot')
+            self._ax_lst[0].set_xlabel('x')
+            self._ax_lst[0].set_ylabel('y')
+            self._ax_lst[0].grid(True)
+            self._line_objects = []
+
+
+            xs = np.linspace(-1, 1, 50)
+            ys = np.linspace(-1, 1, 50)
+            xgrid, ygrid = np.meshgrid(xs, ys)
+            a = np.concatenate((np.expand_dims(xgrid.ravel(), -1), np.expand_dims(ygrid.ravel(), -1)), -1)
+            a = torch.from_numpy(a.astype(np.float32)).to(self.ac.pi.device)
+            o = torch.Tensor(_obs_lst[episode_step]).repeat([a.shape[0],1]).to(self.ac.pi.device)
+            with torch.no_grad():
+                qs = self.ac.q1(o.to(self.ac.pi.device), a).cpu().detach().numpy()
+            qs = qs.reshape(xgrid.shape)
+            cs = self._ax_lst[0].contour(xgrid, ygrid, qs, 20)
+            self._line_objects += cs.collections
+            self._line_objects += self._ax_lst[0].clabel(
+                cs, inline=1, fontsize=10, fmt='%.2f')
+
+            o = _obs_lst[episode_step]
+            actions = np.array(self.episodes_information_svgd[-1]['particles'][episode_step])
+            entropy = self.episodes_information_svgd[-1]['entropy'][episode_step]
+            # actions = actions.cpu().detach().numpy().squeeze()
+            # if self.episodes_information_svgd[-1]['exploration'][episode_step]:
+            # else:
+            no_of_colors=10
+            # colors = ["#"+''.join([np.random.choice('0123456789ABCDEF') for i in range(6)]) for j in range(no_of_colors)]
+            for particle_idx in range(actions.shape[1]):
+                x, y = actions[:, particle_idx, 0], actions[:, particle_idx, 1]
+                color = (0.99, 0.5, np.random.random())
+                self._ax_lst[0].title.set_text(str([round(_obs_lst[episode_step][0], 2), round(_obs_lst[episode_step][1], 2)]) + ' -- Entropy: ' + str(round(entropy, 2)))
+                if self.episodes_information_svgd[-1]['exploration'][episode_step]:
+                    self._line_objects += self._ax_lst[0].plot(x, y, c=color + '*')
+                else:
+                    self._line_objects += self._ax_lst[0].plot(x, y, c=color)
+            plt.savefig(fig_path+ '/svgd_episode_' + str(episode_step) + '_step_' + str(self.episodes_information_svgd[-1]['step'][episode_step]) + ".png")
+
     def entropy_plot(self):
         log_p = []
         term1 = []
@@ -170,15 +249,15 @@ class Debugger():
          
     def plot_policy(self, itr, fig_path, plot):
         if plot:
-            ax = self.env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
+            ax = self.test_env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
 
             if self.ac.pi.actor != 'sac':
                 for indx, i in enumerate([0, 10, 25]):
                     if len(positions) > i+1:
-                        new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.env.observation_space.low, self.env.observation_space.high)
-                        ax.plot(new_positions[:, 0], new_positions[:, 1], color=self.colors[indx])
+                        new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.test_env.observation_space.low, self.test_env.observation_space.high)
+                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+', color=self.colors[indx])
                 
             ax.plot(positions[:, 0], positions[:, 1], '+b')
 
@@ -194,7 +273,7 @@ class Debugger():
                     mu = 0
                     std = 1
 
-                x_values = np.linspace(positions[i] + mu + self.env.action_space.low, positions[i] + mu + self.env.action_space.high , 30)
+                x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
                 plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
             
             plt.savefig(fig_path + '/path_vis_'+ str(itr)+".pdf")   
@@ -213,11 +292,11 @@ class Debugger():
 
     def log_to_tensorboard(self, itr):
         # related to the modes
-        self.tb_logger.add_scalar('modes/num_modes',(self.env.number_of_hits_mode>0).sum(), itr)
-        self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.env.number_of_hits_mode.sum(), itr)
+        self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
+        self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
         
-        for ind in range(self.env.num_goals):
-            self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.env.number_of_hits_mode[ind]/self.env.number_of_hits_mode.sum() if self.env.number_of_hits_mode.sum() != 0 else 0.0, itr)
+        for ind in range(self.test_env.num_goals):
+            self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
         
         # investigating smoothness of the q-landscape by computing the 1st and 2nd order derivatives
         q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))
