@@ -72,6 +72,8 @@ class MaxEntrRL():
             # Target Q-values
             q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)
             q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
+            # q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
+            # q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
             q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
             
             if self.actor == 'svgd_sql':
@@ -83,6 +85,7 @@ class MaxEntrRL():
                 self.debugger.add_scalars('Q_target',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
                 backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)      
+                # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)      
                 
                 self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
                     'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
@@ -239,9 +242,10 @@ class MaxEntrRL():
                 a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
-                # self.debugger.collect_svgd_data(False, o, logp=logp)
-                # Plot all the particles
-                # self.debugger.plot_svgd_particles_q_contours(self.fig_path)
+                if self.RL_kwargs.debugging:
+                    self.debugger.collect_svgd_data(False, o, logp=logp)
+                    # Plot all the particles
+                    self.debugger.plot_svgd_particles_q_contours(self.fig_path)
             else:
                 a = self.env.action_space.sample()  
                 # Collect Data Here

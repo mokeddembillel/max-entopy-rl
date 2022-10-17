@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
     ######RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=1)
+    parser.add_argument('--alpha', type=float, default=5)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--max_experiment_steps', type=float, default=3e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
@@ -52,17 +52,23 @@ if __name__ == '__main__':
     ######svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
-    parser.add_argument('--svgd_lr', type=float, default=0.01)
+    parser.add_argument('--svgd_lr', type=float, default=0.05)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
-    parser.add_argument('--svgd_adaptive_lr', type=int, default=None)
+    parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
    
     # tensorboard
     parser.add_argument('--tensorboard_path', type=str, default='./runs/')
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=int, default=1)
+    
+
+
+    ###################################################################################
+    parser.add_argument('--debugging', type=int, default=0)
+    ###################################################################################
 
     args = parser.parse_args()  
     args.sac_test_deterministic = bool(args.sac_test_deterministic)
@@ -70,19 +76,21 @@ if __name__ == '__main__':
     args.svgd_test_deterministic = bool(args.svgd_test_deterministic)
     args.plot = bool(args.plot)
     args.svgd_adaptive_lr = bool(args.svgd_adaptive_lr)
+    args.debugging = bool(args.debugging)
     # print(args.sac_test_deterministic)
     # print(args.svgd_adaptive_lr)
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
 
-    debugging = False 
-    if debugging:
+    
+    if args.debugging:
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
+        args.svgd_lr = 0.1
         # args.exploration_steps = 100
-        # args.update_after = 3000
-        args.svgd_kernel_sigma = 5.
-        args.svgd_adaptive_lr = False
+        args.update_after = 10
+        # args.svgd_kernel_sigma = 5.
+        # args.svgd_adaptive_lr = False
         print('############################################################################')
     
 
@@ -144,7 +152,7 @@ if __name__ == '__main__':
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_steps=args.exploration_steps,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
-        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name)
+        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, debugging=args.debugging)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
