@@ -263,7 +263,7 @@ class ActorSvgd(torch.nn.Module):
         elif (not all_particles) and (deterministic == False):
             # beta = 1
             # soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
-            # dist = Categorical(soft_max_probs/ torch.sum(soft_max_probs, dim=1, keepdim=True))
+            # dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             # a = self.a[:,dist.sample()]
             a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
             

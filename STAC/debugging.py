@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from utils import gaussian
 
 class Debugger():
-    def __init__(self, tb_logger, ac, train_env, test_env):
+    def __init__(self, tb_logger, ac, train_env, test_env, plot_format):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
         self.tb_logger = tb_logger
@@ -14,7 +14,7 @@ class Debugger():
         self.episode_counter = 0
         self.colors = ['red', 'orange', 'purple']
         self.episodes_information_svgd = []
-
+        self.plot_format = plot_format
 
     def collect_data(self, o, a, o2, r, d, log_p):
         
@@ -178,7 +178,7 @@ class Debugger():
                     self._line_objects += self._ax_lst[0].plot(x, y, c=color + '*')
                 else:
                     self._line_objects += self._ax_lst[0].plot(x, y, c=color)
-            plt.savefig(fig_path+ '/svgd_episode_' + str(episode_step) + '_step_' + str(self.episodes_information_svgd[-1]['step'][episode_step]) + ".png")
+            plt.savefig(fig_path+ '/svgd_episode_' + str(episode_step) + '_step_' + str(self.episodes_information_svgd[-1]['step'][episode_step]) + '.' + self.plot_format)
 
     def entropy_plot(self):
         log_p = []
@@ -276,7 +276,7 @@ class Debugger():
                 x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
                 plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
             
-            plt.savefig(fig_path + '/path_vis_'+ str(itr)+".pdf")   
+            plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + self.plot_format)   
             plt.close()
 
 
@@ -333,6 +333,8 @@ class Debugger():
         self.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
         
         self.episodes_information = []
+
+
 
     
 

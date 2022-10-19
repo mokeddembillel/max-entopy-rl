@@ -52,7 +52,7 @@ class ActorSql(nn.Module):
         a = self.amortized_svgd_net(obs, a_0)
         self.a = a.view(-1, self.num_particles, self.act_dim)
 
-        if not all_particles == False:
+        if not all_particles:
             q1_values = self.q1(obs, a)
             q2_values = self.q2(obs, a)
             q_values = torch.min(q1_values, q2_values)

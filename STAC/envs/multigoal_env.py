@@ -32,7 +32,7 @@ class MultiGoalEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None):
+    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None, plot_format=None):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
@@ -63,14 +63,14 @@ class MultiGoalEnv(Env, EzPickle):
         self.x_size = (2.5 * self.n_plots + 1)
         self.y_size = 11.5 
         
-
+        self.plot_format = plot_format
 
     def reset(self, init_state=None):
         if init_state:
             unclipped_observation = init_state
         else: 
-            unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
-            # unclipped_observation = self.init_mu
+            # unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
+            unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
         self.ep_len = 0
@@ -153,7 +153,7 @@ class MultiGoalEnv(Env, EzPickle):
             self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
             plt.plot()
-            plt.savefig(fig_path+ '/env_' + str(itr)+".pdf")   
+            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
             plt.close()
 
         modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)

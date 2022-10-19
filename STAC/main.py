@@ -36,7 +36,6 @@ if __name__ == '__main__':
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
     parser.add_argument('--num_test_episodes', type=int, default=50)
-    parser.add_argument('--stats_steps_freq', type=int, default=400)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -48,9 +47,9 @@ if __name__ == '__main__':
     ######sac
     parser.add_argument('--sac_test_deterministic', type=int, default=1)
     ######sql
-    parser.add_argument('--sql_test_deterministic', type=int, default=1)
+    parser.add_argument('--sql_test_deterministic', type=int, default=0)
     ######svgd 
-    parser.add_argument('--svgd_particles', type=int, default=10)
+    parser.add_argument('--svgd_particles', type=int, default=20)
     parser.add_argument('--svgd_steps', type=int, default=10)
     parser.add_argument('--svgd_lr', type=float, default=0.05)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
@@ -63,6 +62,8 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=int, default=1)
+    parser.add_argument('--plot_format', type=str, default='png', choices=['png', 'jpeg', 'pdf'])
+    parser.add_argument('--stats_steps_freq', type=int, default=400)
     
 
 
@@ -86,9 +87,11 @@ if __name__ == '__main__':
     if args.debugging:
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
-        args.svgd_lr = 0.1
+        args.actor = 'svgd_sql'
+        # args.svgd_lr = 0.1
+        args.max_experiment_steps = 100
         # args.exploration_steps = 100
-        args.update_after = 10
+        args.update_after = 1
         # args.svgd_kernel_sigma = 5.
         # args.svgd_adaptive_lr = False
         print('############################################################################')
@@ -97,7 +100,7 @@ if __name__ == '__main__':
 
     if args.actor == 'svgd_sql':
         args.lr_critic = 1e-2
-        args.alpha = 1.
+        # args.alpha = 1.
 
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
@@ -137,7 +140,7 @@ if __name__ == '__main__':
     
     # Logging
     #
-    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
+    project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_initstate_zero' + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0) + '_adaptive_' + str(args.svgd_adaptive_lr) + '_svgd_kernel_sigma_' + str(args.svgd_kernel_sigma)
@@ -152,7 +155,7 @@ if __name__ == '__main__':
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
         alpha=args.alpha,replay_size=int(args.replay_size),exploration_steps=args.exploration_steps,update_after=args.update_after,
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
-        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, debugging=args.debugging)
+        max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, debugging=args.debugging, plot_format=args.plot_format)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
@@ -162,9 +165,9 @@ if __name__ == '__main__':
 
     # stac
     if args.env =='Multigoal':
-        env_fn = MultiGoalEnv(max_steps=RL_kwargs.max_steps)
+        env_fn = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'max-entropy-v0':
-        env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps)
+        env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     else: 
         env_fn = gym.make(args.env)
     

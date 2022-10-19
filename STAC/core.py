@@ -5,7 +5,7 @@ import torch
 from torch.optim import Adam
 from datetime import datetime
 from actorcritic import ActorCritic
-from utils import count_vars, AttrDict
+from utils import count_vars, AttrDict, pdf_or_png_to_gif
 from buffer import ReplayBuffer
 from debugging import Debugger
 import pickle
@@ -53,7 +53,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env, self.test_env)
+        self.debugger = Debugger(tb_logger, self.ac, self.env, self.test_env, self.RL_kwargs.plot_format)
 
         self.evaluation_data = AttrDict()
 
@@ -72,11 +72,10 @@ class MaxEntrRL():
             # Target Q-values
             q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)
             q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
-            # q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
-            # q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles).mean(-1)
-            q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+
             
             if self.actor == 'svgd_sql':
+                q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
                 V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ / self.RL_kwargs.alpha, dim=-1)
                 # V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)
                 V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
@@ -84,7 +83,11 @@ class MaxEntrRL():
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
                 self.debugger.add_scalars('Q_target',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
-                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)      
+                ### option 1
+                q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)  
+                ### option 2    
+                # q_pi_targ = torch.min(q1_pi_targ.mean(-1), q2_pi_targ.mean(-1))
                 # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)      
                 
                 self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
@@ -242,7 +245,7 @@ class MaxEntrRL():
                 a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
-                if self.RL_kwargs.debugging:
+                if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':
                     self.debugger.collect_svgd_data(False, o, logp=logp)
                     # Plot all the particles
                     self.debugger.plot_svgd_particles_q_contours(self.fig_path)
@@ -306,4 +309,5 @@ class MaxEntrRL():
                 EpLen = []
                 
             step_itr += 1
+        pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
 
