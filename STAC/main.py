@@ -19,7 +19,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2'])
+    parser.add_argument('--env', type=str, default='Multigoal', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
@@ -70,7 +70,6 @@ if __name__ == '__main__':
     ###################################################################################
     parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
-
     args = parser.parse_args()  
     args.sac_test_deterministic = bool(args.sac_test_deterministic)
     args.sql_test_deterministic = bool(args.sql_test_deterministic)
@@ -83,6 +82,7 @@ if __name__ == '__main__':
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
 
+    print(args.exploration_steps)
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
@@ -98,6 +98,7 @@ if __name__ == '__main__':
     
 
 
+
     if args.actor == 'svgd_sql':
         args.lr_critic = 1e-2
         # args.alpha = 1.
@@ -107,7 +108,7 @@ if __name__ == '__main__':
         args.actor_activation = torch.nn.ReLU
         args.alpha = 0.2
     
-    if args.env in ['Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2']:
+    if args.env in ['Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2']:
         args.fig_path = './STAC/mujoco_plots_/'
         
     ###########################################################
@@ -169,6 +170,7 @@ if __name__ == '__main__':
     elif args.env == 'max-entropy-v0':
         env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     else: 
+        # Fix max steps here
         env_fn = gym.make(args.env)
     
         
@@ -178,6 +180,58 @@ if __name__ == '__main__':
     else:
         files = glob.glob(args.fig_path + project_name + '/*')
         [os.remove(file) for file in files]
+
+
+    ########################################## Hyper-Parameters ##########################################
+    print('########################################## Hyper-Parameters ##########################################')
+    print('Debugging: ', args.debugging)
+    print('GPU ID: ', args.gpu_id)
+    print('Environment: ', args.env)
+    print('Algorithm: ', args.actor)
+    print('Hidden layer size: ', args.env)
+    print('Critic\'s Number of layers: ', args.l_critic)
+    if args.actor not in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        print('Actor\'s Number of layers: ', args.l_actor)
+    print('Critic\'s Activation: ', args.critic_activation)
+    if args.actor not in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        print('Actor\'s Activation: ', args.actor_activation)
+    print('Discount Factor (Gamma): ', args.gamma)
+    print('Entropy coefficient (Alpha): ', args.alpha)
+    print('Replay Buffer size: ', args.replay_size)
+    print('Experiment\'s steps: ', args.max_experiment_steps)
+    print('Initial Exploration steps: ', args.exploration_steps)
+    print('Number test episodes: ', args.num_test_episodes)
+    print('Start Updating models after step: ', args.update_after)
+    print('Update models every: ', args.update_every)
+    print('Max Environment steps: ', args.max_steps)
+    print('Polyak target update rate: ', args.polyak) 
+    print('Critic\'s learning rate: ', args.lr_critic)
+    if args.actor not in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        print('Actor\'s learning rate: ', args.lr_actor)
+    print('Batch size: ', args.batch_size)
+    if args.actor == 'sac':
+        print('SAC diterministic action selection: ', args.sac_test_deterministic)
+    if args.actor == 'svgd_sql':
+        print('SQL diterministic action selection: ', args.sql_test_deterministic)
+    if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'svgd_sql']:
+        print('Number of particles for SVGD: ', args.svgd_particles)
+        print('SVGD learning Rate: ', args.svgd_lr)
+    if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        print('SVGD diterministic action selection: ', args.svgd_test_deterministic)
+        print('Number of SVGD steps: ', args.svgd_steps)
+        print('SVGD initial distribution\'s variance: ', args.svgd_sigma_p0)
+        print('SVGD\'s kernel variance: ', args.svgd_kernel_sigma)
+        print('SVGD\'s adaptive learning rate: ', args.svgd_adaptive_lr)
+    print('Tensorboard path: ', args.debugging)
+    print('Evaluation data path: ', args.evaluation_data_path)
+    print('Figures path: ', args.fig_path)
+    print('Plot results: ', args.plot)
+    print('Plot format: ', args.plot_format)
+    print('Statistics Collection frequency: ', args.stats_steps_freq)
+    print('Seed: ', args.seed)
+    print('Device: ', device)
+    print('Project Name: ', project_name)
+    print('######################################################################################################')
 
     stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
