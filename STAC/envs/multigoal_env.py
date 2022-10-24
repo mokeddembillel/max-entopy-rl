@@ -69,7 +69,7 @@ class MultiGoalEnv(Env, EzPickle):
         if init_state:
             unclipped_observation = init_state
         else: 
-            # unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim))
+            # unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim)) ############################
             unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
@@ -140,7 +140,7 @@ class MultiGoalEnv(Env, EzPickle):
         reward = -np.sum(costs)
         return reward
     
-    def reset_rendering(self, fig_path):
+    def reset_rendering(self):
         self.episode_observations = []
         self.number_of_hits_mode = np.zeros(self.num_goals)
         

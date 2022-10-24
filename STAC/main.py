@@ -18,8 +18,8 @@ import timeit
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='Multigoal', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--gpu_id', type=int, default=1)
+    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
     ######networks
@@ -35,7 +35,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_experiment_steps', type=float, default=3e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=50)
+    parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -63,7 +63,7 @@ if __name__ == '__main__':
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=int, default=1)
     parser.add_argument('--plot_format', type=str, default='png', choices=['png', 'jpeg', 'pdf'])
-    parser.add_argument('--stats_steps_freq', type=int, default=400)
+    parser.add_argument('--stats_steps_freq', type=int, default=400) 
     
 
 
@@ -81,27 +81,11 @@ if __name__ == '__main__':
     # print(args.svgd_adaptive_lr)
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
-
-    print(args.exploration_steps)
     
-    if args.debugging:
-        print('############################## DEBUGGING ###################################')
-        args.exploration_steps = 0
-        args.actor = 'svgd_sql'
-        # args.svgd_lr = 0.1
-        args.max_experiment_steps = 100
-        # args.exploration_steps = 100
-        args.update_after = 1
-        # args.svgd_kernel_sigma = 5.
-        # args.svgd_adaptive_lr = False
-        print('############################################################################')
-    
-
-
 
     if args.actor == 'svgd_sql':
         args.lr_critic = 1e-2
-        # args.alpha = 1.
+        args.alpha = 1.
 
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
@@ -110,6 +94,22 @@ if __name__ == '__main__':
     
     if args.env in ['Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2']:
         args.fig_path = './STAC/mujoco_plots_/'
+    elif args.env == 'max-entropy-v0':
+        args.stats_steps_freq = 1000
+        args.max_steps = 500
+        args.num_test_episodes = 2
+    
+    if args.debugging:
+        print('############################## DEBUGGING ###################################')
+        args.exploration_steps = 20000
+        # args.actor = 'svgd_sql'
+        # args.svgd_lr = 0.1
+        args.max_experiment_steps = 20000
+        # args.exploration_steps = 100
+        args.update_after = 1000
+        # args.svgd_kernel_sigma = 5.
+        # args.svgd_adaptive_lr = False
+        print('############################################################################')
         
     ###########################################################
     # fix the seeds
@@ -166,12 +166,15 @@ if __name__ == '__main__':
 
     # stac
     if args.env =='Multigoal':
-        env_fn = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        train_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'max-entropy-v0':
-        env_fn = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        train_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     else: 
         # Fix max steps here
-        env_fn = gym.make(args.env)
+        train_env = gym.make(args.env)
+        test_env = gym.make(args.env)
     
         
 
@@ -188,7 +191,7 @@ if __name__ == '__main__':
     print('GPU ID: ', args.gpu_id)
     print('Environment: ', args.env)
     print('Algorithm: ', args.actor)
-    print('Hidden layer size: ', args.env)
+    print('Hidden layer size: ', args.hid)
     print('Critic\'s Number of layers: ', args.l_critic)
     if args.actor not in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         print('Actor\'s Number of layers: ', args.l_actor)
@@ -233,7 +236,7 @@ if __name__ == '__main__':
     print('Project Name: ', project_name)
     print('######################################################################################################')
 
-    stac=MaxEntrRL(env_fn, env=args.env, actor=args.actor, device=device, 
+    stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
 

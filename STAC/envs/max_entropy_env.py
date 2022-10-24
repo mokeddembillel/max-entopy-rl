@@ -32,7 +32,7 @@ class Map:
 
 class MaxEntropyEnv(gym.Env):
     
-    def __init__(self, writer=None, starting_state=None, max_steps=500):
+    def __init__(self, writer=None, starting_state=None, max_steps=500, plot_format=None):
         module_path = os.path.dirname(__file__)
         
         
@@ -48,6 +48,8 @@ class MaxEntropyEnv(gym.Env):
         self.episodes_information = []
         self.max_steps = max_steps
         self.writer = writer
+        self.plot_format = plot_format
+
     
     def reset_rendering(self,):
         plt.close()
@@ -60,7 +62,7 @@ class MaxEntropyEnv(gym.Env):
         else:
             observation = starting_observation
         self.status = 'seeking_gold'
-        self.steps = 0
+        self.ep_len = 0
             
         self.episodes_information.append({'observations':[observation],
                                     'actions': [],
@@ -75,7 +77,7 @@ class MaxEntropyEnv(gym.Env):
         return observation
             
     def step(self, action):
-        self.steps += 1
+        self.ep_len += 1
         if self.done:
             raise('Episode already finished. Reset Please!')
         
@@ -120,7 +122,7 @@ class MaxEntropyEnv(gym.Env):
         self.episodes_information[-1]['observations'].append(next_observation)
         self.episodes_information[-1]['rewards'].append(reward)
         
-        if self.steps >= self.max_steps:
+        if self.ep_len >= self.max_steps:
             # goal = None
             self.status = 'failed'
             self.done = True
@@ -143,62 +145,62 @@ class MaxEntropyEnv(gym.Env):
         p.set_alpha(1.)
         self.ax.add_collection(p)
     
-    def render(self, render=True, itr=None, mode="human"):
-        self.episodes_information[0]['observations']
-        for i in range(len(self.episodes_information)):
-            path = np.array(self.episodes_information[i]['observations'])
-            if self.episodes_information[i]['status'] == 'failed':
-                color = 'red'
-            elif self.episodes_information[i]['status'] == 'succeeded':
-                color = 'lime'
-            else:
-                color = 'orange'
-            self.ax.plot(path[:, 0], path[:, 1], color)
-        if render == 'plot':
-            plt.plot()
-        elif render == 'draw':
-            plt.draw()
+    def render(self, fig_path, plot, render='plot', itr=None, mode="human", ac=None):
+        if plot:
+            self.episodes_information[0]['observations']
+            for i in range(len(self.episodes_information)):
+                path = np.array(self.episodes_information[i]['observations'])
+                if self.episodes_information[i]['status'] == 'failed':
+                    color = 'red'
+                elif self.episodes_information[i]['status'] == 'succeeded':
+                    color = 'lime'
+                else:
+                    color = 'orange'
+                self.ax.plot(path[:, 0], path[:, 1], color)
+            if render == 'plot':
+                plt.plot()
+            elif render == 'draw':
+                plt.draw()
+            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)
+            plt.close()
             
-    def collect_plotting_data(self, ac):
+    # def collect_plotting_data(self, ac):
 
-        if ac.pi.actor_name not in ['svgd_nonparam', 'svgd_sql']:
-            self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
-            self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
-        if ac.pi.actor_name not in  ['sac', 'svgd_sql']:
-            self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
-            self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
-            self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
-            self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
+    #     if ac.pi.actor_name not in ['svgd_nonparam', 'svgd_sql']:
+    #         self.episodes_information[-1]['mu'].append(ac.pi.mu.detach().cpu().numpy())
+    #         self.episodes_information[-1]['sigma'].append(ac.pi.sigma.detach().cpu().numpy())
+    #     if ac.pi.actor_name not in  ['sac', 'svgd_sql']:
+    #         self.episodes_information[-1]['svgd_steps'].append(ac.pi.svgd_steps)
+    #         self.episodes_information[-1]['ac_hess_list'].append(ac.pi.hess_list)
+    #         self.episodes_information[-1]['ac_score_func_list'].append(ac.pi.score_func_list)
+    #         self.episodes_information[-1]['ac_hess_eig_max'].append(ac.pi.hess_eig_max)
             
         
     
-    def plot_path(self):
-        fig, ax = plt.subplots(figsize=(10, 10))
-        plt.xlim([-7, 5])
-        plt.ylim([-5, 5])
-        ax.set_xlabel('x')
-        ax.set_ylabel('y')
-        p = PatchCollection(self.map.patches, cmap=matplotlib.cm.jet, alpha=0.4)
-        p.set_facecolor(np.array(['royalblue', 'teal', 'gold', 'gold']))
-        # p.set_edgecolor(np.array(['royalblue', 'teal', 'gold', 'gold']))
-        p.set_alpha(1.)
-        ax.add_collection(p)    
-        path = np.array(self.episodes_information[-2]['observations'])
-        # print('path :', self.episodes_information[-2])
-        if self.episodes_information[-2]['status'] == 'failed':
-            color = 'red'
-        elif self.episodes_information[-2]['status'] == 'succeeded':
-            color = 'lime'
-        else:
-            color = 'orange'
-        ax.plot(path[:, 0], path[:, 1], color)
-        # plt.savefig('./max_entropy_plots_/buffer_1')
-        plt.draw()
+    # def plot_path(self):
+    #     fig, ax = plt.subplots(figsize=(10, 10))
+    #     plt.xlim([-7, 5])
+    #     plt.ylim([-5, 5])
+    #     ax.set_xlabel('x')
+    #     ax.set_ylabel('y')
+    #     p = PatchCollection(self.map.patches, cmap=matplotlib.cm.jet, alpha=0.4)
+    #     p.set_facecolor(np.array(['royalblue', 'teal', 'gold', 'gold']))
+    #     # p.set_edgecolor(np.array(['royalblue', 'teal', 'gold', 'gold']))
+    #     p.set_alpha(1.)
+    #     ax.add_collection(p)    
+    #     path = np.array(self.episodes_information[-2]['observations'])
+    #     # print('path :', self.episodes_information[-2])
+    #     if self.episodes_information[-2]['status'] == 'failed':
+    #         color = 'red'
+    #     elif self.episodes_information[-2]['status'] == 'succeeded':
+    #         color = 'lime'
+    #     else:
+    #         color = 'orange'
+    #     ax.plot(path[:, 0], path[:, 1], color)
+    #     # plt.savefig('./max_entropy_plots_/buffer_1')
+    #     plt.draw()
         
         
-    def save_fig(self, path):
-        plt.savefig(path)
-        plt.close()
     
 
 

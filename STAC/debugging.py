@@ -332,6 +332,7 @@ class Debugger():
         self.tb_logger.add_scalars('Test_EpRet',  {'Mean ': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
         self.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
         
+    def reset(self,):
         self.episodes_information = []
 
 

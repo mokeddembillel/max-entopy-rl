@@ -32,6 +32,7 @@ class ReplayBuffer:
     def store(self, obs, act, rew, next_obs, done, env_info=None):
         
         if self.env_name == 'max-entropy-v0':
+        # if False:
             self.obs_tmp[self.ptr_tmp] = obs
             self.obs2_tmp[self.ptr_tmp] = next_obs
             self.act_tmp[self.ptr_tmp] = act
@@ -39,9 +40,10 @@ class ReplayBuffer:
             self.done_tmp[self.ptr_tmp] = done
             self.ptr_tmp = self.ptr_tmp + 1
             
-            if env_info['status'] == 'succeeded':
-                self.goals[env_info['goal'] - 1] +=1 # will be removed later
-                # print('Adding a success traj episode number ', self.size + 1, self.goals)
+            if env_info['status'] == 'succeeded' or env_info['status'] == 'failed' and np.random.uniform(0,1) > 0.8:
+                if env_info['status'] == 'succeeded':
+                    self.goals[env_info['goal'] - 1] +=1 # will be removed later
+                # print('Adding a trajectory: ', env_info['status'], ' --- goals: ', self.goals, ' --- buffer size: ', self.size + 1)
                 if self.max_size - self.ptr < self.ptr_tmp:
                     self.ptr = self.max_size - self.ptr_tmp
                 
@@ -53,7 +55,7 @@ class ReplayBuffer:
                 self.ptr = (self.ptr + self.ptr_tmp) % self.max_size
                 self.size = min(self.size + self.ptr_tmp, self.max_size)
                 self.ptr_tmp = 0
-            elif env_info['status'] == 'failed':
+            elif env_info['status'] == 'failed': 
                 self.ptr_tmp = 0
         else:
             self.obs_buf[self.ptr] = obs

@@ -12,9 +12,8 @@ import pickle
 from tqdm import tqdm
 
 class MaxEntrRL():
-    def __init__(self, env_fn, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
+    def __init__(self, train_env, test_env, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
         RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None, fig_path=None):
-        self.env_fn = env_fn
         self.fig_path = fig_path
         self.env_name = env
         self.actor = actor 
@@ -25,7 +24,7 @@ class MaxEntrRL():
         self.optim_kwargs = optim_kwargs
         
         # instantiating the environment
-        self.env, self.test_env = env_fn, env_fn
+        self.env, self.test_env = train_env, test_env
 
         self.obs_dim = self.env.observation_space.shape[0]
         self.act_dim = self.env.action_space.shape[0]
@@ -89,7 +88,6 @@ class MaxEntrRL():
                 ### option 2    
                 # q_pi_targ = torch.min(q1_pi_targ.mean(-1), q2_pi_targ.mean(-1))
                 # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)      
-                
                 self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
                     'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
                 # self.debugger.add_scalar('Training_Entropy', logp_a2.mean())
@@ -179,8 +177,8 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        if self.env_name == 'Multigoal':
-            self.test_env.reset_rendering(self.fig_path)
+        if self.env_name in ['Multigoal', 'max-entropy-v0']:
+            self.test_env.reset_rendering()
 
         for j in range(self.RL_kwargs.num_test_episodes):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
@@ -191,7 +189,7 @@ class MaxEntrRL():
                 a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                if self.env_name == 'Multigoal':
+                if self.env_name in ['Multigoal', 'max-entropy-v0']:
                     self.debugger.collect_data(o, a.detach(), o2, r, d, log_p)    
                 
                 ep_ret += r
@@ -202,11 +200,12 @@ class MaxEntrRL():
             self.evaluation_data['test_episodes_length'].append(ep_len)
             self.debugger.entropy_plot()
 
-        if self.env_name == 'Multigoal':
+        if self.env_name in ['Multigoal', 'max-entropy-v0']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
-            self.debugger.log_to_tensorboard(itr=itr)
-
+            if self.env_name in ['Multigoal']:
+                self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
+                self.debugger.log_to_tensorboard(itr=itr)
+            self.debugger.reset()
         
     def save_data(self):
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
@@ -278,13 +277,17 @@ class MaxEntrRL():
                 EpLen.append(ep_len)
                 self.evaluation_data['train_episodes_return'].append(ep_ret)
                 self.evaluation_data['train_episodes_length'].append(ep_len)
-
+                # print('info : ', info, 'ep_len :  ', ep_len, 'ep_ret : ',  ep_ret)
+                # print()
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
                 episode_itr += 1
                 d = True    
+
             
             # Update handling
             if step_itr >= self.RL_kwargs.update_after and step_itr % self.RL_kwargs.update_every == 0:
+                if step_itr == self.RL_kwargs.update_after:
+                    print('######################## Starting models update ########################')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
                     # print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
@@ -292,7 +295,6 @@ class MaxEntrRL():
 
             
             if (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0:
-                # Test the performance of the deterministic version of the agent.
                 # print('___test___')
                 
                 self.test_agent(step_itr)
@@ -301,13 +303,17 @@ class MaxEntrRL():
                     if value.grad is not None:
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
                         self.debugger.add_histogram(tag, value.cpu(), step_itr)
-                
-                self.debugger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
-                self.debugger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
+                try:
+                    self.debugger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
+                    self.debugger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
+                except:
+                    print('Statistics collection frequency should be larger then the length of an episode!')
+                    
 
                 EpRet = []
                 EpLen = []
                 
             step_itr += 1
-        pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
+        if self.RL_kwargs.plot:
+            pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
 
