@@ -172,7 +172,7 @@ class MaxEntropyEnv(gym.Env):
                 [-3.5, 2], 
                 [-1.5, 2]
             ]
-            obs_colors = np.array([[255,99,71], [255,140,0], [0,100,0] [138,43,226], [199,21,133], [160,82,45]])
+            obs_colors = np.array([[255,99,71], [255,140,0], [0,100,0], [138,43,226], [199,21,133], [160,82,45]])
             self.entropy_obs_list = np.array(self.entropy_obs_list)
             self.entropy_list = []
             # get actions 
