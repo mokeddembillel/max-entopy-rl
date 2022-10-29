@@ -7,13 +7,14 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 import matplotlib
 import matplotlib.pyplot as plt
+import torch
 
 class Map:
     
     def __init__(self,):
         
-        self.core = Polygon(np.array([[0,-3], [4,-3], [4,3],[3,3],[3,-2],[-3,-2],[-3,0],[-1,0],[-1, 4],[-3.01, 4],[-3.01, 3],
-                                      [-2, 3],[-2, 1],[-3, 1],[-3, 3.01],[-3.99, 3.01],[-3.99, 4],[-6, 4],[-6, -1],[-4, -1],[-4, 0],
+        self.core = Polygon(np.array([[0,-3], [4,-3], [4,3],[3,3],[3,-2],[-3,-2],[-3,-1],[-1,-1],[-1, 4],[-3.01, 4],[-3.01, 3],
+                                      [-2, 3],[-2, 0],[-3, 0],[-3, 3.01],[-3.99, 3.01],[-3.99, 4],[-6, 4],[-6, -1],[-4, -1],[-4, 0],
                                       [-5, 0],[-5, 3],[-4, 3],[-4,-3],[0, -3]]), True)
         self.start = Polygon(np.array([[-0.5,-4], [0.5,-4], [0.5,-3], [-0.5,-3], [-0.5,-4]]), True)
         self.goal_1 = Polygon(np.array([[3,3], [4,3],[4,4],[3,4],[3,3]]), True)
@@ -95,12 +96,16 @@ class MaxEntropyEnv(gym.Env):
             if self.map.in_goal_1(next_observation):
                 self.status = 'succeeded'
                 self.done = True
-                reward = 1000.
+                # reward = 10.
+                reward = 1.
+                # reward = 0.
                 goal = 1
             elif self.map.in_goal_2(next_observation):
                 self.status = 'succeeded'
                 self.done = True
-                reward = 1000.
+                # reward = 10.
+                reward = 1.
+                # reward = 0.
                 goal = 2
             else:
                 next_observation = self.episodes_information[-1]['observations'][-1]
@@ -145,8 +150,9 @@ class MaxEntropyEnv(gym.Env):
         p.set_alpha(1.)
         self.ax.add_collection(p)
     
-    def render(self, fig_path, plot, render='plot', itr=None, mode="human", ac=None):
+    def render(self, fig_path, plot, render='plot', itr=None, mode="human", ac=None, goals=None):
         if plot:
+            self.ax.set_title(str(goals))
             self.episodes_information[0]['observations']
             for i in range(len(self.episodes_information)):
                 path = np.array(self.episodes_information[i]['observations'])
@@ -156,7 +162,28 @@ class MaxEntropyEnv(gym.Env):
                     color = 'lime'
                 else:
                     color = 'orange'
-                self.ax.plot(path[:, 0], path[:, 1], color)
+                self.ax.plot(path[:, 0], path[:, 1], color, zorder=1)
+            self.entropy_obs_list = [
+                [0, -3],
+                [-3.5, -0.5], 
+                # [-3.5, 0.5], 
+                [3.5, 2], 
+                [-5.5, 2], 
+                [-3.5, 2], 
+                [-1.5, 2]
+            ]
+            obs_colors = np.array([[255,99,71], [255,140,0], [0,100,0] [138,43,226], [199,21,133], [160,82,45]])
+            self.entropy_obs_list = np.array(self.entropy_obs_list)
+            self.entropy_list = []
+            # get actions 
+            for i in range(len(self.entropy_obs_list)):
+                o = torch.as_tensor(self.entropy_obs_list[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
+                a, log_p = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=True, all_particles=False)
+                self.entropy_list.append(round(-log_p.detach().item(), 2))
+            
+            self.ax.scatter(self.entropy_obs_list[:, 0], self.entropy_obs_list[:, 1], c=list(obs_colors/255.0), marker='*', s=100, zorder=2)
+            for i in range(len(self.entropy_obs_list)):
+                self.ax.annotate(str(self.entropy_list[i]), (self.entropy_obs_list[i,0] + 0.1, self.entropy_obs_list[i,1]), fontsize=12, color=[0,0,0], zorder=2)
             if render == 'plot':
                 plt.plot()
             elif render == 'draw':
