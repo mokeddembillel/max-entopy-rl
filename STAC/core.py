@@ -52,7 +52,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env, self.test_env, self.RL_kwargs.plot_format)
+        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format)
 
         self.evaluation_data = AttrDict()
 
@@ -80,7 +80,7 @@ class MaxEntrRL():
                 V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
                 # V_soft_ += (self.act_dim * np.log(2))
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
-                self.debugger.add_scalars('Q_target',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
+                self.debugger.add_scalars('Q_target/',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
                 ### option 1
                 q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
@@ -180,7 +180,7 @@ class MaxEntrRL():
         if self.env_name in ['Multigoal', 'max-entropy-v0']:
             self.test_env.reset_rendering()
 
-        for j in range(self.RL_kwargs.num_test_episodes):
+        for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
@@ -198,13 +198,16 @@ class MaxEntrRL():
                 o = o2
             self.evaluation_data['test_episodes_return'].append(ep_ret)
             self.evaluation_data['test_episodes_length'].append(ep_len)
-            self.debugger.entropy_plot()
-
+            self.debugger.entropy_plot()  
+            # print('############### ', torch.cuda.memory_summary(device=3, abbreviated=False))
+            # import gc
+            # torch.cuda.empty_cache()
+            # gc.collect()
         if self.env_name in ['Multigoal', 'max-entropy-v0']:
-            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac)
-            if self.env_name in ['Multigoal']:
-                self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot)
-                self.debugger.log_to_tensorboard(itr=itr)
+            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, goals=self.replay_buffer.goals)
+            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
+            self.debugger.log_to_tensorboard(itr=itr)
+            self.debugger.create_entropy_plots(itr) # For multigoal only
             self.debugger.reset()
         
     def save_data(self):

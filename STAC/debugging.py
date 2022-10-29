@@ -4,10 +4,11 @@ import matplotlib.pyplot as plt
 from utils import gaussian
 
 class Debugger():
-    def __init__(self, tb_logger, ac, train_env, test_env, plot_format):
+    def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
         self.tb_logger = tb_logger
+        self.env_name = env_name
         self.train_env = train_env
         self.test_env = test_env
         self.episodes_information = []
@@ -64,8 +65,8 @@ class Debugger():
 
         if self.ac.pi.actor in ['svgd_nonparam']:
             self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
-            self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug)
-            self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug)
+            self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug.detach().cpu())
+            self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug.detach().cpu())
             self.episodes_information[-1]['logp_normal'].append(self.ac.pi.logp_normal_debug.detach().item())
             self.episodes_information[-1]['logp_svgd'].append(self.ac.pi.logp_svgd_debug.detach().item())
             self.episodes_information[-1]['logp_tanh'].append(self.ac.pi.logp_tanh_debug.detach().item())
@@ -103,6 +104,16 @@ class Debugger():
             if self.test_env.ep_len >= 30:
                 self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:self.test_env.ep_len])
                 self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.test_env.ep_len])
+    
+    def create_entropy_plots(self, itr):
+        if self.env_name == 'Multigoal' and (itr + 1)%6800 == 0:
+        # if 1:
+            for s in range(self.test_env.max_steps):
+                feed_dict = {}
+                for i in range(len(self.episodes_information)):
+                    if len(self.episodes_information[i]['log_p']) > s:
+                        feed_dict['episode_' + str(i)] = self.episodes_information[i]['log_p'][s]
+                self.add_scalars('Entropy/episode_entropy_' + str(itr),feed_dict, s)
     
     def collect_svgd_data(self, exploration, observation, particles=None, logp=None):
         if self.train_env.ep_len == 0:
@@ -248,7 +259,8 @@ class Debugger():
 
          
     def plot_policy(self, itr, fig_path, plot):
-        if plot:
+        
+        if plot and self.env_name == 'Multigoal':
             ax = self.test_env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
             path = self.episodes_information[0]
             positions = np.stack(path['observations'])
@@ -292,11 +304,15 @@ class Debugger():
 
     def log_to_tensorboard(self, itr):
         # related to the modes
-        self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
-        self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
-        
-        for ind in range(self.test_env.num_goals):
-            self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
+        if self.env_name == 'Multigoal':
+            self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
+            self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
+            
+            for ind in range(self.test_env.num_goals):
+                self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
+        if self.env_name == 'max-entropy-v0':
+            feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+            self.tb_logger.add_scalars('Entropy/max_entropy_env',  feed_dict, itr)
         
         # investigating smoothness of the q-landscape by computing the 1st and 2nd order derivatives
         q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))
