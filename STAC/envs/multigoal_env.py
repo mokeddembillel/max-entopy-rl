@@ -32,7 +32,7 @@ class MultiGoalEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0,distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None, plot_format=None):
+    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0, distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None, plot_format=None):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
@@ -145,7 +145,7 @@ class MultiGoalEnv(Env, EzPickle):
         self.number_of_hits_mode = np.zeros(self.num_goals)
         
     
-    def render(self, itr, fig_path, plot, ac=None):
+    def render(self, itr, fig_path, plot, ac=None, goals=None):
         positions = np.stack(self.episode_observations)
         if plot:
             self._init_plot(self.x_size, self.y_size)

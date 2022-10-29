@@ -18,37 +18,37 @@ import timeit
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
-    parser.add_argument('--gpu_id', type=int, default=1)
+    parser.add_argument('--gpu_id', type=int, default=0)
     parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
-    ######networks
+    ###### networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
     parser.add_argument('--l_actor', type=int, default=3)
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
-    ######RL 
+    ###### RL 
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--alpha', type=float, default=5)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--max_experiment_steps', type=float, default=3e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=10)
+    parser.add_argument('--num_test_episodes', type=int, default=20)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
-    ######optim 
+    ###### optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=500)
-    ######sac
-    parser.add_argument('--sac_test_deterministic', type=int, default=1)
-    ######sql
+    ###### sac
+    parser.add_argument('--sac_test_deterministic', type=int, default=0)
+    ###### sql
     parser.add_argument('--sql_test_deterministic', type=int, default=0)
-    ######svgd 
+    ###### svgd 
     parser.add_argument('--svgd_particles', type=int, default=20)
     parser.add_argument('--svgd_steps', type=int, default=10)
     parser.add_argument('--svgd_lr', type=float, default=0.05)
@@ -97,7 +97,8 @@ if __name__ == '__main__':
     elif args.env == 'max-entropy-v0':
         args.stats_steps_freq = 1000
         args.max_steps = 500
-        args.num_test_episodes = 2
+        # args.num_test_episodes = 2
+        args.fig_path = './STAC/max_entropy_plots_/'
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
@@ -106,7 +107,11 @@ if __name__ == '__main__':
         # args.svgd_lr = 0.1
         args.max_experiment_steps = 20000
         # args.exploration_steps = 100
-        args.update_after = 1000
+        args.update_after = 10000
+        args.stats_steps_freq = 20
+        args.num_test_episodes = 1
+        args.max_steps = 10
+
         # args.svgd_kernel_sigma = 5.
         # args.svgd_adaptive_lr = False
         print('############################################################################')
@@ -124,6 +129,7 @@ if __name__ == '__main__':
     
     # get device
     device = torch.device('cuda:' + str(args.gpu_id) if torch.cuda.is_available() else 'cpu')
+    # device = torch.device('cpu')
 
     # actor arguments
     if (args.actor in ['svgd_nonparam','svgd_p0_pram','svgd_p0_kernel_pram']):
@@ -141,6 +147,7 @@ if __name__ == '__main__':
     
     # Logging
     #
+
     project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_initstate_zero' + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
     
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
