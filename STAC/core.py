@@ -33,7 +33,8 @@ class MaxEntrRL():
         self.act_limit = self.env.action_space.high[0]
 
         # Create actor-critic module and target networks
-        self.ac = ActorCritic(self.actor, self.env.observation_space, self.env.action_space, self.RL_kwargs.evaluation_data_path, self.critic_kwargs, self.actor_kwargs)
+        self.ac = ActorCritic(self.actor, self.env.observation_space, self.env.action_space, self.RL_kwargs.evaluation_data_path, 
+            self.RL_kwargs.test_time, self.RL_kwargs.model_path, self.critic_kwargs, self.actor_kwargs)
         # self.ac.state_dict
         self.ac_targ = deepcopy(self.ac)
 
@@ -42,7 +43,7 @@ class MaxEntrRL():
         self.ac_targ = self.ac_targ.to(self.device)
 
         # Experience buffer
-        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, device=self.device, env_name=self.env_name)
+        self.replay_buffer = ReplayBuffer(obs_dim=self.obs_dim, act_dim=self.act_dim, size=self.RL_kwargs.replay_size, load_replay=self.RL_kwargs.load_replay, replay_path=self.RL_kwargs.replay_path, device=self.device, env_name=self.env_name)
 
         if next(self.ac.pi.parameters(), None) is not None:
             self.pi_optimizer = Adam(self.ac.pi.parameters(), lr=self.optim_kwargs.lr_actor)
@@ -189,29 +190,30 @@ class MaxEntrRL():
                 a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                if self.env_name in ['Multigoal', 'max-entropy-v0']:
+                if self.env_name in ['Multigoal', 'max-entropy-v0'] and not self.RL_kwargs.test_time:
                     self.debugger.collect_data(o, a.detach(), o2, r, d, log_p)    
                 
                 ep_ret += r
                 ep_len += 1
                 
                 o = o2
-            self.evaluation_data['test_episodes_return'].append(ep_ret)
-            self.evaluation_data['test_episodes_length'].append(ep_len)
-            self.debugger.entropy_plot()  
-            # print('############### ', torch.cuda.memory_summary(device=3, abbreviated=False))
-            # import gc
-            # torch.cuda.empty_cache()
-            # gc.collect()
+            if not self.RL_kwargs.test_time:
+                self.evaluation_data['test_episodes_return'].append(ep_ret)
+                self.evaluation_data['test_episodes_length'].append(ep_len)
+                self.debugger.entropy_plot()  
+
         if self.env_name in ['Multigoal', 'max-entropy-v0']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, goals=self.replay_buffer.goals)
-            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
-            self.debugger.log_to_tensorboard(itr=itr)
-            self.debugger.create_entropy_plots(itr) # For multigoal only
-            self.debugger.reset()
+            if not self.RL_kwargs.test_time:
+                self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
+                self.debugger.log_to_tensorboard(itr=itr)
+                self.debugger.create_entropy_plots(itr) # For multigoal only
+                self.debugger.reset()
         
     def save_data(self):
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
+        if self.RL_kwargs.load_replay:
+            self.replay_buffer.save()
         self.ac.save()
 
     def forward(self):
@@ -247,10 +249,10 @@ class MaxEntrRL():
                 a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
-                if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':
-                    self.debugger.collect_svgd_data(False, o, logp=logp)
-                    # Plot all the particles
-                    self.debugger.plot_svgd_particles_q_contours(self.fig_path)
+                # if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':
+                #     self.debugger.collect_svgd_data(False, o, logp=logp)
+                #     # Plot all the particles
+                #     self.debugger.plot_svgd_particles_q_contours(self.fig_path)
             else:
                 a = self.env.action_space.sample()  
                 # Collect Data Here
@@ -270,6 +272,11 @@ class MaxEntrRL():
             # Store experience to replay buffer
             self.replay_buffer.store(o, a, r, o2, d, info)
 
+
+            # Collect replay data.
+            # if sum(self.replay_buffer.goals) >= 500:
+            #     break
+
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
             o = o2
@@ -280,6 +287,7 @@ class MaxEntrRL():
                 EpLen.append(ep_len)
                 self.evaluation_data['train_episodes_return'].append(ep_ret)
                 self.evaluation_data['train_episodes_length'].append(ep_len)
+                # print('self.replay_buffer.goals: ', self.replay_buffer.goals)
                 # print('info : ', info, 'ep_len :  ', ep_len, 'ep_ret : ',  ep_ret)
                 # print()
                 o, ep_ret, ep_len = self.env.reset(), 0, 0
@@ -297,11 +305,11 @@ class MaxEntrRL():
                     self.update(data=batch, itr=step_itr)
 
             
-            if (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0:
+            if (step_itr+1)  >= self.RL_kwargs.collect_stats_after and (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0:
                 # print('___test___')
                 
                 self.test_agent(step_itr)
-                # self.save_data()
+                
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
@@ -315,8 +323,8 @@ class MaxEntrRL():
 
                 EpRet = []
                 EpLen = []
-                
             step_itr += 1
+        self.save_data()
         if self.RL_kwargs.plot:
-            pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
+            pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.collect_stats_after + self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
 

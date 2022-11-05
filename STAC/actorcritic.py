@@ -8,13 +8,15 @@ from utils import AttrDict
 import torch
 
 class ActorCritic(nn.Module):
-    def __init__(self, actor, observation_space, action_space, save_path, critic_kwargs=AttrDict(), actor_kwargs=AttrDict()):
+    def __init__(self, actor, observation_space, action_space, save_path, test_time, model_path, critic_kwargs=AttrDict(), actor_kwargs=AttrDict()):
         super().__init__()
         obs_dim = observation_space.shape[0]
         act_dim = action_space.shape[0]
         act_limit = action_space.high[0]
         self.save_path = save_path
-        self.actor_name = actor
+        self.actor_name = actor 
+        self.test_time = test_time
+        self.model_path = model_path
 
         dict_actors = {
             'sac': ActorSac,
@@ -33,12 +35,16 @@ class ActorCritic(nn.Module):
             
         self.pi = dict_actors[actor](actor, obs_dim, act_dim, act_limit, **actor_kwargs)
 
+        if self.test_time:
+            self.load()
 
     def forward(self, obs, deterministic=False, with_logprob=True, in_q_loss=False, all_particles=False):
         return self.pi.act(obs, deterministic, with_logprob, in_q_loss, all_particles)
 
     def save(self):
         torch.save(self.state_dict(), self.save_path + '/' + self.actor_name)
+    def load(self):
+        self.load_state_dict(torch.load(self.model_path))
 
 
 
