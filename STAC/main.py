@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=500)
+    parser.add_argument('--batch_size', type=int, default=20000)
     ###### sac
     parser.add_argument('--sac_test_deterministic', type=int, default=0)
     ###### sql
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=400) 
     
-    parser.add_argument('--test_time', type=int, default=1) 
+    parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--model_path', type=str, default='./evaluation_data/sac')
 
 
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     # print(args.svgd_adaptive_lr)
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
-    
+      
     
     if args.test_time:
         print('############################## TEST TIME ###################################')
@@ -109,6 +109,7 @@ if __name__ == '__main__':
     elif args.env == 'max-entropy-v0':
         args.stats_steps_freq = 1000
         args.max_steps = 500
+        args.gamma = 1.0
         # args.num_test_episodes = 2
         args.fig_path = './STAC/max_entropy_plots_/'
     
@@ -126,11 +127,11 @@ if __name__ == '__main__':
         # args.collect_stats_after = 0
 
         args.update_after = 1000000
-        args.stats_steps_freq = 11
-        args.num_test_episodes = 1
+        args.stats_steps_freq = 400
+        args.num_test_episodes = 20
         args.max_steps = 500
-        args.collect_stats_after = 2000000
-
+        args.collect_stats_after = 0
+        # args.plot_format = 'pdf'
         # args.svgd_kernel_sigma = 5.
         # args.svgd_adaptive_lr = False
         print('############################################################################')

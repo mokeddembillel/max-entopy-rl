@@ -203,7 +203,7 @@ class MaxEntrRL():
                 self.debugger.entropy_plot()  
 
         if self.env_name in ['Multigoal', 'max-entropy-v0']:
-            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, goals=self.replay_buffer.goals)
+            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             if not self.RL_kwargs.test_time:
                 self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
                 self.debugger.log_to_tensorboard(itr=itr)
@@ -270,12 +270,11 @@ class MaxEntrRL():
             # that isn't based on the agent's state)
             d = False if ep_len == self.RL_kwargs.max_steps else d
             # Store experience to replay buffer
-            self.replay_buffer.store(o, a, r, o2, d, info)
+            self.replay_buffer.store(o, a, r, o2, d, info, step_itr)
 
 
             # Collect replay data.
-            # if sum(self.replay_buffer.goals) >= 500:
-            #     break
+
 
             # Super critical, easy to overlook step: make sure to update 
             # most recent observation!
