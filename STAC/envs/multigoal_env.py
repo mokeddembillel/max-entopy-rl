@@ -62,7 +62,7 @@ class MultiGoalEnv(Env, EzPickle):
         self.n_plots = len(self._obs_lst)
         self.x_size = (2.5 * self.n_plots + 1)
         self.y_size = 11.5 
-        
+        self.agent_failure = None
         self.plot_format = plot_format
 
     def reset(self, init_state=None):
@@ -105,6 +105,7 @@ class MultiGoalEnv(Env, EzPickle):
 
         # compute reward
         reward = self.compute_reward(self.observation, action)
+        # reward = 0.0 ############# Need to be removed
 
         # compute done
         distance_to_goals = [np.linalg.norm(self.observation - goal_position)for goal_position in self.goal_positions]
@@ -145,7 +146,7 @@ class MultiGoalEnv(Env, EzPickle):
         self.number_of_hits_mode = np.zeros(self.num_goals)
         
     
-    def render(self, itr, fig_path, plot, ac=None, goals=None):
+    def render(self, itr, fig_path, plot, ac=None, paths=None):
         positions = np.stack(self.episode_observations)
         if plot:
             self._init_plot(self.x_size, self.y_size)

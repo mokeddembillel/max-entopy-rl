@@ -150,6 +150,12 @@ class MaxEntrRL():
         self.q_optimizer.zero_grad()
         loss_q = self.compute_loss_q(data, itr)
         loss_q.backward()
+        # Clip gradients. need to be removed later
+        # for p in self.q_params:
+        #         print(p)
+        # torch.nn.utils.clip_grad_norm_(self.q_params, 5)
+        # torch.nn.utils.clip_grad_norm_(self.ac.q1.parameters(), 5)
+        # torch.nn.utils.clip_grad_norm_(self.ac.q2.parameters(), 5)
         self.q_optimizer.step()
         
         if next(self.ac.pi.parameters(), None) is not None:
@@ -164,6 +170,7 @@ class MaxEntrRL():
             self.pi_optimizer.zero_grad()
             # loss_pi.backward(grad_loss_pi)
             loss_pi.backward(gradient=grad_loss_pi)
+            # torch.nn.utils.clip_grad_norm_(self.ac.pi.parameters(), 5)
             self.pi_optimizer.step()
                 
             # Unfreeze Q-networks so you can optimize it at next DDPG step.
@@ -270,8 +277,10 @@ class MaxEntrRL():
             # that isn't based on the agent's state)
             d = False if ep_len == self.RL_kwargs.max_steps else d
             # Store experience to replay buffer
+            # print('##################### agent_failure : ', self.env.agent_failure)
+            # if self.env_name != 'max-entropy-v0' or ep_len == self.RL_kwargs.max_steps or self.env.agent_failure == 0 or self.env.agent_failure == 10 :
             self.replay_buffer.store(o, a, r, o2, d, info, step_itr)
-
+                
 
             # Collect replay data.
 
@@ -300,6 +309,7 @@ class MaxEntrRL():
                     print('######################## Starting models update ########################')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
+                    self.debugger.add_scalars('Batch_reward',  {'final_reward_num': int(np.sum(batch['rew'].detach().cpu().numpy()) // 60)}, step_itr)
                     # print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
                     self.update(data=batch, itr=step_itr)
 

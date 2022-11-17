@@ -55,8 +55,8 @@ class Debugger():
 
         self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
 
-        if self.ac.pi.actor != 'sac':
-            self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
+        # if self.ac.pi.actor != 'sac':
+        self.episodes_information[-1]['actions'].append(a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
         a.requires_grad = True
@@ -312,25 +312,76 @@ class Debugger():
             for ind in range(self.test_env.num_goals):
                 self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
         if self.env_name == 'max-entropy-v0':
-            feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+            feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
 
-            # feed_dict = {str(self.test_env.entropy_obs_list[i]): self.ac.q1(torch.tensor(self.entropy_obs_list[i]), ) for i in range(self.test_env.entropy_obs_list.shape[0])}
+            # feed_dict = {str(self.test_env.entropy_obs_names[i]): self.ac.q1(torch.tensor(self.entropy_obs_names[i]), ) for i in range(self.test_env.entropy_obs_names.shape[0])}
             # self.tb_logger.add_scalars('Entropy/max_entropy_env_Q_values',  feed_dict, itr)
 
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Paths', {f'path_{i + 1}': self.test_env.paths[i] for i in range(len(self.test_env.paths))}, itr)
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Failures', {'goal_1': self.train_env.failures[0], 'goal_2': self.train_env.failures[1]}, itr)
 
             if self.ac.pi.actor == 'sac':
-                feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.mean_list_x[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+                feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
                 self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_x',  feed_dict, itr)
-                feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.mean_list_y[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+                feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
                 self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_y',  feed_dict, itr)
-                feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.sigma_list_x[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+                feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
                 self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_x',  feed_dict, itr)
-                feed_dict = {str(self.test_env.entropy_obs_list[i]): self.test_env.sigma_list_y[i] for i in range(self.test_env.entropy_obs_list.shape[0])}
+                feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
                 self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_y',  feed_dict, itr)
             
+
+            
+            feed_dict = {}
+            o = torch.tensor(self.test_env.entropy_obs_list[0].astype(np.float32)).to(self.ac.pi.device)
+            left = torch.from_numpy(np.array([-1, 1]).astype(np.float32)).to(self.ac.pi.device)
+            right = torch.from_numpy(np.array([1, 1]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[0] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+            feed_dict[self.test_env.entropy_obs_names[0] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
+
+            o = torch.tensor(self.test_env.entropy_obs_list[1].astype(np.float32)).to(self.ac.pi.device)
+            left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
+            right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[1] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+            feed_dict[self.test_env.entropy_obs_names[1] + '_right'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+        
+            o = torch.tensor(self.test_env.entropy_obs_list[2].astype(np.float32)).to(self.ac.pi.device)
+            left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[2] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+        
+            o = torch.tensor(self.test_env.entropy_obs_list[3].astype(np.float32)).to(self.ac.pi.device)
+            top = torch.from_numpy(np.array([0, 1]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[3] + '_top'] = torch.min(self.ac.q1(o, top), self.ac.q2(o, top)).detach().cpu().item()
+        
+            o = torch.tensor(self.test_env.entropy_obs_list[4].astype(np.float32)).to(self.ac.pi.device)
+            top = torch.from_numpy(np.array([0, 1]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[4] + '_top'] = torch.min(self.ac.q1(o, top), self.ac.q2(o, top)).detach().cpu().item()
+        
+            o = torch.tensor(self.test_env.entropy_obs_list[5].astype(np.float32)).to(self.ac.pi.device)
+            top = torch.from_numpy(np.array([0, 1]).astype(np.float32)).to(self.ac.pi.device)
+            feed_dict[self.test_env.entropy_obs_names[5] + '_top'] = torch.min(self.ac.q1(o, top), self.ac.q2(o, top)).detach().cpu().item()
+
+            self.tb_logger.add_scalars('Entropy/max_entropy_env_q_values',  feed_dict, itr)
+
+            if self.env_name == 'max-entropy-v0':
+                for s in range(self.test_env.max_steps - 1):
+                    feed_dict_x = {}
+                    feed_dict_x['test_itr' + str(itr)] = 0
+                    feed_dict_y = {}
+                    feed_dict_y['test_itr' + str(itr)] = 0
+                    for i in range(len(self.episodes_information)):
+                        if len(self.episodes_information[i]['actions']) > s:
+                            feed_dict_x['test_itr' + str(itr)] += self.episodes_information[i]['actions'][s][0]
+                            feed_dict_y['test_itr' + str(itr)] += self.episodes_information[i]['actions'][s][1]
+                    feed_dict_x['test_itr' + str(itr)] /= 20
+                    feed_dict_y['test_itr' + str(itr)] /= 20
+                    self.add_scalars('Entropy/episode_action_X' ,feed_dict_x, s)
+                    self.add_scalars('Entropy/episode_action_Y' ,feed_dict_y, s)
+    
+
+            # for i in range()
+
         #############################################################################################################################################
         # # investigating smoothness of the q-landscape by computing the 1st and 2nd order derivatives
         # q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))

@@ -15,6 +15,7 @@ import glob
 import timeit
 
 
+
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
@@ -45,7 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=20000)
+    parser.add_argument('--batch_size', type=int, default=2000)
     ###### sac
     parser.add_argument('--sac_test_deterministic', type=int, default=0)
     ###### sql
@@ -117,23 +118,35 @@ if __name__ == '__main__':
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 20000000
         # args.actor = 'svgd_sql'
-        # args.svgd_lr = 0.1
         args.max_experiment_steps = 5000000
         # args.exploration_steps = 100
         args.update_after = 10000000
         # args.stats_steps_freq = 11
+        args.num_test_episodes = 1
+        # args.max_steps = 500
+        args.collect_stats_after = 0
+
+        # args.update_after = 1000000
+        # args.stats_steps_freq = 400
         # args.num_test_episodes = 1
         # args.max_steps = 500
         # args.collect_stats_after = 0
 
-        args.update_after = 1000000
-        args.stats_steps_freq = 400
-        args.num_test_episodes = 20
-        args.max_steps = 500
-        args.collect_stats_after = 0
-        # args.plot_format = 'pdf'
-        # args.svgd_kernel_sigma = 5.
-        # args.svgd_adaptive_lr = False
+
+
+        # tmp = 400000
+        # args.max_experiment_steps =  415000 
+        # args.exploration_steps = tmp 
+        # args.update_after = tmp 
+        # # args.update_after = 400
+        # args.collect_stats_after = tmp 
+        # args.seed = 0 
+        # # args.alpha = 1.0
+        # args.alpha = 0.2
+
+
+
+
         print('############################################################################')
         
     ###########################################################
@@ -269,6 +282,7 @@ if __name__ == '__main__':
         print('Seed: ', args.seed)
         print('Device: ', device)
         print('Project Name: ', project_name)
+        print('Experiment PID: ', os.getpid())
         print('######################################################################################################')
 
     stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
@@ -285,3 +299,40 @@ if __name__ == '__main__':
         print('Time: ', stop - start) 
         print() 
         print(project_name)
+
+
+
+
+# def step():
+#     if direction in current segment is correct:
+#         if agent in goal1:
+#             do something
+#         elif agent in goal2:
+#             do something
+#         else:
+#             find intersections
+#             if there are intersections: 
+#                 get the closest intersections
+#                 next_observation = (intersections[closest_intersection] - current_observation) * 0.90 + current_observation
+#                 if next_observation == intersections[closest_intersection]: 
+#                     # check becuase with the above line if multiple actions were taken towards the 
+#                     # wall it will get closer to the wall. this will prevent it from going outside the wall
+#                     next_observation = current_observation
+#             get current segment given next_observation
+#     else:
+#         next_observation = current_observation
+
+#     store transition what ever happens. ( this is what youre asking me to change)
+
+
+
+
+
+
+
+
+
+
+
+
+
