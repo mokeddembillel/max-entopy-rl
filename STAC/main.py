@@ -122,7 +122,7 @@ if __name__ == '__main__':
         # args.exploration_steps = 100
         args.update_after = 10000000
         # args.stats_steps_freq = 11
-        args.num_test_episodes = 1
+        args.num_test_episodes = 20
         # args.max_steps = 500
         args.collect_stats_after = 0
 

@@ -261,7 +261,7 @@ class MaxEntrRL():
                 #     # Plot all the particles
                 #     self.debugger.plot_svgd_particles_q_contours(self.fig_path)
             else:
-                a = self.env.action_space.sample()  
+                a = self.env.action_space.sample()
                 # Collect Data Here
                 # self.debugger.collect_svgd_data(True, o, particles=a)
                 # Plot the final particles 

@@ -17,7 +17,7 @@ class ReplayBuffer:
 
 
         self.goals = [0, 0]
-        self.paths = [0, 0, 0, 0]
+        self.paths = [0, 0, 0]
         if self.env_name == 'max-entropy-v0':
             self.episode_max_steps = episode_max_steps
             self.obs_tmp = np.zeros((self.episode_max_steps, self.obs_dim), dtype=np.float32)

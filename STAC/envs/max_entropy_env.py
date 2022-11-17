@@ -16,8 +16,10 @@ class Map:
     def __init__(self,):
         
 
-        self.core_array = np.array([[-3,0],[3, 0],[3, -2],[7, -2],[7, 0],[6, 0],[6, -1],[4, -1],[4, 2],[6, 2],[6, 1],[7,1],[7, 3],[3, 3],[3, 1],[-3, 1],[-3, 3],\
-                 [-7, 3],[-7, 1],[-6, 1],[-6, 2],[-4, 2],[-4, -1],[-6, -1],[-6, 0],[-7, 0],[-7, -2],[-3, -2],[-3, 0]])
+        self.core_array = np.array([[-3,0],[3, 0],[3, -2],[7, -2],[7, 0.01],[6, 0.01],[6, -1],[4, -1],[4, 1],[-3, 1],[-3, 3],\
+                 [-7, 3],[-7, 0.99],[-6, 0.99],[-6, 2],[-4, 2],[-4, -1],[-6, -1],[-6, 0.01],[-7, 0.01],[-7, -2],[-3, -2],[-3, 0]])
+
+
 
         seg1 = np.array([[-6, -1],[-3, -1],[-3, -2],[-6, -2],[-6, -1]]) # seg 1 
         seg2 = np.array([[-7, -2],[-7, 0],[-6, 0],[-6, -2], [-7, -2]]) # seg 2
@@ -28,12 +30,9 @@ class Map:
         seg7 = np.array([[-3, 0],[-3, 1],[-0.5, 1],[-0.5, 0], [-3, 0]]) # seg 7
         seg8 = np.array([[-0.5, 1],[-0.5, 0],[0.5, 0],[0.5,1], [-0.5, 1]]) # seg 8
         seg9 = np.array([[0.5, 0],[0.5,1],[3, 1],[3, 0],[0.5, 0]]) # seg 9
-        seg10 = np.array([[4, -1],[3, -1],[3, 0.5],[4, 0.5], [4, -1]]) # seg 10
+        seg10 = np.array([[4, -1],[3, -1],[3, 1],[4, 1], [4, -1]]) # seg 10
         seg11 = np.array([[6, -1],[3, -1],[3, -2],[6, -2],[6, -1]]) # seg 11
-        seg12 = np.array([[7, -2],[7, 0.1],[6, 0.1],[6, -2], [7, -2]]) # seg 12
-        seg13 = np.array([[7, 1],[7, 3],[6, 3],[6, 0.9],[7,0.9]]) # seg 13
-        seg14 = np.array([[6, 3],[3, 3],[3, 2],[6, 2],[6, 3]]) # seg 14 
-        seg15 = np.array([[3, 2],[3, 0.5],[4, 0.5],[4, 2], [3, 2]]) # seg 15 
+        seg12 = np.array([[7, -2],[7, 0],[6, 0],[6, -2], [7, -2]]) # seg 12
             
 
         up_direction = np.array([0, 1])
@@ -41,25 +40,7 @@ class Map:
         left_direction = np.array([-1, 0])
         right_direction = np.array([1, 0])
 
-            
-
-        # self.segments = {
-        #     'seg1' : {'seg_array': seg1, 'polygon' : Polygon(seg1,True), 'next_seg_edge': np.array([[-6,3], [-5,3]]), 'seg_reward_point': np.array([-5.5, 3]), 'distance_to_goal': 1.581, 'seg_reward': 8., 'adjacents': ['seg1', 'seg2', 'seg6'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[-3.99, 4],[-6, 4]], [[-6, 4],[-6, -1]], [[-6, -1],[-5, -1]] ,[[-5, -1],[-5, 3]], [[-5, 3],[-4, 3]]])},
-        #     'seg2' : {'seg_array': seg2, 'polygon' : Polygon(seg2,True), 'next_seg_edge': None, 'seg_reward_point': np.array([-4, 3.5]), 'distance_to_goal': 0.0, 'seg_reward': 10., 'adjacents': ['seg2', 'seg1'], 'direction': lambda action: self.check_direction(action, right_direction), 'edges': np.array([[[-3.99, 4],[-6, 4]], [[-6, 4],[-6, 3]], [[-3.99, 3],[-3.99, 4]], [[-6, 3],[-3.99, 3]]])},  
-        #     'seg3' : {'seg_array': seg3, 'polygon' : Polygon(seg3,True), 'next_seg_edge': None, 'seg_reward_point': np.array([-3, 3.5]), 'distance_to_goal': 0.0, 'seg_reward': 10., 'adjacents': ['seg3', 'seg4'], 'direction': lambda action: self.check_direction(action, left_direction), 'edges': np.array([[[-1,3],[-1, 4]], [[-1, 4],[-3.01, 4]], [[-3.01, 4],[-3.01, 3]], [[-3.01, 3],[-1, 3]]])},  
-        #     'seg4' : {'seg_array': seg4, 'polygon' : Polygon(seg4,True), 'next_seg_edge': np.array([[-2,3], [-1,3]]), 'seg_reward_point': np.array([-1.5, 3]), 'distance_to_goal': 1.581, 'seg_reward': 8., 'adjacents': ['seg4', 'seg3', 'seg5'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[-2,-1],[-1,-1]], [[-1,-1],[-1, 4]], [[-1, 4],[-3.01, 4]], [[-2, 3],[-2, -1]], [[-3, 3],[-2, 3]]])},
-        #     'seg5' : {'seg_array': seg5, 'polygon' : Polygon(seg5,True), 'next_seg_edge': np.array([[-2,0], [-2,-1]]), 'seg_reward_point': np.array([-2, -0.5]), 'distance_to_goal': 5.117, 'seg_reward': 6., 'adjacents': ['seg5', 'seg4', 'seg6', 'seg7'], 'direction': lambda action: self.check_direction(action, right_direction), 'edges': np.array([[[-3.5,-1],[-1,-1]], [[-1,-1],[-1, 3]], [[-2, 0],[-3.5, 0]], [[-3.5, -1],[-3.5, 0]], [[-2, 0],[-2, 3]]])},
-        #     'seg6' : {'seg_array': seg6, 'polygon' : Polygon(seg6,True), 'next_seg_edge': np.array([[-5,0], [-5,-1]]), 'seg_reward_point': np.array([-5, -0.5]), 'distance_to_goal': 5.117, 'seg_reward': 6., 'adjacents': ['seg6', 'seg1', 'seg5', 'seg7'], 'direction': lambda action: self.check_direction(action, left_direction), 'edges': np.array([[[-6, -1],[-3.5, -1]], [[-6, 3],[-6, -1]], [[-3.5, 0],[-5, 0]], [[-3.5,-1],[-3.5,0]], [[-5, 3],[-5, 0]]])},  
-        #     'seg7' : {'seg_array': seg7, 'polygon' : Polygon(seg7,True), 'next_seg_edge': np.array([[-4,-1], [-3,-1]]), 'seg_reward_point': np.array([-3.5, -1]), 'distance_to_goal': 6.698, 'seg_reward': 4., 'adjacents': ['seg7', 'seg6', 'seg5', 'seg8'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[-3,-3],[-3,-1]], [[-4, -1],[-4,-3]], [[-4,-3], [-3,-3]], [[-5,0], [-2,0]], [[-5,-1], [-4,-1]], [[-3,-1], [-2,-1]]])},
-        #     'seg8' : {'seg_array': seg8, 'polygon' : Polygon(seg8,True), 'next_seg_edge': np.array([[-3,-2], [-3,-3]]), 'seg_reward_point': np.array([-3, -2.5]), 'distance_to_goal': 8.279, 'seg_reward': 2., 'adjacents': ['seg8', 'seg7', 'seg9', 'seg10'], 'direction': lambda action: self.check_direction(action, left_direction), 'edges': np.array([[[-4, -1],[-4,-3]], [[-4,-3], [0,-3]], [[0,-2],[-3,-2]], [[0,-3], [0,-2]], [[-3,-2], [-3,-1]]] )},
-        #     'seg9' : {'seg_array': seg9, 'polygon' : Polygon(seg9,True), 'next_seg_edge': np.array([[-0.5,-3], [0.5,-3]]), 'seg_reward_point': np.array([0, -3]), 'distance_to_goal': 11.32, 'seg_reward': 0., 'adjacents': ['seg9', 'seg8', 'seg10'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[-0.5,-3], [-0.5,-4]], [[-0.5,-4], [0.5,-4]], [[0.5,-4], [0.5,-3]], [[3,-2],[-3,-2]], [[-3,-3],[-0.5, -3]], [[3,-3],[0.5, -3]]])},
-        #     'seg10' : {'seg_array': seg10, 'polygon' : Polygon(seg10,True), 'next_seg_edge': np.array([[3,-2], [3,-3]]), 'seg_reward_point': np.array([3, -2.5]), 'distance_to_goal': 8.279, 'seg_reward': 2., 'adjacents': ['seg10', 'seg8', 'seg9', 'seg11'], 'direction': lambda action: self.check_direction(action, right_direction), 'edges': np.array([[[4,-3], [4,-1]], [[0,-3], [4,-3]], [[3,-2],[0,-2]], [[0,-3], [0,-2]], [[3,-2], [3,-1]]])},  
-        #     'seg11' : {'seg_array': seg11, 'polygon' : Polygon(seg11,True), 'next_seg_edge': np.array([[3,-1], [4,-1]]), 'seg_reward_point': np.array([3.5, -1]), 'distance_to_goal': 6.698, 'seg_reward': 4., 'adjacents': ['seg11', 'seg10', 'seg12'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[3,-3], [4,-3]], [[4,-3], [4,0]], [[4,0], [2,0]], [[3,-1],[3,-3]], [[2,-1],[3,-1]]])},  
-        #     'seg12' : {'seg_array': seg12, 'polygon' : Polygon(seg12,True), 'next_seg_edge': np.array([[2, -1], [2, 0]]), 'seg_reward_point': np.array([2, -0.5]), 'distance_to_goal': 5.117, 'seg_reward': 6., 'adjacents': ['seg12', 'seg11', 'seg13'], 'direction': lambda action: self.check_direction(action, left_direction), 'edges': np.array([[[1,3],[1,-1]], [[1,-1],[4,-1]], [[4,-1], [4,0]], [[4,0], [2,0]], [[2,0], [2,3]]])},  
-        #     'seg13' : {'seg_array': seg13, 'polygon' : Polygon(seg13,True), 'next_seg_edge': np.array([[1,3], [2,3]]), 'seg_reward_point': np.array([1.5, 3]), 'distance_to_goal': 1.581, 'seg_reward': 8., 'adjacents': ['seg13', 'seg12', 'seg14'], 'direction': lambda action: self.check_direction(action, top_direction), 'edges': np.array([[[2,-1],[2,3]], [[3.01,4], [1,4]], [[1,4],[1,-1]], [[1,-1],[2,-1]], [[2,3],[3,3]]])},  
-        #     'seg14' : {'seg_array': seg14, 'polygon' : Polygon(seg14,True), 'next_seg_edge': None, 'seg_reward_point': np.array([3, 3.5]), 'distance_to_goal': 0.0, 'seg_reward': 10., 'adjacents': ['seg14', 'seg13'], 'direction': lambda action: self.check_direction(action, right_direction), 'edges': np.array([[[1,3],[3.01,3]], [[3.01,3],[3.01,4]], [[3.01,4], [1,4]], [[1,4],[1,3]]])},  
-        # }
-
+     
         self.segments = {
             'seg1' : {'seg_array': seg1, 'polygon' : Polygon(seg1,True), 'seg_distance_point': np.array([[-6, -1.5]]), 'distance_to_goal': 1.581, 'direction': lambda action: self.check_direction(action, left_direction), 'adjacents': ['seg1', 'seg2', 'seg6'], 'edges': np.array([[[-7, -2],[-7, 0]], [[-6, 0],[-6, -1]], [[-7, -2],[-3, -2]] ,[[-3, -1],[-6, -1]],[[-3, -2],[-3, -1]]])},
             'seg2' : {'seg_array': seg2, 'polygon' : Polygon(seg2,True), 'seg_distance_point': np.array([[-6.5, 0]]), 'distance_to_goal': 0.0, 'direction': lambda action: self.check_direction(action, up_direction), 'adjacents': ['seg2', 'seg1'], 'edges': np.array([[[-7, -2],[-7, 0]], [[-6, 0],[-6, -2]], [[-7, -2],[-6, -2]], [[-7, 0],[-6, 0]]])},  
@@ -69,13 +50,10 @@ class Map:
             'seg6' : {'seg_array': seg6, 'polygon' : Polygon(seg6,True), 'seg_distance_point': np.array([[-3.5, -1]]), 'distance_to_goal': 4.13, 'direction': lambda action: self.check_direction(action, down_direction), 'adjacents': ['seg6', 'seg1', 'seg5', 'seg7'], 'edges': np.array([[[-6, -2],[-3, -2]], [[-3,-2],[-3, 0.5]], [[-4, 0.5],[-3, 0.5]], [[-4, 0.5],[-4, -1]], [[-6, -1],[-4, -1]]])},  
             'seg7' : {'seg_array': seg7, 'polygon' : Polygon(seg7,True), 'seg_distance_point': np.array([[-3, 0.5]]), 'distance_to_goal': 5.711, 'direction': lambda action: self.check_direction(action, left_direction), 'adjacents': ['seg7', 'seg6', 'seg5', 'seg8'], 'edges': np.array([[[-3, 1],[-0.5, 1]], [[-0.5, 1],[-0.5, 0]], [[-0.5, 0], [-3, 0]], [[-3,0], [-3,-1]], [[-3,1], [-3,2]], [[-4,-1], [-4,2]]])},
             'seg8' : {'seg_array': seg8, 'polygon' : Polygon(seg8,True), 'seg_distance_point': np.array([[-0.5, 0.5], [0.5, 0.5]]), 'distance_to_goal': 8.211, 'direction': lambda action: True, 'adjacents': ['seg8', 'seg7', 'seg9'], 'edges': np.array([[[-3,0],[3, 0]], [[-3,1],[3, 1]]])},
-            'seg9' : {'seg_array': seg9, 'polygon' : Polygon(seg9,True), 'seg_distance_point': np.array([[3, 0.5]]), 'distance_to_goal': 5.711, 'direction': lambda action: self.check_direction(action, right_direction), 'adjacents': ['seg9', 'seg8', 'seg10', 'seg15'], 'edges': np.array([[[3, 1],[0.5, 1]], [[0.5, 1],[0.5, 0]], [[0.5, 0], [3, 0]], [[3,0], [3,-1]], [[3,1], [3,2]], [[4,-1], [4,2]]])},
-            'seg10' : {'seg_array': seg10, 'polygon' : Polygon(seg10,True), 'seg_distance_point': np.array([[3.5, -1]]), 'distance_to_goal': 4.13, 'direction': lambda action: self.check_direction(action, down_direction), 'adjacents': ['seg10', 'seg9', 'seg11', 'seg15'], 'edges': np.array([[[6, -2],[3, -2]], [[3,-2],[3, 0.5]], [[4, 0.5],[3, 0.5]], [[4, 0.5],[4, -1]], [[6, -1],[4, -1]]])},  
-            'seg11' : {'seg_array': seg11, 'polygon' : Polygon(seg11,True), 'seg_distance_point': np.array([[6, -1.5]]), 'distance_to_goal': 1.581, 'direction': lambda action: self.check_direction(action, right_direction), 'adjacents': ['seg11', 'seg10', 'seg12'], 'edges': np.array([[[7, -2],[7, 0]], [[6, 0],[6, -1]], [[7, -2],[3, -2]] ,[[3, -1],[6, -1]],[[3, -2],[3, -1]]])},  
-            'seg12' : {'seg_array': seg12, 'polygon' : Polygon(seg12,True), 'seg_distance_point': np.array([[6.5, 0]]), 'distance_to_goal': 0.0, 'direction': lambda action: self.check_direction(action, up_direction), 'adjacents': ['seg12', 'seg11'], 'edges': np.array([[[7, -2],[7, 0]], [[6, 0],[6, -2]], [[7, -2],[6, -2]], [[7, 0],[6, 0]]])},  
-            'seg13' : {'seg_array': seg13, 'polygon' : Polygon(seg13,True), 'seg_distance_point': np.array([[6.5, 1]]), 'distance_to_goal': 0.0, 'direction': lambda action: self.check_direction(action, down_direction), 'adjacents': ['seg13', 'seg14'], 'edges': np.array([[[7, 1],[7, 3]], [[6, 3],[6, 1]], [[7, 1],[6, 1]], [[7, 3],[6, 3]]])},  
-            'seg14' : {'seg_array': seg14, 'polygon' : Polygon(seg14,True), 'seg_distance_point': np.array([[6, 2.5]]), 'distance_to_goal': 1.581, 'direction': lambda action: self.check_direction(action, right_direction), 'adjacents': ['seg14', 'seg13', 'seg15'], 'edges': np.array([[[7, 3],[7, 1]], [[6, 1],[6, 2]], [[7, 3],[3, 3]] ,[[3, 2],[6, 2]],[[3, 3],[3, 2]]])},  
-            'seg15' : {'seg_array': seg15, 'polygon' : Polygon(seg15,True), 'seg_distance_point': np.array([[3.5, 2]]), 'distance_to_goal': 4.13, 'direction': lambda action: self.check_direction(action, up_direction), 'adjacents': ['seg15', 'seg10', 'seg9','seg14'], 'edges': np.array([[[6, 3],[3, 3]], [[3,3],[3, 0.5]], [[4, 0.5],[3, 0.5]], [[4, 0.5],[4, 2]], [[6, 2],[4, 2]]])},  
+            'seg9' : {'seg_array': seg9, 'polygon' : Polygon(seg9,True), 'seg_distance_point': np.array([[3, 0.5]]), 'distance_to_goal': 5.711, 'direction': lambda action: self.check_direction(action, right_direction), 'adjacents': ['seg9', 'seg8', 'seg10'], 'edges': np.array([[[4, 1],[0.5, 1]], [[0.5, 1],[0.5, 0]], [[0.5, 0], [3, 0]], [[3,0], [3,-1]], [[4,-1], [4,1]]])},
+            'seg10' : {'seg_array': seg10, 'polygon' : Polygon(seg10,True), 'seg_distance_point': np.array([[3.5, -1]]), 'distance_to_goal': 4.13, 'direction': lambda action: self.check_direction(action, down_direction), 'adjacents': ['seg10', 'seg9', 'seg11'], 'edges': np.array([[[6, -2],[3, -2]], [[3,-2],[3, 1]], [[4, 1],[3, 1]], [[4, 1],[4, -1]], [[6, -1],[4, -1]]])}, 
+            'seg11' : {'seg_array': seg11, 'polygon' : Polygon(seg11,True), 'seg_distance_point': np.array([[6, -1.5]]), 'distance_to_goal': 1.581, 'direction': lambda action: self.check_direction(action, right_direction), 'adjacents': ['seg11', 'seg10', 'seg12'], 'edges': np.array([[[7, -2],[7, 0.01]], [[6, 0.01],[6, -1]], [[7, -2],[3, -2]] ,[[3, -1],[6, -1]],[[3, -2],[3, -1]]])},  
+            'seg12' : {'seg_array': seg12, 'polygon' : Polygon(seg12,True), 'seg_distance_point': np.array([[6.5, 0]]), 'distance_to_goal': 0.0, 'direction': lambda action: self.check_direction(action, up_direction), 'adjacents': ['seg12', 'seg11'], 'edges': np.array([[[7, -2],[7, 0]], [[6, 0],[6, -2]], [[7, -2],[6, -2]], [[7, 0],[6, 0]]])}
         }
         
 
@@ -125,8 +103,6 @@ class Map:
             return 2
         elif self.current_segment == 'seg12':
             return 3
-        elif self.current_segment == 'seg13':
-            return 4
 
     def find_intersection(self, p1, p2, q1, q2):
         A = np.stack([p2 - p1, q1 - q2]).T
@@ -186,7 +162,6 @@ class MaxEntropyEnv(gym.Env):
                 [-5, -1.5], 
                 [-5, 2.5], 
                 [5, -1.5], 
-                # [4.5, 2.5]
             ])
         self._n_samples = 100
         self.n_plots = len(self.entropy_obs_list)
@@ -196,7 +171,7 @@ class MaxEntropyEnv(gym.Env):
 
         self.failures = np.zeros((2,))
 
-        self.paths = np.zeros((4,))
+        self.paths = np.zeros((3,))
 
 
     
