@@ -185,7 +185,7 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        if self.env_name in ['Multigoal', 'max-entropy-v0']:
+        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0']:
             self.test_env.reset_rendering()
 
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
@@ -197,7 +197,7 @@ class MaxEntrRL():
                 a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                if self.env_name in ['Multigoal', 'max-entropy-v0'] and not self.RL_kwargs.test_time:
+                if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0'] and not self.RL_kwargs.test_time:
                     self.debugger.collect_data(o, a.detach(), o2, r, d, log_p)    
                 
                 ep_ret += r
@@ -207,14 +207,14 @@ class MaxEntrRL():
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
-                self.debugger.entropy_plot()  
+                # self.debugger.entropy_plot()  
 
-        if self.env_name in ['Multigoal', 'max-entropy-v0']:
+        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             if not self.RL_kwargs.test_time:
                 self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
                 self.debugger.log_to_tensorboard(itr=itr)
-                self.debugger.create_entropy_plots(itr) # For multigoal only
+                # self.debugger.create_entropy_plots(itr) # For multigoal only
                 self.debugger.reset()
         
     def save_data(self):

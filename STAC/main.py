@@ -1,11 +1,13 @@
 import argparse
-from envs.multigoal_env import MultiGoalEnv
 from core import MaxEntrRL
 import random
 import torch
 import os
 from torch.utils.tensorboard import SummaryWriter
 from envs.max_entropy_env import MaxEntropyEnv
+from envs.multigoal_env import MultiGoalEnv
+from envs.multigoal_max_entropy_env import MultiGoalMaxEntropyEnv
+
 import numpy as np
 import gym
 import mujoco_py
@@ -20,15 +22,17 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='max-entropy-v0', choices=['Multigoal', 'max-entropy-v0', 'Multigoal', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='sac', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
     parser.add_argument('--l_actor', type=int, default=3)
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
+
     ###### RL 
     parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--alpha', type=float, default=5)
@@ -42,19 +46,23 @@ if __name__ == '__main__':
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
+
     ###### optim 
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=2000)
+    parser.add_argument('--batch_size', type=int, default=500)
+
     ###### sac
     parser.add_argument('--sac_test_deterministic', type=int, default=0)
+
     ###### sql
     parser.add_argument('--sql_test_deterministic', type=int, default=0)
+    
     ###### svgd 
-    parser.add_argument('--svgd_particles', type=int, default=20)
+    parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
-    parser.add_argument('--svgd_lr', type=float, default=0.05)
+    parser.add_argument('--svgd_lr', type=float, default=0.01)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
@@ -67,7 +75,7 @@ if __name__ == '__main__':
     parser.add_argument('--plot', type=int, default=1)
     parser.add_argument('--plot_format', type=str, default='png', choices=['png', 'jpeg', 'pdf'])
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
-    parser.add_argument('--collect_stats_after', type=int, default=400) 
+    parser.add_argument('--collect_stats_after', type=int, default=0)
     
     parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--model_path', type=str, default='./evaluation_data/sac')
@@ -110,7 +118,7 @@ if __name__ == '__main__':
     elif args.env == 'max-entropy-v0':
         args.stats_steps_freq = 1000
         args.max_steps = 500
-        args.gamma = 1.0
+        # args.gamma = 1.0
         # args.num_test_episodes = 2
         args.fig_path = './STAC/max_entropy_plots_/'
     
@@ -122,7 +130,7 @@ if __name__ == '__main__':
         # args.exploration_steps = 100
         args.update_after = 10000000
         # args.stats_steps_freq = 11
-        args.num_test_episodes = 20
+        args.num_test_episodes = 1
         # args.max_steps = 500
         args.collect_stats_after = 0
 
@@ -207,6 +215,9 @@ if __name__ == '__main__':
     if args.env =='Multigoal':
         train_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
         test_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+    elif args.env == 'multigoal-max-entropy':
+        train_env = MultiGoalMaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalMaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'max-entropy-v0':
         train_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
         test_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
