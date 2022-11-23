@@ -45,7 +45,7 @@ class ReplayBuffer:
             self.act_buf = np.zeros((size, act_dim), dtype=np.float32)
             self.rew_buf = np.zeros((size,), dtype=np.float32)
             self.done_buf = np.zeros((size,), dtype=np.float32)
-            self.ptr, self.size, self.max_size = 0, 0, size
+            self.ptr, self.size = 0, 0
         self.max_size = size
         self.device = device
 

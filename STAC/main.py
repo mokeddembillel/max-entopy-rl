@@ -62,7 +62,7 @@ if __name__ == '__main__':
     ###### svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
-    parser.add_argument('--svgd_lr', type=float, default=0.01)
+    parser.add_argument('--svgd_lr', type=float, default=0.05)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
