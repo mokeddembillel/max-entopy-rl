@@ -62,10 +62,10 @@ if __name__ == '__main__':
     ###### svgd 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
-    parser.add_argument('--svgd_lr', type=float, default=0.05)
+    parser.add_argument('--svgd_lr', type=float, default=0.01)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
-    parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
+    parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
    
     # tensorboard
@@ -77,11 +77,11 @@ if __name__ == '__main__':
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--test_time', type=int, default=0) 
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/sac')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam')
 
 
     ###################################################################################
+    parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
     args = parser.parse_args()  
@@ -124,15 +124,16 @@ if __name__ == '__main__':
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
-        args.exploration_steps = 20000000
+        args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 5000000
+        args.max_experiment_steps = 10
         # args.exploration_steps = 100
-        args.update_after = 10000000
+        args.update_after = 0
         # args.stats_steps_freq = 11
         args.num_test_episodes = 1
         # args.max_steps = 500
-        args.collect_stats_after = 0
+        args.collect_stats_after = 10
+        # args.entropy_particles = 10
 
         # args.update_after = 1000000
         # args.stats_steps_freq = 400
@@ -184,18 +185,19 @@ if __name__ == '__main__':
             svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic, 
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
     elif (args.actor =='sac'):
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_deterministic=args.sac_test_deterministic, device=device, activation=args.actor_activation)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_deterministic=args.sac_test_deterministic, device=device, activation=args.actor_activation, batch_size=args.batch_size)
     
     # Logging
     #
     if args.test_time:
-        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_initstate_zero' + '_' + args.actor + '_' + args.env + '_test_phase'
+        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_test_phase'
     else:
-        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_initstate_zero' + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_batch_size_'+str(args.batch_size) + '_lr_critic_' + str(args.lr_critic) + '_lr_actor_' + str(args.lr_actor) +'_activation_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
+        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
 
-    if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        project_name += '_svgd_steps_'+str(args.svgd_steps)+'_svgd_particles_'+str(args.svgd_particles)+'_svgd_lr_'+str(args.svgd_lr) + '_svgd_sigma_p0_' + str(args.svgd_sigma_p0) + '_adaptive_' + str(args.svgd_adaptive_lr) + '_svgd_kernel_sigma_' + str(args.svgd_kernel_sigma)
+        if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            project_name += '_ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma)
 
+        project_name += '_experiment_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after)
 
     # RL args
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
@@ -283,7 +285,8 @@ if __name__ == '__main__':
             print('SVGD initial distribution\'s variance: ', args.svgd_sigma_p0)
             print('SVGD\'s kernel variance: ', args.svgd_kernel_sigma)
             print('SVGD\'s adaptive learning rate: ', args.svgd_adaptive_lr)
-        print('Tensorboard path: ', args.debugging)
+        # print('Number of particles for entropy computation: ', args.entropy_particles)
+        print('Tensorboard path: ', args.tensorboard_path)
         print('Evaluation data path: ', args.evaluation_data_path)
         print('Figures path: ', args.fig_path)
         print('Plot results: ', args.plot)
@@ -300,16 +303,18 @@ if __name__ == '__main__':
         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
 
-
+    start = timeit.default_timer()
     if args.test_time:
         stac.test_agent(0)
+        stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
     else:
         start = timeit.default_timer()
         stac.forward()
-        stop = timeit.default_timer()
-        print('Time: ', stop - start) 
-        print() 
-        print(project_name)
+        stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
+    stop = timeit.default_timer()
+    print('Time: ', stop - start) 
+    print() 
+    print(project_name)
 
 
 

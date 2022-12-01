@@ -251,6 +251,7 @@ class MaxEntrRL():
             # Until exploration_steps have elapsed, randomly sample actions
             # from a uniform distribution for better exploration. Afterwards, 
             # use the learned policy. 
+            # if step_itr >= self.RL_kwargs.exploration_steps and np.random.uniform(0,1) > 0.3:
             if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
                 a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
@@ -309,7 +310,7 @@ class MaxEntrRL():
                     print('######################## Starting models update ########################')
                 for j in range(self.RL_kwargs.update_every):
                     batch = self.replay_buffer.sample_batch(self.optim_kwargs.batch_size)
-                    self.debugger.add_scalars('Batch_reward',  {'final_reward_num': int(np.sum(batch['rew'].detach().cpu().numpy()) // 60)}, step_itr)
+                    self.debugger.add_scalars('Batch_reward',  {'final_reward_num': int(np.sum(batch['rew'].detach().cpu().numpy()))}, step_itr)
                     # print('Update iteration ', episode_itr, j, self.RL_kwargs.update_every)
                     self.update(data=batch, itr=step_itr)
 

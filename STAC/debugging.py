@@ -2,6 +2,8 @@ import numpy as np
 import torch as torch
 import matplotlib.pyplot as plt
 from utils import gaussian
+from tqdm import tqdm
+import matplotlib.colors as mpl_colors
 
 class Debugger():
     def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format):
@@ -304,6 +306,96 @@ class Debugger():
     def add_histogram(self, tb_path=None, value=None, itr=None):
             self.tb_logger.add_histogram(tb_path, value, itr)
 
+    def entorpy_landscape(self, fig_path):
+        self.ac.pi.num_particles = 100
+        if not self.ac.pi.actor=='sac':
+            self.ac.pi.Kernel.num_particles = 100
+            self.ac.pi.identity = torch.eye(self.ac.pi.num_particles).to(self.ac.pi.device)
+        self._ax = []
+        x_lim = (-7, 7)
+        y_lim = (-7, 7)
+        self.entropy_fig = plt.figure(figsize=(7.5, 7), constrained_layout=True) 
+        self._ax.append(plt.subplot2grid((1,1), (0,0), colspan=1, rowspan=1))
+        self._ax[0].axis('equal')
+        self._ax[0].set_xlim(x_lim)
+        self._ax[0].set_ylim(y_lim)
+        self._ax[0].autoscale_view('tight')
+        self._ax[0].set_title('Entropy Land_scape')
+        self._ax[0].set_xlabel('x')
+        self._ax[0].set_ylabel('y')
+        x_min, x_max = tuple(np.round(1.1 * np.array(x_lim), 3))
+        y_min, y_max = tuple(np.round(1.1 * np.array(x_lim), 3))
+        x_range = np.arange(x_min, x_max, 0.5)
+        y_range = np.arange(y_min, y_max, 0.5)
+        X, Y = np.meshgrid(x_range, y_range)
+        X_shape = X.shape
+        X__ = X.reshape(-1, 1)
+        Y__ = Y.reshape(-1, 1)
+        input_ = np.concatenate((X__, Y__), axis=1)
+
+
+        
+        entropy_1 = []
+        idx_start = 0
+        idx_end = self.ac.pi.batch_size
+        pbar = tqdm(total=len(input_) + 1)
+        while idx_start < len(input_):
+            o = input_[idx_start:idx_end, :]
+            o = torch.tensor(o, dtype=torch.float32).view(-1,1,self.train_env.observation_space.shape[0])\
+                .repeat(1,self.ac.pi.num_particles,1).view(-1,self.train_env.observation_space.shape[0]).to(self.ac.pi.device)
+            log_p = []
+            for _ in range(10):
+                a, logp_pi = self.ac(o, deterministic=False, with_logprob=True, all_particles=False)
+                if self.ac.pi.actor=='sac':
+                    logp_pi = logp_pi.view(-1,self.ac.pi.num_particles).mean(dim=1)
+                log_p.append(list(-logp_pi.detach().cpu().numpy()))
+            entropy_1 += np.array(log_p).mean(0).tolist()
+            idx_start = idx_end
+            idx_end = min(idx_end + self.ac.pi.batch_size, len(input_))
+            pbar.update(idx_end - idx_start)
+        pbar.close()
+
+        entropy_2 = np.array(entropy_1).reshape(X_shape)
+
+        # entropy_2 = []
+        # for i in tqdm(range(x_range.shape[0])):
+        #     X_ = X[i, :].reshape(-1, 1)
+        #     Y_ = Y[i, :].reshape(-1, 1)
+        #     # print(self.ac.pi.num_particles)
+        #     input_ = torch.tensor(np.concatenate((X_, Y_), axis=1), dtype=torch.float32).view(-1,1,self.train_env.observation_space.shape[0])\
+        #         .repeat(1,self.ac.pi.num_particles,1).view(-1,self.train_env.observation_space.shape[0]).to(self.ac.pi.device)
+        #     log_p = []
+        #     for _ in range(10):
+        #         a, logp_pi = self.ac(input_, deterministic=False, with_logprob=True, all_particles=False)
+        #         if self.ac.pi.actor=='sac':
+        #             logp_pi = logp_pi.view(-1,self.ac.pi.num_particles).mean(dim=1)
+        #         log_p.append(-logp_pi.detach().cpu().numpy())
+            
+        #     entropy_2.append(np.stack(log_p).mean(axis=0))
+
+        # entropy_2 = np.stack(entropy_2, axis=0)
+
+
+        min_entropy = entropy_2.min()
+        max_entropy = entropy_2.max()
+        extent = (x_min, x_max, y_min, y_max)
+        # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, norm=mpl_colors.PowerNorm(gamma = 0.7), alpha=.9, interpolation='bilinear', extent=extent)
+        # cmap = self._ax[0].imshow(entropy_2, cmap=plt.cm.viridis, alpha=.9, interpolation='bilinear', extent=extent)
+        cmap = self._ax[0].imshow(entropy_2, cmap=plt.cm.viridis, extent=extent)
+        self._ax[0].plot(self.test_env.goal_positions[:, 0], self.test_env.goal_positions[:, 1], 'ro')
+        self._ax[0].plot(np.array([0]), np.array([0]), 'bo')
+        
+
+
+        
+
+        range_ = np.arange(min_entropy, max_entropy, 0.1)[1::2]
+        # plt.colorbar(mappable=cmap)
+        self.entropy_fig.colorbar(mappable=cmap, ticks=range_)
+
+
+        plt.savefig(fig_path + '/entropy_landscape.' + self.plot_format)   
+        plt.close()
 
     def log_to_tensorboard(self, itr):
         # related to the modes
@@ -376,8 +468,10 @@ class Debugger():
                 
                 o = torch.tensor(self.test_env._obs_lst[5].astype(np.float32)).to(self.ac.pi.device)
                 topleft = torch.from_numpy(np.array([-1, 1]).astype(np.float32)).to(self.ac.pi.device)
+                # topleft = torch.from_numpy(np.array([-1, 0.558257]).astype(np.float32)).to(self.ac.pi.device)
                 left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
                 bottomleft = torch.from_numpy(np.array([-1, -1]).astype(np.float32)).to(self.ac.pi.device)
+                # bottomleft = torch.from_numpy(np.array([-1, -0.558257]).astype(np.float32)).to(self.ac.pi.device)
                 feed_dict[self.test_env.entropy_obs_names[5] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
                 feed_dict[self.test_env.entropy_obs_names[5] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
                 feed_dict[self.test_env.entropy_obs_names[5] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()

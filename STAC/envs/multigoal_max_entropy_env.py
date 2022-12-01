@@ -42,6 +42,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         # goal
         # self.goal_positions = np.array(((5, 0),(-5, 0),(0, 5),(0, -5)), dtype=np.float32)
         self.goal_positions = np.array(((5, 0),(-4, 3),(-4, -3)), dtype=np.float32)
+        # self.goal_positions = np.array(((5, 0),(-4.582575, 2),(-4.582575, -2)), dtype=np.float32)
         
         self.num_goals = len(self.goal_positions)
         self.goal_threshold = 0.5 #1.0
@@ -57,7 +58,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         # logging
         self.episode_observations = [] 
         self.ep_len = 0
-
+       
         # Plotter params, to be cleaned tomorrow. 
         # self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
         self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])
