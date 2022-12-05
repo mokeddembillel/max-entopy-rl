@@ -41,6 +41,7 @@ class MultiGoalEnv(Env, EzPickle):
         self.max_steps = max_steps
         # goal
         self.goal_positions = np.array(((5, 0),(-5, 0),(0, 5),(0, -5)), dtype=np.float32)
+        self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
         self.num_goals = len(self.goal_positions)
         self.goal_threshold = 0.5 #1.0
         self.goal_reward = goal_reward
@@ -58,18 +59,27 @@ class MultiGoalEnv(Env, EzPickle):
 
         # Plotter params, to be cleaned tomorrow. 
         self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f'])
+        self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$'])
+        # self._obs_lst = np.array([
+        #     [0,0],
+        #     [2.5,-2.5],
+        #     [2.5,2.5],
+        #     [0, 4],
+        #     [4, 0],
+        #     [0, -4],
+        # ])
         self._obs_lst = np.array([
             [0,0],
-            [2.5,-2.5],
+            [1, 0],
+            [2, 0],
             [2.5,2.5],
-            [0, 4],
             [4, 0],
-            [0, -4],
+            [2.5,-2.5],
         ])
         self._n_samples = 100
         self.n_plots = len(self._obs_lst)
-        self.x_size = (1.2 * self.n_plots + 1)
-        self.y_size = 14 
+        self.x_size = (1.5 * self.n_plots + 1)
+        self.y_size = 17 
         self.agent_failure = None
         self.plot_format = plot_format
         self.env_name = env_name
@@ -170,7 +180,9 @@ class MultiGoalEnv(Env, EzPickle):
                 self.entropy_list.append(round(-log_p.detach().item(), 2))
             
             for i in range(len(self._obs_lst)):
-                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='black', marker='$' + self.entropy_obs_names[i] + '$', s=150, zorder=2)
+                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='#003f40', marker='x', s=50, zorder=2)
+                self._ax_lst[0].annotate(self.entropy_obs_names_plotting[i], (self._obs_lst[i,0] - 0.25, self._obs_lst[i,1] + 0.2), fontsize=18, color='#003f40', zorder=2)
+            
 
             self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
@@ -192,8 +204,8 @@ class MultiGoalEnv(Env, EzPickle):
         self._ax_lst[0].set_xlim(self.xlim)
         self._ax_lst[0].set_ylim(self.xlim)
         self._ax_lst[0].set_title('Multigoal Environment', fontsize=20)
-        self._ax_lst[0].set_xlabel('x', fontsize=20)
-        self._ax_lst[0].set_ylabel('y', fontsize=20)
+        # self._ax_lst[0].set_xlabel('x', fontsize=20)
+        # self._ax_lst[0].set_ylabel('y', fontsize=20)
         self._ax_lst[0].xaxis.set_tick_params(labelsize=15)
         self._ax_lst[0].yaxis.set_tick_params(labelsize=15)
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
@@ -217,7 +229,7 @@ class MultiGoalEnv(Env, EzPickle):
         goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.2], [-0.4, 0.5], [-0.4, -1]]) + self.goal_positions
         # print( '#########################################', goal_names_positions)
         for i in range(len(self.goal_positions)):
-                self._ax_lst[0].annotate('G'+str(i+1), goal_names_positions[i], fontsize=19, color='red', zorder=2)
+                self._ax_lst[0].annotate(self.goal_names_plotting[i], goal_names_positions[i], fontsize=19, color='red', zorder=2)
 
 
         if not debugging:
@@ -259,8 +271,8 @@ class MultiGoalEnv(Env, EzPickle):
             actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
             x, y = actions[:, 0], actions[:, 1]
-            # self._ax_lst[i+1].title.set_text(str(self._obs_lst[i]))
-            self._ax_lst[i+1].set_title(r'$\bf{' + str(self.entropy_obs_names[i] + '}$' + '(Entr=' + str(self.entropy_list[i])) + ')', fontsize=15)
+            
+            self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
 
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
             
