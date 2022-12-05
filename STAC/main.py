@@ -6,6 +6,7 @@ import os
 from torch.utils.tensorboard import SummaryWriter
 from envs.max_entropy_env import MaxEntropyEnv
 from envs.multigoal_env import MultiGoalEnv
+from envs.multigoal_env_obstacles import MultiGoalObstaclesEnv
 from envs.multigoal_max_entropy_env import MultiGoalMaxEntropyEnv
 
 import numpy as np
@@ -22,7 +23,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-obstacles', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
@@ -39,7 +40,7 @@ if __name__ == '__main__':
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--load_replay', type=int, default=0)
     parser.add_argument('--replay_path', type=str, default='./STAC/buffers_/')
-    parser.add_argument('--max_experiment_steps', type=float, default=3e4)
+    parser.add_argument('--max_experiment_steps', type=float, default=5e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
     parser.add_argument('--num_test_episodes', type=int, default=20)
@@ -81,6 +82,7 @@ if __name__ == '__main__':
 
 
     ###################################################################################
+    parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
     parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
@@ -126,9 +128,9 @@ if __name__ == '__main__':
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 10
+        args.max_experiment_steps = 10000000
         # args.exploration_steps = 100
-        args.update_after = 0
+        args.update_after = 10000
         # args.stats_steps_freq = 11
         args.num_test_episodes = 1
         # args.max_steps = 500
@@ -189,15 +191,16 @@ if __name__ == '__main__':
     
     # Logging
     #
+    project_name = args.experiment_importance + '_'
     if args.test_time:
-        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S") + '_' + args.actor + '_' + args.env + '_test_phase'
-    else:
-        project_name =  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed)
+        project_name +=  'test_'
+    
+    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
 
-        if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-            project_name += '_ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma)
+    if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+        project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_'
 
-        project_name += '_experiment_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after)
+    project_name += 'experiment_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after)
 
     # RL args
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
@@ -215,11 +218,14 @@ if __name__ == '__main__':
 
     # stac
     if args.env =='Multigoal':
-        train_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        train_env = MultiGoalEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'multigoal-max-entropy':
-        train_env = MultiGoalMaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalMaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        train_env = MultiGoalMaxEntropyEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalMaxEntropyEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+    elif args.env == 'multigoal-obstacles':
+        train_env = MultiGoalObstaclesEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalObstaclesEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'max-entropy-v0':
         train_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
         test_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
@@ -242,9 +248,9 @@ if __name__ == '__main__':
         files = glob.glob(args.fig_path + project_name + '/*')
         [os.remove(file) for file in files]
 
+    ########################################## Hyper-Parameters ##########################################
+    print('########################################## Hyper-Parameters ##########################################')
     if not args.test_time:
-        ########################################## Hyper-Parameters ##########################################
-        print('########################################## Hyper-Parameters ##########################################')
         print('Debugging: ', args.debugging)
         print('GPU ID: ', args.gpu_id)
         print('Environment: ', args.env)
@@ -295,9 +301,10 @@ if __name__ == '__main__':
         print('Collect Statistics after: ', args.collect_stats_after)
         print('Seed: ', args.seed)
         print('Device: ', device)
-        print('Project Name: ', project_name)
-        print('Experiment PID: ', os.getpid())
-        print('######################################################################################################')
+    print('Project Name: ', project_name)
+    print('Experiment Importance: ', args.experiment_importance)
+    print('Experiment PID: ', os.getpid())
+    print('######################################################################################################')
 
     stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,

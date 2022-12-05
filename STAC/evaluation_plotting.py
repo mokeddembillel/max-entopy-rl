@@ -4,6 +4,7 @@ import pandas as pd
 import pickle
 import matplotlib.pyplot as plt 
 from utils import moving_average
+import seaborn as sns
 
 def line_plot(data, xlabel, ylabel, title, save_file):
     fig = plt.figure(figsize=(7, 7), constrained_layout=True)
@@ -62,6 +63,28 @@ evaluations = {
 }
 
 
+def create_histogram():
+    X = ['1', '2', '3']
+    y = [47, 161, 132]
+    # y = [100, 160, 140]
+
+    X_df = []
+    for i in range(len(X)):
+        X_df += [[X[i], 1] for _ in range(y[i])]
+
+    df = pd.DataFrame(X_df, columns=['category', 'count'])
+
+    df.value_counts()
+
+    fig = plt.figure(figsize=(7, 7), constrained_layout=True)
+    ax = plt.subplot(111)
+    ax.set_title('STAC')
+    ax.set_xlabel('Goals')
+    ax.set_ylabel('Count')
+    sns.histplot(data=df, x='category', shrink=.7)
+
+
+create_histogram()
 # plot_results(evaluations, )
-plot_results(evaluations, 500)
+# plot_results(evaluations, 500)
 

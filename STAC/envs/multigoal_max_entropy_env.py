@@ -32,7 +32,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
     State: position.
     Action: velocity.
     """
-    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0, distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None, plot_format=None):
+    def __init__(self, goal_reward=10, actuation_cost_coeff=30.0, distance_cost_coeff=1.0, init_sigma=0.05, max_steps=None, plot_format=None, env_name=None):
         EzPickle.__init__(**locals())
 
         self.dynamics = PointDynamics(dim=2, sigma=0)
@@ -58,26 +58,47 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         # logging
         self.episode_observations = [] 
         self.ep_len = 0
-       
+        self.env_name = env_name
         # Plotter params, to be cleaned tomorrow. 
         # self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
-        self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'])
+        self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g'])
+        # self._obs_lst = np.array([
+        #     [-2.5, -0.5],
+        #     [-2.5, -1],
+        #     [-3.5, 2.5],
+        #     [-2, -1.5],
+        #     [-2, 1.5],
+        #     [-1, 0],
+        #     [0, 0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [4, 0],
+        # ])
+        # self._obs_lst = np.array([
+        #     [-3.5, -2.5],
+        #     [-3.5, 0],
+        #     [-3.5, 2.5],
+        #     [-2, -1.5],
+        #     [-2, 1.5],
+        #     [-1, 0],
+        #     [0, 0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [4, 0],
+        # ])
         self._obs_lst = np.array([
-                [-3.5, -2.5],
-                [-3.5, 0],
-                [-3.5, 2.5],
-                [-2, -1.5],
-                [-2, 1.5],
-                [-1, 0],
-                [0, 0],
-                [1, 0],
-                [2, 0],
-                [4, 0],
-            ])
+            [-3.5, -2.5],
+            [-3.5, 0],
+            [-3.5, 2.5],
+            [-1, 0],
+            [0, 0],
+            [1, 0],
+            [4, 0],
+        ])
         self._n_samples = 100
         self.n_plots = len(self._obs_lst)
-        self.x_size = (1 * self.n_plots + 1)
-        self.y_size = 27
+        self.x_size = (1.2 * self.n_plots + 1)
+        self.y_size = 20
         self.agent_failure = None
         self.plot_format = plot_format
 
@@ -85,7 +106,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         if init_state:
             unclipped_observation = init_state
         else: 
-            # unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim)) ############################
+            ################### unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim)) ############################
             unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
@@ -130,6 +151,8 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         
         # reward at the goal
         if done:
+            if self.env_name == 'test_env':
+                self.number_of_hits_mode_acc[min_dist_index] += 1
             reward += self.goal_reward
 
         if done or self.ep_len == self.max_steps:
@@ -161,6 +184,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
     def reset_rendering(self):
         self.episode_observations = []
         self.number_of_hits_mode = np.zeros(self.num_goals)
+        self.number_of_hits_mode_acc = np.zeros(self.num_goals)
         
     
     def render(self, itr, fig_path, plot, ac=None, paths=None):
@@ -176,10 +200,10 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 self.entropy_list.append(round(-log_p.detach().item(), 2))
             
             for i in range(len(self._obs_lst)):
-                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='black', marker='$' + self.entropy_obs_names[i] + '$', s=100, zorder=2)
+                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='black', marker='$' + self.entropy_obs_names[i] + '$', s=150, zorder=2)
             # self._ax_lst[0].scatter(self._obs_lst[:, 0], self._obs_lst[:, 1], c=list(obs_colors/255.0), marker='a', s=100, zorder=2)
-            for i in range(len(self._obs_lst)):
-                self._ax_lst[0].annotate(str(self.entropy_list[i]), (self._obs_lst[i,0] + 0.1, self._obs_lst[i,1]), fontsize=12, color=[0,0,0], zorder=2)
+            # for i in range(len(self._obs_lst)):
+            #     self._ax_lst[0].annotate(str(self.entropy_list[i]), (self._obs_lst[i,0] + 0.1, self._obs_lst[i,1]), fontsize=12, color=[0,0,0], zorder=2)
 
             self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
@@ -192,7 +216,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.number_of_hits_mode[ind]+=1
     
     
-    def _init_plot(self, x_size, y_size, grid_size=(7,3), debugging=False):
+    def _init_plot(self, x_size, y_size, grid_size=(6,3), debugging=False):
         self._ax_lst = []
         ###### Setup the environment plot ######
         self.fig_env = plt.figure(figsize=(x_size, y_size), constrained_layout=True) 
@@ -200,9 +224,11 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self._ax_lst[0].axis('equal')
         self._ax_lst[0].set_xlim(self.xlim)
         self._ax_lst[0].set_ylim(self.xlim)
-        self._ax_lst[0].set_title('Multigoal Environment')
-        self._ax_lst[0].set_xlabel('x')
-        self._ax_lst[0].set_ylabel('y')
+        self._ax_lst[0].set_title('Multigoal Environment', fontsize=20)
+        self._ax_lst[0].set_xlabel('x', fontsize=20)
+        self._ax_lst[0].set_ylabel('y', fontsize=20)
+        self._ax_lst[0].xaxis.set_tick_params(labelsize=15)
+        self._ax_lst[0].yaxis.set_tick_params(labelsize=15)
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
         y_min, y_max = tuple(1.1 * np.array(self.ylim))
         X, Y = np.meshgrid(
@@ -219,10 +245,19 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self._ax_lst[0].set_xlim([x_min, x_max])
         self._ax_lst[0].set_ylim([y_min, y_max])
         self._ax_lst[0].plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
+
+        goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2]]) + self.goal_positions
+        # print( '#########################################', goal_names_positions)
+        for i in range(len(self.goal_positions)):
+                self._ax_lst[0].annotate('G'+str(i+1), goal_names_positions[i], fontsize=19, color='red', zorder=2)
+
+
         if not debugging:
             ###### Setup Q Contours plot ######
             for i in range(self.n_plots):
                 ax = plt.subplot2grid(grid_size, (3 + i//3,i%3))
+                ax.xaxis.set_tick_params(labelsize=15)
+                ax.yaxis.set_tick_params(labelsize=15)
                 ax.set_xlim((-1, 1))
                 ax.set_ylim((-1, 1))
                 ax.grid(True)
@@ -256,6 +291,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
             actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
             x, y = actions[:, 0], actions[:, 1]
-            self._ax_lst[i+1].title.set_text(str(self.entropy_obs_names[i] + '_' + str(self.entropy_list[i])))
+            # self._ax_lst[i+1].title.set_text(str(self.entropy_obs_names[i] + '_' + str(self.entropy_list[i])))
+            self._ax_lst[i+1].set_title(r'$\bf{' + str(self.entropy_obs_names[i] + '}$' + '(Entr=' + str(self.entropy_list[i])) + ')', fontsize=15)
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
             
