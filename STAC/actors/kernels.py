@@ -3,13 +3,13 @@ import numpy as np
 from networks import mlp
 
 class RBF(torch.nn.Module):
-    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, num_particles=None, sigma=None, device=None):
+    def __init__(self, parametrized=False, act_dim=None, hidden_sizes=None, activation=torch.nn.ReLU, adaptive_sig=1, num_particles=None, sigma=None, device=None):
         super(RBF, self).__init__()
         self.parametrized = parametrized
         self.num_particles = num_particles
         self.sigma = sigma
         self.device = device
-
+        self.adaptive_sig = adaptive_sig
         if parametrized:
             self.log_std_layer = mlp([num_particles*num_particles] + list(hidden_sizes) + [act_dim] , activation)
             self.log_std_min = 2
@@ -31,14 +31,31 @@ class RBF(torch.nn.Module):
         if self.sigma is not None:
             sigma = torch.tensor(self.sigma).reshape(-1, 1, 1, 1).to(self.device)
         elif self.parametrized == False:
-            # Get median.
-            median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
-            median_sq = median_sq.reshape(-1,1,1,1)
-            h = median_sq / (2 * np.log(num_particles + 1.))
-            # try:
-            sigma = torch.sqrt(h)
-            # except:
-            #     print('error here')
+            if self.adaptive_sig == 1:
+                # print('###################################### kernel 11111')
+                # Get median.
+                median_sq = torch.median(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)[0]
+                median_sq = median_sq.reshape(-1,1,1,1)
+                h = median_sq / (2 * np.log(num_particles + 1.))
+                sigma = torch.sqrt(h)
+            elif self.adaptive_sig == 2:
+                # print('######################################  kernel 22222')
+                median_sq = torch.quantile(dist_sq.detach().reshape(-1, num_particles*num_particles), 0.25, interpolation='lower', dim=1)
+                median_sq = median_sq.reshape(-1,1,1,1)
+                h = median_sq / (2 * np.log(num_particles + 1.))
+                sigma = torch.sqrt(h)
+            elif self.adaptive_sig == 3:
+                # print('######################################  kernel 33333')
+                median_sq = torch.mean(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1)
+                median_sq = median_sq.reshape(-1,1,1,1)
+                h = median_sq / (2 * np.log(num_particles + 1.))
+                sigma = torch.sqrt(h)
+            elif self.adaptive_sig == 4:
+                # print('######################################  kernel 44444')
+                median_sq = torch.mean(dist_sq.detach().reshape(-1, num_particles*num_particles), dim=1) / 2
+                median_sq = median_sq.reshape(-1,1,1,1)
+                h = median_sq / (2 * np.log(num_particles + 1.))
+                sigma = torch.sqrt(h)
         else:
             log_std = self.log_std_layer(dist_sq)
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)

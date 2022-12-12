@@ -41,8 +41,9 @@ class ActorCritic(nn.Module):
     def forward(self, obs, deterministic=False, with_logprob=True, in_q_loss=False, all_particles=False):
         return self.pi.act(obs, deterministic, with_logprob, in_q_loss, all_particles)
 
-    def save(self):
-        torch.save(self.state_dict(), self.save_path + '/' + self.actor_name)
+    def save(self, itr=0):
+        torch.save(self.state_dict(), self.save_path + '/' + self.actor_name + '_' + str(itr))
+        
     def load(self):
         self.load_state_dict(torch.load(self.model_path))
 

@@ -23,7 +23,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='multigoal-obstacles', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
@@ -65,8 +65,9 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_steps', type=int, default=10)
     parser.add_argument('--svgd_lr', type=float, default=0.01)
     parser.add_argument('--svgd_test_deterministic', type=int, default=0)
-    parser.add_argument('--svgd_sigma_p0', type=float, default=0.1)
-    parser.add_argument('--svgd_kernel_sigma', type=float, default=0.1)
+    parser.add_argument('--svgd_sigma_p0', type=float, default=0.3)
+    parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
+    parser.add_argument('--kernel_sigma_adaptive', type=int, default=4)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
    
     # tensorboard
@@ -78,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_af_mg_25s')
 
 
     ###################################################################################
@@ -126,7 +127,7 @@ if __name__ == '__main__':
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
-        args.exploration_steps = 0
+        args.exploration_steps = 100000000
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 10000000
         # args.exploration_steps = 100
@@ -134,8 +135,9 @@ if __name__ == '__main__':
         # args.stats_steps_freq = 11
         args.num_test_episodes = 1
         # args.max_steps = 500
-        args.collect_stats_after = 10
+        args.collect_stats_after = 1
         # args.entropy_particles = 10
+        # args.svgd_particles = 100
 
         # args.update_after = 1000000
         # args.stats_steps_freq = 400
@@ -180,7 +182,7 @@ if __name__ == '__main__':
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, 
             svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation, 
-            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr)
+            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr, adaptive_sig=args.kernel_sigma_adaptive)
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
@@ -195,10 +197,11 @@ if __name__ == '__main__':
     if args.test_time:
         project_name +=  'test_'
     
-    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
+    # project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
+    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_'
+        project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 
     project_name += 'experiment_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after)
 

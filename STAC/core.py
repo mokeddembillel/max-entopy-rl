@@ -53,7 +53,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format)
+        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after)
 
         self.evaluation_data = AttrDict()
 
@@ -198,7 +198,7 @@ class MaxEntrRL():
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
                 if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles'] and not self.RL_kwargs.test_time:
-                    self.debugger.collect_data(o, a.detach(), o2, r, d, log_p)    
+                    self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -209,20 +209,23 @@ class MaxEntrRL():
                 self.evaluation_data['test_episodes_length'].append(ep_len)
                 # self.debugger.entropy_plot()  
 
-
+    
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
+
             if not self.RL_kwargs.test_time:
                 self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
                 self.debugger.log_to_tensorboard(itr=itr)
                 # self.debugger.create_entropy_plots(itr) # For multigoal only
                 self.debugger.reset()
+        # if (itr + 1)%6800 == 0:
+        # self.ac.save(itr)
         
     def save_data(self):
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
-        if self.RL_kwargs.load_replay:
-            self.replay_buffer.save()
+        # if self.RL_kwargs.load_replay:
+        #     self.replay_buffer.save()
         self.ac.save()
 
     def forward(self):
@@ -337,6 +340,6 @@ class MaxEntrRL():
                 EpLen = []
             step_itr += 1
         self.save_data()
-        if self.RL_kwargs.plot:
-            pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.collect_stats_after + self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
+        # if self.RL_kwargs.plot:
+        #     pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.collect_stats_after + self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
 

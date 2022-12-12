@@ -40,9 +40,90 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.init_sigma = init_sigma
         self.max_steps = max_steps
         # goal
-        self.goal_positions = np.array(((5, 0),(-4, 3),(-4, -3)), dtype=np.float32)
-        self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$'])
         
+        
+        self.goal_positions = np.array(((5, 0),(-4, 3), (-4, -3)), dtype=np.float32)
+        self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$'])
+        self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2]]) + self.goal_positions
+        
+        self._obs_lst = np.array([
+            [-3.5, -2.5],
+            [-3.5, 0],
+            [-3.5, 2.5],
+            [-2.5, -0.5],
+            [-1, 0],
+            [-2.5, 0.5],
+            [0, 0],
+            [1, 0],
+            [2, 0],
+            [4, 0], 
+            [2.5, 0.5],
+            [2.5, -0.5],
+
+        ])
+
+        # self.goal_positions = np.array(((5, 0),(-4, 3), (-5, 0),(-4, -3)), dtype=np.float32)
+        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
+        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
+        
+        # self._obs_lst = np.array([
+        #     [-3.5, -2.5],
+        #     [-3.5, 0],
+        #     [-3.5, 2.5],
+        #     [-2.5, -0.5],
+        #     [-1, 0],
+        #     [-2.5, 0.5],
+        #     [0, 0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [4, 0], 
+        #     [3, 1],
+        #     [3, -1],
+
+        # ])
+
+        
+        # self.goal_positions = np.array(((5, 0),(-4.5825756, -2), (-5, 0),(-4.5825756, 2)), dtype=np.float32)
+        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
+        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
+        
+        # self._obs_lst = np.array([
+        #     [-3.5, -1.5],
+        #     [-3.5, 0],
+        #     [-3.5, 1.5],
+        #     [-2.5, -0.5],
+        #     [-1, 0],
+        #     [-2.5, 0.5],
+        #     [0, 0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [4, 0], 
+        #     [3, 1],
+        #     [3, -1],
+
+        # ])
+
+        # self.goal_positions = np.array(((5, 0), (-2, 4.5825756) , (-5, 0), (-2, -4.5825756) ), dtype=np.float32)
+        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
+        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
+        
+        # self._obs_lst = np.array([
+        #     [-1.5, -3.5],
+        #     [-1.5, 0],
+        #     [-1.5, 3.5],
+        #     [-0.5, -1.25],
+        #     [-0.5, 0],
+        #     [-0.5, 1.25],
+        #     [0, 0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [4, 0], 
+        #     [3, 1],
+        #     [3, -1],
+
+        # ])
+
+
         self.num_goals = len(self.goal_positions)
         self.goal_threshold = 0.5 #1.0
         self.goal_reward = goal_reward
@@ -60,8 +141,8 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.env_name = env_name
         # Plotter params, to be cleaned tomorrow. 
         # self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
-        self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'])
-        self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$', '$s_g$', '$s_h$', '$s_i$'])
+        self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'])
+        self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$', '$s_g$', '$s_h$', '$s_i$', '$s_j$', '$s_k$', '$s_l$'])
 
         # self._obs_lst = np.array([
         #     [-2.5, -0.5],
@@ -99,22 +180,38 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         #     [-2.5, -0.5]
         # ])
         
-        self._obs_lst = np.array([
-            [-3.5, -2.5],
-            [-3.5, 0],
-            [-3.5, 2.5],
-            [-1, 0],
-            [0, 0],
-            [1, 0],
-            [-2.5, 0.5],
-            [-2.5, 1],
-            [-2.5, -0.5]
-        ])
+        # self._obs_lst = np.array([
+        #     [-3.5, -2.5],
+        #     [-3.5, 0],
+        #     [-3.5, 2.5],
+        #     [-1, 0],
+        #     [0, 0],
+        #     [1, 0],
+        #     [-2.5, 0.5],
+        #     [-2.5, 1],
+        #     [-2.5, -0.5]
+        # ])
+        # self._obs_lst = np.array([
+        #     [-3.5, -2.5],
+        #     [-3.5, 0],
+        #     [-3.5, 2.5],
+        #     [-1, 0],
+        #     [0, 0],
+        #     [1, 0],
+        #     [-2.5, 0.5],
+        #     [2, 0],
+        #     [-2.5, -0.5],
+        #     [4, 0], 
+        #     [3, 1],
+        #     [3, -1],
+
+        # ])
         
         self._n_samples = 100
         self.n_plots = len(self._obs_lst)
-        self.x_size = (1.1 * self.n_plots + 1)
+        self.x_size = (0.7 * self.n_plots + 1)
         # self.y_size = 20
+        # self.y_size = 22
         self.y_size = 22
         self.agent_failure = None
         self.plot_format = plot_format
@@ -163,13 +260,13 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
 
         # compute done
         distance_to_goals = [np.linalg.norm(self.observation - goal_position)for goal_position in self.goal_positions]
-        min_dist_index = np.argmin(distance_to_goals)
-        done = distance_to_goals[min_dist_index] < self.goal_threshold
+        self.min_dist_index = np.argmin(distance_to_goals)
+        done = distance_to_goals[self.min_dist_index] < self.goal_threshold
         
         # reward at the goal
         if done:
             if self.env_name == 'test_env':
-                self.number_of_hits_mode_acc[min_dist_index] += 1
+                self.number_of_hits_mode_acc[self.min_dist_index] += 1
             reward += self.goal_reward
 
         if done or self.ep_len == self.max_steps:
@@ -231,7 +328,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.number_of_hits_mode[ind]+=1
     
     
-    def _init_plot(self, x_size, y_size, grid_size=(6,3), debugging=False):
+    def _init_plot(self, x_size, y_size, grid_size=(7,3), debugging=False):
         self._ax_lst = []
         ###### Setup the environment plot ######
         self.fig_env = plt.figure(figsize=(x_size, y_size), constrained_layout=True) 
@@ -261,10 +358,10 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self._ax_lst[0].set_ylim([y_min, y_max])
         self._ax_lst[0].plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
 
-        goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2]]) + self.goal_positions
+        
         # print( '#########################################', goal_names_positions)
         for i in range(len(self.goal_positions)):
-                self._ax_lst[0].annotate('G'+str(i+1), goal_names_positions[i], fontsize=19, color='red', zorder=2)
+                self._ax_lst[0].annotate(self.goal_names_plotting[i], self.goal_names_positions[i], fontsize=19, color='red', zorder=2)
 
 
         if not debugging:
@@ -298,15 +395,26 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 cs, inline=1, fontsize=10, fmt='%.2f')
 
     def _plot_action_samples(self, ac):
+        # num_particles_tmp = ac.pi.num_particles
+        
         for i in range(len(self._obs_lst)):
             if ac.pi.actor == 'svgd_nonparam':
-                o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples*ac.pi.num_particles,1]).to(ac.pi.device)
+                # ac.pi.num_particles = self._n_samples
+                # ac.pi.Kernel.num_particles = ac.pi.num_particles
+                # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+                o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
-            actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False)
+            actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False, all_particles=True)
             actions = actions.cpu().detach().numpy().squeeze()
+            # if ac.pi.actor == 'svgd_nonparam':
+
+            # else:
             x, y = actions[:, 0], actions[:, 1]
 
             self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
+        # ac.pi.num_particles = num_particles_tmp
+        # ac.pi.Kernel.num_particles = ac.pi.num_particles
+        # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
             

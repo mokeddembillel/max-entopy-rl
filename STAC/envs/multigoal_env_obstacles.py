@@ -124,11 +124,13 @@ class MultiGoalObstaclesEnv(Env, EzPickle):
 
         # compute done
         distance_to_goals = [np.linalg.norm(self.observation - goal_position)for goal_position in self.goal_positions]
-        min_dist_index = np.argmin(distance_to_goals)
-        done = distance_to_goals[min_dist_index] < self.goal_threshold
+        self.min_dist_index = np.argmin(distance_to_goals)
+        done = distance_to_goals[self.min_dist_index] < self.goal_threshold
         
         # reward at the goal
         if done:
+            if self.env_name == 'test_env':
+                self.number_of_hits_mode_acc[self.min_dist_index] += 1
             reward += self.goal_reward
 
         if done or self.ep_len == self.max_steps:
@@ -189,7 +191,8 @@ class MultiGoalObstaclesEnv(Env, EzPickle):
     def reset_rendering(self):
         self.episode_observations = []
         self.number_of_hits_mode = np.zeros(self.num_goals)
-        
+        self.number_of_hits_mode_acc = np.zeros(self.num_goals)
+
     
     def render(self, itr, fig_path, plot, ac=None, paths=None):
         positions = np.stack(self.episode_observations)

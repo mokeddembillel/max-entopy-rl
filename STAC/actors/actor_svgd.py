@@ -9,7 +9,7 @@ from actors.kernels import RBF
 from utils import GMMDist
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, 
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, adaptive_sig,
     device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None):
         super().__init__()
         self.actor = actor
@@ -40,7 +40,7 @@ class ActorSvgd(torch.nn.Module):
         if actor == "svgd_p0_kernel_pram":
             self.Kernel = RBF(True, act_dim, hidden_sizes, sigma=kernel_sigma, device=device)
         else:
-            self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, device=device)
+            self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, adaptive_sig=adaptive_sig, device=device)
         
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
@@ -118,8 +118,8 @@ class ActorSvgd(torch.nn.Module):
             self.x_t.append(a.detach().cpu().numpy().tolist())
             self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
 
-            if (a > self.act_limit).any():
-                break
+            # if (a > self.act_limit).any():
+            #     break
             #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
             #print("t: ", t, " ", a[0])
         
@@ -274,4 +274,3 @@ class ActorSvgd(torch.nn.Module):
         # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()
         # return a.view(-1, self.act_dim), logp_normal
         return a.view(-1, self.act_dim), logp_a
-
