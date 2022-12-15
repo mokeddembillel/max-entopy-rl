@@ -68,15 +68,15 @@ class MultiGoalObstaclesEnv(Env, EzPickle):
 
         # self.obstacles = np.array([[[-1.5, 3], [1.5, 3]], [[3, -1.5], [3, 1.5]], [[-1.5, -3], [1.5, -3]], [[-3, -1.5], [-3, 1.5]]])
         self.obstacles = np.array([[[-1.5, 3], [1.5, 3]]])
-
+        self.intersection = False
 
 
     def reset(self, init_state=None):
         if init_state:
             unclipped_observation = init_state
         else: 
-            unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim)) ############################
-            # unclipped_observation = self.init_mu
+            # unclipped_observation = (self.init_mu + self.init_sigma * np.random.normal(size=self.dynamics.s_dim)) ############################
+            unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
         self.ep_len = 0
@@ -233,6 +233,7 @@ class MultiGoalObstaclesEnv(Env, EzPickle):
             (X - goal_x) ** 2 + (Y - goal_y) ** 2
             for goal_x, goal_y in self.goal_positions
         ], axis=0)
+        
         for obstacle in self.obstacles:
             self._ax_lst[0].plot(obstacle[:, 0], obstacle[:, 1], c='red', linewidth=3, zorder=1)
 

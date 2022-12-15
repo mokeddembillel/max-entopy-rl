@@ -8,6 +8,7 @@ from envs.max_entropy_env import MaxEntropyEnv
 from envs.multigoal_env import MultiGoalEnv
 from envs.multigoal_env_obstacles import MultiGoalObstaclesEnv
 from envs.multigoal_max_entropy_env import MultiGoalMaxEntropyEnv
+from envs.multigoal_max_entropy_env_obstacles import MultiGoalMaxEntropyObstaclesEnv
 
 import numpy as np
 import gym
@@ -23,7 +24,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
 
     ###### RL 
-    parser.add_argument('--gamma', type=float, default=0.99)
+    parser.add_argument('--gamma', type=float, default=0.8)
     parser.add_argument('--alpha', type=float, default=5)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--load_replay', type=int, default=0)
@@ -75,17 +76,19 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=int, default=1)
-    parser.add_argument('--plot_format', type=str, default='png', choices=['png', 'jpeg', 'pdf'])
+    parser.add_argument('--plot_format', type=str, default='svg', choices=['png', 'jpeg', 'pdf', 'svg'])
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_af_mg_25s')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_mg_a02_g08')
 
 
+    ###################################################################################
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
     parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--debugging', type=int, default=0)
+    ###################################################################################
     ###################################################################################
     args = parser.parse_args()  
     args.sac_test_deterministic = bool(args.sac_test_deterministic)
@@ -229,6 +232,9 @@ if __name__ == '__main__':
     elif args.env == 'multigoal-obstacles':
         train_env = MultiGoalObstaclesEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
         test_env = MultiGoalObstaclesEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+    elif args.env == 'multigoal-max-entropy-obstacles':
+        train_env = MultiGoalMaxEntropyObstaclesEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
+        test_env = MultiGoalMaxEntropyObstaclesEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
     elif args.env == 'max-entropy-v0':
         train_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
         test_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
@@ -316,7 +322,7 @@ if __name__ == '__main__':
     start = timeit.default_timer()
     if args.test_time:
         stac.test_agent(0)
-        stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
+        # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
     else:
         start = timeit.default_timer()
         stac.forward()

@@ -53,7 +53,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after)
+        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes)
 
         self.evaluation_data = AttrDict()
 
@@ -185,7 +185,7 @@ class MaxEntrRL():
 
     def test_agent(self, itr=None):
         
-        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles']:
+        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.reset_rendering()
 
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
@@ -197,7 +197,7 @@ class MaxEntrRL():
                 a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
                 
-                if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles'] and not self.RL_kwargs.test_time:
+                if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
                     self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr)    
                 
                 ep_ret += r
@@ -211,11 +211,10 @@ class MaxEntrRL():
 
     
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
-        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles']:
+        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
-
+            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
             if not self.RL_kwargs.test_time:
-                self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
                 self.debugger.log_to_tensorboard(itr=itr)
                 # self.debugger.create_entropy_plots(itr) # For multigoal only
                 self.debugger.reset()

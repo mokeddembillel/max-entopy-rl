@@ -6,7 +6,7 @@ from tqdm import tqdm
 import matplotlib.colors as mpl_colors
 
 class Debugger():
-    def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format, update_after):
+    def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format, update_after, num_test_episodes):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
         self.tb_logger = tb_logger
@@ -19,8 +19,10 @@ class Debugger():
         self.episodes_information_svgd = []
         self.plot_format = plot_format
         self.plot_cumulative_entropy = update_after + 5000
+        self.num_test_episodes = num_test_episodes
 
-        if self.env_name in ['Multigoal', 'multigoal-max-entropy']:
+
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
             self.average_cumulative_entropy = np.zeros((self.test_env.num_goals))
             self.cumulative_entropy_coutner = np.zeros((self.test_env.num_goals))
 
@@ -39,6 +41,7 @@ class Debugger():
                 'logp_svgd': [],
                 'logp_tanh': [],
                 'goal': None,
+                'intersection': False,
                 # 'logp_toy_line1': [],
                 # 'logp_toy_line2': [],
                 # 'logp_toy_line4': [],
@@ -104,9 +107,11 @@ class Debugger():
             self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
             self.episodes_information[-1]['episode_length'] = self.test_env.ep_len
-            
-            if itr > self.plot_cumulative_entropy and d:
+            self.episodes_information[-1]['intersection'] = self.test_env.intersection
+            if d:
                 self.episodes_information[-1]['goal'] = self.test_env.min_dist_index
+                # print('#########$$$$$$$$$$$################# ', self.episodes_information[-1]['goal'])
+            if itr > self.plot_cumulative_entropy and d:
                 # print('####################### ', self.average_cumulative_entropy)
                 self.cumulative_entropy_coutner[self.test_env.min_dist_index] += 1
                 self.average_cumulative_entropy[self.test_env.min_dist_index] = ((self.cumulative_entropy_coutner[self.test_env.min_dist_index] - 1) * self.average_cumulative_entropy[self.test_env.min_dist_index] + np.array(self.episodes_information[-1]['log_p']).mean()) / (self.cumulative_entropy_coutner[self.test_env.min_dist_index])
@@ -123,7 +128,7 @@ class Debugger():
                 self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:self.test_env.ep_len])
     
     def create_entropy_plots(self, itr):
-        if self.env_name in ['Multigoal', 'multigoal-max-entropy'] and (itr + 1)%6800 == 0:
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and (itr + 1)%6800 == 0:
         # if 1:
             for s in range(self.test_env.max_steps):
                 feed_dict = {}
@@ -276,37 +281,50 @@ class Debugger():
     #         self.episode_counter += 1
 
          
-    def plot_policy(self, itr, fig_path, plot):
-        
-        if plot and self.env_name in ['Multigoal', 'multigoal-max-entropy']:
-            ax = self.test_env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
-            path = self.episodes_information[0]
-            positions = np.stack(path['observations'])
+    def plot_policy(self, itr, fig_path, plot, num_agents=1):
+        num_agents = self.num_test_episodes
+        if plot and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+            ax = self.test_env._init_plot(x_size=8, y_size=8, grid_size=(1,1), debugging=True)
 
-            if self.ac.pi.actor != 'sac':
-                for indx, i in enumerate([0, 10, 25]):
-                    if len(positions) > i+1:
-                        new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.test_env.observation_space.low, self.test_env.observation_space.high)
-                        ax.plot(new_positions[:, 0], new_positions[:, 1], '+', color=self.colors[indx])
+            cats = np.zeros((3,))
+            for a in range(num_agents):
+                path = self.episodes_information[a]
+                positions = np.stack(path['observations'])
                 
-            ax.plot(positions[:, 0], positions[:, 1], '+b')
+                # if self.ac.pi.actor != 'sac':
+                #     for indx, i in enumerate([0, 10, 25]):
+                #         if len(positions) > i+1:
+                #             new_positions = np.clip(np.expand_dims(positions[i], 0) + path['actions'][i], self.test_env.observation_space.low, self.test_env.observation_space.high)
+                #             ax.plot(positions[i, 0], positions[i, 1], marker='+', color='black', zorder=4, markersize=10, mew=2)
+                #             ax.plot(new_positions[:, 0], new_positions[:, 1], '+', color=self.colors[indx], zorder=3)
 
-            for i in range(len(positions)):
-                ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
-
-            for i in range(len(positions)-1):
-                if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-                    mu = path['mu'][i][0]
-                    std = path['sigma'][i][0]
-                    # print('########################## ', mu, std)
+                if not path['intersection']:
+                    cats[0]+= 1
+                    ax.plot(positions[:, 0], positions[:, 1], color='blue')
                 else:
-                    mu = 0
-                    std = 1
+                    # print('########################## ', path['goal'])
+                    if path['goal']:
+                        cats[1]+= 1
+                        ax.plot(positions[:, 0], positions[:, 1], color='lime')
+                    else:
+                        cats[2]+= 1
+                        ax.plot(positions[:, 0], positions[:, 1], color='red')
+                
+                # for i in range(len(positions)):
+                #     ax.annotate(str(i), (positions[i,0], positions[i,1]), fontsize=6)
+                
+                # ax.annotate(str(len(positions)), (positions[-1,0], positions[-1,1]), fontsize=6)
 
-                x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
-                plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
-            
+            # if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            #     for i in range(len(positions)-1):
+            #         mu = path['mu'][i][0]
+            #         std = path['sigma'][i][0]
+            #         # print('########################## ', mu, std)
+            #         x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
+            #         plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
+            # print('######################## ', cats)
             plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + self.plot_format)   
+            plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + 'png')   
             plt.close()
 
 
@@ -318,6 +336,19 @@ class Debugger():
 
     def add_histogram(self, tb_path=None, value=None, itr=None):
             self.tb_logger.add_histogram(tb_path, value, itr)
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     def entorpy_landscape(self, fig_path):
         # self.ac.pi.num_particles = 100
@@ -346,107 +377,38 @@ class Debugger():
 
 
 
+        # self._obs_lst = np.array([
+        #     [0,0],
+        #     [1, 0],
+        #     [2, 0],
+        #     [2.5,2.5],
+        #     [4, 0],
+        #     [2.5,-2.5],
+        #     [1.5,-0.5],
+        #     [1.5,0.5],
+        #     [3,1.5],
+        #     [3,-1.5],
+        #     [3, 0],
+        #     [3.5, 1],
+        #     [3.5, -1],
+        # ])
+        # self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$', '$s_g$', '$s_h$', '$s_i$', '$s_j$', '$s_k$', '$s_l$', '$s_l$'])
 
-        # obs_debug_value_1 = []
-        # a0_debug_value_1 = []
-        # a_debug_value_1 = []
-        # logp_svgd_debug_value_1 = []
-        # q_s_a_debug_value_1 = []
-        # q_values_debug_value_1 = []
-        # self.entropy_list2 = []
+
+        # o = torch.as_tensor(self._obs_lst, dtype=torch.float32).to(self.ac.pi.device).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0])
+
+        # self.entropy_list = []
+        # for i in range(100):
+        #     a, log_p2 = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False,)
+        # self.entropy_list.append(list(np.round(-log_p2.cpu().detach().numpy(), 2)))
+        # self.entropy_list = np.array(self.entropy_list).mean(axis=0)
+
+
+        # # for i in range(len(self._obs_lst)):
         # for i in range(len(self.test_env._obs_lst)):
-        #     o = torch.as_tensor(self.test_env._obs_lst[i], dtype=torch.float32).to(self.ac.pi.device).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0])
-        #     a, log_p = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
-        #     # if i == 1 : 
-        #     obs_debug_value_1.append(self.ac.pi.obs_debug_value_1.detach().cpu().numpy())
-        #     a0_debug_value_1.append(self.ac.pi.a0_debug_value_1.detach().cpu().numpy())
-        #     a_debug_value_1.append(self.ac.pi.a_debug_value_1.detach().cpu().numpy())
-        #     logp_svgd_debug_value_1.append(self.ac.pi.logp_svgd_debug_value_1.detach().cpu().numpy())
-        #     q_s_a_debug_value_1.append(self.ac.pi.q_s_a_debug_value_1.detach().cpu().numpy())
-        #     q_values_debug_value_1.append(self.ac.pi.q_values_debug_value_1.detach().cpu().numpy())
-        #     self.entropy_list2.append(round(-log_p.detach().item(), 2))
-        
-
-
-        # print('$$$$$$$$$$$$$$$$$$$$$$$ a_debug_value_1', a_debug_value_1[0])
-        # print('$$$$$$$$$$$$$$$$$$$$$$$ logp_svgd_debug_value_1', logp_svgd_debug_value_1[0])
-        # print('$$$$$$$$$$$$$$$$$$$$$$$ q_s_a_debug_value_1', q_s_a_debug_value_1[0])
-
-        
-
-
-        # print()
-        # print()
-
-        # self.entropy_list3 = []
-        # o = torch.as_tensor(self.test_env._obs_lst, dtype=torch.float32).to(self.ac.pi.device).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0])
-        # # o2 = torch.as_tensor(self.test_env._obs_lst[0], dtype=torch.float32).to(self.ac.pi.device).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0])
-
-        # # a, log_p, log_p2 = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False, obs2=o2)
-        # a, log_p22 = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False,)
-        # # print(log_p)
-        # # print(log_p2)
-        # # self.entropy_list.append(round(-log_p.detach().item(), 2))
-        # self.entropy_list3 = list(-log_p22.cpu().detach().numpy())
-
-
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ a_debug_value_1', self.ac.pi.a_debug_value_1.detach().cpu().numpy())
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ logp_svgd_debug_value_1', self.ac.pi.logp_svgd_debug_value_1.detach().cpu().numpy())
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ q_s_a_debug_value_1', self.ac.pi.q_s_a_debug_value_1.detach().cpu().numpy())
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ a_debug_value_1', self.ac.pi.a_debug_value_1.detach().cpu().numpy()[10:20, :])
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ logp_svgd_debug_value_1', self.ac.pi.logp_svgd_debug_value_1.detach().cpu().numpy()[1, :])
-        # # print('$$$$$$$$$$$$$$$$$$$$$$$ q_s_a_debug_value_1', self.ac.pi.q_s_a_debug_value_1.detach().cpu().numpy()[10:20])
-
-
-
-        # for i in range(len(self.test_env._obs_lst)):
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ initial_obs', np.isclose(obs_debug_value_1[i], self.ac.pi.obs_debug_value_1.detach().cpu().numpy()[i * 10: (i+1)*10, :], atol=1e-04).all())
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ initial_a0', np.isclose(a0_debug_value_1[i], self.ac.pi.a0_debug_value_1.detach().cpu().numpy()[i * 10: (i+1)*10, :], atol=1e-04).all())
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ Q_values', np.isclose(q_values_debug_value_1[i], self.ac.pi.q_values_debug_value_1.detach().cpu().numpy()[i * 10: (i+1)*10], atol=1e-04).all())
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ Q_values_gradients', np.isclose(q_s_a_debug_value_1[i], self.ac.pi.q_s_a_debug_value_1.detach().cpu().numpy()[i * 10: (i+1)*10], atol=1e-04).all())
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ svgd_logprobs', np.isclose(logp_svgd_debug_value_1[i], self.ac.pi.logp_svgd_debug_value_1.detach().cpu().numpy()[i, :], atol=1e-04).all())
-        #     print('$$$$$$$$$$$$$$$$$$$$$$$ actions', np.isclose(a_debug_value_1[i], self.ac.pi.a_debug_value_1.detach().cpu().numpy()[i * 10: (i+1)*10, :], atol=1e-04).all())
-        #     print()
-        # print()
-
-
-
-        # print('##################### entropy_list1', self.test_env.entropy_list)
-        # print('##################### entropy_list2', self.entropy_list2)
-        # print('##################### entropy_list_problem', self.entropy_list3)
-
-
-        self._obs_lst = np.array([
-            [0,0],
-            [1, 0],
-            [2, 0],
-            [2.5,2.5],
-            [4, 0],
-            [2.5,-2.5],
-            [1.5,-0.5],
-            [1.5,0.5],
-            [3,1.5],
-            [3,-1.5],
-            [3, 0],
-            [3.5, 1],
-            [3.5, -1],
-        ])
-        self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$', '$s_g$', '$s_h$', '$s_i$', '$s_j$', '$s_k$', '$s_l$', '$s_l$'])
-
-
-        o = torch.as_tensor(self._obs_lst, dtype=torch.float32).to(self.ac.pi.device).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0])
-
-        self.entropy_list = []
-        for i in range(100):
-            a, log_p2 = self.ac(o, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False,)
-        self.entropy_list.append(list(np.round(-log_p2.cpu().detach().numpy(), 2)))
-        self.entropy_list = np.array(self.entropy_list).mean(axis=0)
-
-
-        for i in range(len(self._obs_lst)):
-            self._ax[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='white', marker=self.entropy_obs_names_plotting[i], s=80, zorder=3)
-            # self._ax[0].annotate(str(self.entropy_list[i]), (self._obs_lst[i,0] - 0.4, self._obs_lst[i,1] + 0.2), fontsize=8, color='white', zorder=2)
-            self._ax[0].annotate(str(self.entropy_list[i]), (self._obs_lst[i,0] - 0.4, self._obs_lst[i,1] + 0.2), fontsize=10, color='white', zorder=3)
+        #     self._ax[0].scatter(self.test_env._obs_lst[i, 0], self.test_env._obs_lst[i, 1], c='white', marker=self.test_env.entropy_obs_names_plotting[i], s=100, zorder=3)
+        #     self._ax[0].annotate(str(self.test_env.entropy_list[i]), (self.test_env._obs_lst[i,0] - 0.4, self.test_env._obs_lst[i,1] + 0.2), fontsize=10, color='white', zorder=3)
+            # self._ax[0].annotate(str(self.entropy_list[i]), (self._obs_lst[i,0] - 0.4, self._obs_lst[i,1] + 0.2), fontsize=10, color='white', zorder=3)
             # self._ax_lst[0].annotate(self.test_env.entropy_obs_names_plotting[i], (self.test_env._obs_lst[i,0] - 0.25, self.test_env._obs_lst[i,1] + 0.2), fontsize=18, color='#003f40', zorder=2)
         
 
@@ -479,9 +441,22 @@ class Debugger():
             pbar.update(idx_end - idx_start)
         pbar.close()
 
+        entropy = np.array(entropy).reshape(X_shape)
+        np.save(fig_path + '/entropy_matrix', entropy)
         
 
-        entropy = np.array(entropy).reshape(X_shape)
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_02.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_1.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_5.npy') ################
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_10.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_15.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_20.npy')
+
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_sac_02.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_sac_1.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_sac_10.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_sac_15.npy')
+        # entropy = np.load('./STAC/multi_goal_plots_/entropy_matrix_sac_20.npy')
 
         min_entropy = entropy.min()
         max_entropy = entropy.max()
@@ -490,7 +465,8 @@ class Debugger():
         # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, norm=mpl_colors.PowerNorm(gamma = 0.7), alpha=.9, interpolation='bilinear', extent=extent)
         # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, alpha=.9, interpolation='bilinear', extent=extent)
         cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, extent=extent)
-        # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, extent=extent, vmin=0.7, vmax=0.8)
+        # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, extent=extent, vmin=-0.12, vmax=0.1)
+        # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, extent=extent, vmin=-2.7, vmax=-0.5)
         # cmap = self._ax[0].imshow(entropy, cmap=plt.cm.viridis, extent=extent, vmin=0.6)
         self._ax[0].plot(self.test_env.goal_positions[:, 0], self.test_env.goal_positions[:, 1], 'ro')
         self._ax[0].plot(np.array([0]), np.array([0]), 'bo')
@@ -506,22 +482,22 @@ class Debugger():
 
 
         plt.savefig(fig_path + '/entropy_landscape.' + self.plot_format)   
+        plt.savefig(fig_path + '/entropy_landscape.' + 'png')   
         plt.close()
 
     def log_to_tensorboard(self, itr):
         # related to the modes
-        if self.env_name in ['Multigoal', 'multigoal-max-entropy']:
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
             self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
             self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
-            if self.env_name in ['Multigoal', 'multigoal-max-entropy']:
-                self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_' + str(i): self.test_env.number_of_hits_mode_acc[i] for i in range(self.test_env.num_goals)}, itr)
+            self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_' + str(i): self.test_env.number_of_hits_mode_acc[i] for i in range(self.test_env.num_goals)}, itr)
             # elif self.env_name == 'Multigoal':
             #     self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_0': self.test_env.number_of_hits_mode_acc[0], 'mode_1': self.test_env.number_of_hits_mode_acc[1], 'mode_2': self.test_env.number_of_hits_mode_acc[2], 'mode_3': self.test_env.number_of_hits_mode_acc[3]}, itr)
             for ind in range(self.test_env.num_goals):
                 self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
 
             
-        if self.env_name in ['max-entropy-v0','multigoal-max-entropy']:
+        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
             feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
 
@@ -577,9 +553,9 @@ class Debugger():
             ########################################################################################################################################################
 
         
-            if self.env_name in ['multigoal-max-entropy']:
+            if self.env_name in ['multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
                 feed_dict = {}
-                o = torch.tensor(self.test_env._obs_lst[6].astype(np.float32)).to(self.ac.pi.device)
+                o = torch.tensor(self.test_env._obs_lst[3].astype(np.float32)).to(self.ac.pi.device)
                 left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
                 topleft = torch.from_numpy(np.array([-1, 0.75]).astype(np.float32)).to(self.ac.pi.device)
                 bottomleft = torch.from_numpy(np.array([-1, -0.75]).astype(np.float32)).to(self.ac.pi.device)
@@ -588,12 +564,12 @@ class Debugger():
                 # topleft = torch.from_numpy(np.array([-0.4364186, 1]).astype(np.float32)).to(self.ac.pi.device)
                 # bottomleft = torch.from_numpy(np.array([-0.4364186, -1]).astype(np.float32)).to(self.ac.pi.device)
                 right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
-                feed_dict[self.test_env.entropy_obs_names[6] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
-                feed_dict[self.test_env.entropy_obs_names[6] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
-                feed_dict[self.test_env.entropy_obs_names[6] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
-                feed_dict[self.test_env.entropy_obs_names[6] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
                 
-                o = torch.tensor(self.test_env._obs_lst[4].astype(np.float32)).to(self.ac.pi.device)
+                o = torch.tensor(self.test_env._obs_lst[2].astype(np.float32)).to(self.ac.pi.device)
                 left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
                 topleft = torch.from_numpy(np.array([-1, 1]).astype(np.float32)).to(self.ac.pi.device)
                 bottomleft = torch.from_numpy(np.array([-1, -1]).astype(np.float32)).to(self.ac.pi.device)
@@ -601,13 +577,13 @@ class Debugger():
                 # bottomleft = torch.from_numpy(np.array([-1, -0.5582575]).astype(np.float32)).to(self.ac.pi.device)
                 # topleft = torch.from_numpy(np.array([-0.3273268, 1]).astype(np.float32)).to(self.ac.pi.device)
                 # bottomleft = torch.from_numpy(np.array([-0.3273268, -1]).astype(np.float32)).to(self.ac.pi.device)
-                feed_dict[self.test_env.entropy_obs_names[4] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
-                feed_dict[self.test_env.entropy_obs_names[4] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
-                feed_dict[self.test_env.entropy_obs_names[4] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[2] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[2] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[2] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
 
-                o = torch.tensor(self.test_env._obs_lst[7].astype(np.float32)).to(self.ac.pi.device)
+                o = torch.tensor(self.test_env._obs_lst[4].astype(np.float32)).to(self.ac.pi.device)
                 right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
-                feed_dict[self.test_env.entropy_obs_names[7] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[4] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
 
                 self.tb_logger.add_scalars('Entropy/max_entropy_env_q_values',  feed_dict, itr)
                 
