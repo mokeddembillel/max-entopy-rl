@@ -7,10 +7,11 @@ from networks import MLPSquashedGaussian
 from torch.distributions import Normal, Categorical
 from actors.kernels import RBF
 from utils import GMMDist
+import timeit
 
 class ActorSvgd(torch.nn.Module):
     def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, adaptive_sig,
-    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None):
+    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None, action_selection=None):
         super().__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -23,7 +24,7 @@ class ActorSvgd(torch.nn.Module):
         self.q1 = q1
         self.q2 = q2
         self.sigma_p0 = svgd_sigma_p0
-
+        self.action_selection = action_selection
         self.test_deterministic = test_deterministic
         self.batch_size = batch_size
 
@@ -45,7 +46,10 @@ class ActorSvgd(torch.nn.Module):
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
-
+        self.delta=1e-3
+        self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
+        for i in range(self.act_dim):
+            self.drv_delta[i, :, i] = self.delta 
         # Debugging #########################################
         # gmm = 1
         # if (gmm == 1):
@@ -85,7 +89,24 @@ class ActorSvgd(torch.nn.Module):
             log_prob1 = self.q1(obs, X)
             log_prob2 = self.q2(obs, X)
             log_prob = torch.min(log_prob1, log_prob2)
+
+            # start = timeit.default_timer()
             score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
+            # stop = timeit.default_timer()
+            # print('Time deriv auto: ', stop - start) 
+                        
+
+            # start = timeit.default_timer()
+            # drv_obs = obs.unsqueeze(0).repeat(self.act_dim, 1, 1)
+            # drv_X = X.unsqueeze(0).repeat(self.act_dim, 1, 1)
+            # drv_Xp = drv_X + self.drv_delta
+            # drv_Xn = drv_X - self.drv_delta
+            # term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
+            # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
+            # score_func = ((term_1 - term_2) / (2 * self.delta)).T
+            # stop = timeit.default_timer()
+            # print('Time deriv numeric: ', stop - start) 
+            # print()
 
             X = X.reshape(-1, self.num_particles, self.act_dim)
             score_func = score_func.reshape(X.size())
@@ -113,9 +134,11 @@ class ActorSvgd(torch.nn.Module):
         
         for t in range(self.num_svgd_steps):
             phi_, q_s_a, dq = phi(a)
+            # print('PHI ################## ', phi_.detach().cpu().numpy())
+            # import pdb; pdb.set_trace()
             a = self.svgd_optim(a, phi_, dq)
             # Collect Data for debugging
-            self.x_t.append(a.detach().cpu().numpy().tolist())
+            self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
             self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
 
             # if (a > self.act_limit).any():
@@ -125,98 +148,11 @@ class ActorSvgd(torch.nn.Module):
         
         a = self.act_limit * torch.tanh(a) 
         #print("___________________")
-
+        # import pdb; pdb.set_trace()
+        # if  (a < -1).any() or (a> 1).any():
+        #     print('#################### Error ####################')
         return a, logp, q_s_a
 
-    # def sampler_debug(self, obs, a, with_logprob=True):
-    #     logp = 0
-    #     logp_wrong = 0
-    #     self.term1_debug = 0
-    #     self.term2_debug = 0
-    #     self.logp_line1 = 0
-    #     self.logp_line2 = 0
-    #     self.logp_line4 = 0
-    #     self.logp_wrong = 0
-
-    #     def phi(X):
-    #         nonlocal logp
-            
-    #         X.requires_grad_(True)            
-    #         log_prob1_ = self.q1(obs, X)
-    #         log_prob2_ = self.q2(obs, X)
-    #         log_prob = torch.min(log_prob1_, log_prob2_)
-
-    #         # log_prob = self.P.log_prob(X)
-
-    #         score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
-
-    #         X = X.reshape(-1, self.num_particles, self.act_dim)
-    #         score_func = score_func.reshape(X.size())
-    #         K_XX, K_diff, K_gamma, K_grad = self.Kernel(X, X)
-    #         phi = (K_XX.matmul(score_func) + K_grad.sum(1)) / self.num_particles 
-
-    #         # Calculation of the adaptive learning rate should be here. to discuss
-    #         self.svgd_lr = self.svgd_lr_init
-    #         # print('adaptive' , self.adaptive_lr)
-    #         if self.adaptive_lr: 
-    #             # print('Condition: ', (self.svgd_lr * torch.sqrt( (score_func**2).sum(-1)).mean()).detach().item())
-    #             if (self.svgd_lr * torch.sqrt( (score_func**2).sum(-1)).mean() ) > 1.0:
-    #                 self.svgd_lr = 0.1 * (1/torch.sqrt( (score_func**2).sum(-1))).mean().detach().item()
-    #         # print('SVGD_LR', self.svgd_lr)
-            
-    #         # compute the entropy
-    #         if 1:
-    #             # Initializations 
-    #             # Entropy Toy Code #############################################################
-    #             grad_phi =[]
-    #             for i in range(X.size(1)):
-    #                 grad_phi_tmp = []
-    #                 for j in range(X.size(2)):
-    #                     grad_ = autograd.grad(phi[0][i][j], X, retain_graph=True)[0][0,i].detach()
-    #                     grad_phi_tmp.append(grad_)
-    #                 grad_phi.append(torch.stack(grad_phi_tmp))
-
-    #             grad_phi = torch.stack(grad_phi).unsqueeze(0)
-                
-    #             self.logp_line1 = self.logp_line1 - torch.log(torch.abs(torch.det(self.identity_mat + self.svgd_lr * grad_phi))) ####### change here
-                
-    #             grad_phi_trace = torch.stack( [torch.trace(grad_phi[0,i]) for i in range(grad_phi.shape[1])] ).unsqueeze(0)
-    #             self.logp_line2 = self.logp_line2 - self.svgd_lr * grad_phi_trace
-                
-    #             line4_term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2) ###### adding the batch dimension
-    #             line4_term2 = -2 * K_gamma * (( K_grad.permute(0,2,1,3) * K_diff).sum(-1) - X.size(2) * (K_XX - torch.eye(self.num_particles).to(self.device)) ).mean(1) ###### adding the batch dimension
-    #             self.logp_line4 = self.logp_line4 - self.svgd_lr * (line4_term1 + line4_term2) 
-                
-    #             # Main Code ################################################################
-    #             term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
-    #             term2_wrong = -2 * K_gamma * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.num_particles * (K_XX - self.identity)).mean(1)
-    #             term2 = -2 * K_gamma * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).mean(1)
-    #             self.term1_debug += term1.mean()
-    #             self.term2_debug += term2.mean()
-    #             logp = logp - self.svgd_lr * (term1 + term2) 
-    #             self.logp_wrong = self.logp_wrong - self.svgd_lr * (term1 + term2_wrong) 
-    #             # print()
-    #             # print('---- toy log_p line 1:', self.logp_line1.squeeze().to('cpu').detach().mean().item())
-    #             # print('---- toy log_p line 2:', self.logp_line2.squeeze().to('cpu').detach().mean().item())
-    #             # print('---- toy log_p line 4:', self.logp_line4.squeeze().to('cpu').detach().mean().item())
-    #             # print('---- main log_p :', logp.squeeze().to('cpu').detach().mean().item()) 
-    #             # print('---- main log_p wrong with error :', self.logp_wrong.squeeze().to('cpu').detach().mean().item()) 
-
-    #         return phi, log_prob, score_func 
-        
-    #     for t in range(self.num_svgd_steps):
-    #         phi_, q_s_a, dq = phi(a)
-    #         a = self.svgd_optim(a, phi_, dq)
-
-    #         if (a > self.act_limit).any():
-    #             break
-    #         #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
-    #         #print("t: ", t, " ", a[0])
-        
-    #     a = self.act_limit * torch.tanh(a) 
-    #     #print("___________________")
-
-    #     return a, logp, q_s_a
 
     def act(self, obs, deterministic=False, with_logprob=True, loss_q_=None, all_particles=None):
         logp_a = None
@@ -224,16 +160,20 @@ class ActorSvgd(torch.nn.Module):
 
         if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
-            # a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+            # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()
         else:
             self.mu, self.sigma = self.p0(obs)
             a0 = Normal(self.mu, self.sigma).rsample()
             a0 = self.act_limit * torch.tanh(a0)
 
+        self.a0_debbug = a0.view(-1, self.num_particles, self.act_dim)
+
         # run svgd
         a, logp_svgd, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
+
         # a, logp_svgd, q_s_a = self.sampler_debug(obs, a0.detach(), with_logprob) 
         q_s_a = q_s_a.view(-1, self.num_particles)
+
         # compute the entropy 
         if with_logprob:
             logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
@@ -247,7 +187,7 @@ class ActorSvgd(torch.nn.Module):
                 # print()
             logp_a = (logp_normal + logp_svgd + logp_tanh).mean(-1)
             # logp_wrong_a = (logp_normal + logp_wrong + logp_tanh).mean(-1)
-
+            
 
             self.logp_normal_debug = logp_normal.mean()
             self.logp_svgd_debug = logp_svgd.mean()
@@ -258,13 +198,19 @@ class ActorSvgd(torch.nn.Module):
 
         # at test time
         if (not all_particles) and (deterministic == True):
-            a = self.a[:,q_s_a.argmax(-1)]
-
+            if self.action_selection == 1:
+                a = self.a[:,q_s_a.argmax(-1)]
+                # print('maaaax')
+            elif self.action_selection == 2:
+                # print('softmaax')
+                beta = 1
+                soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
+                dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+                a = self.a[:,dist.sample()]
+            else:
+                print('Wroong parameter !!!!!!!!!!!!!!!')
         elif (not all_particles) and (deterministic == False):
-            # beta = 1
-            # soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
-            # dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
-            # a = self.a[:,dist.sample()]
+
             a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
             
         else:

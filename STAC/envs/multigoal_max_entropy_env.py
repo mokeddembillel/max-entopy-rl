@@ -260,9 +260,9 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 self._ax_lst[0].plot(positions[:, 0], positions[:, 1], color='blue')
                 
 
+            num_particles_tmp = ac.pi.num_particles
+            ac.pi.num_particles = self._n_samples
             if not ac.pi.actor=='sac':
-                num_particles_tmp = ac.pi.num_particles
-                ac.pi.num_particles = self._n_samples
                 ac.pi.Kernel.num_particles = ac.pi.num_particles
                 ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
 
@@ -272,12 +272,14 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
                 for _ in range(100): ########################## 100
                     a, log_p = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=True, all_particles=False)
+                    if ac.pi.actor=='sac':
+                        log_p = log_p.view(-1,ac.pi.num_particles).mean(dim=1)
                     self.entropy_tmp.append(round(-log_p.detach().item(), 2))
                 self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
             
             
+            ac.pi.num_particles = num_particles_tmp
             if not ac.pi.actor=='sac':
-                ac.pi.num_particles = num_particles_tmp
                 ac.pi.Kernel.num_particles = ac.pi.num_particles
                 ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
 
@@ -394,7 +396,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
             actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False, all_particles=True)
             actions = actions.cpu().detach().numpy().squeeze()
             # if ac.pi.actor == 'svgd_nonparam':
-
+            # print(actions)
             # else:
             x, y = actions[:, 0], actions[:, 1]
 

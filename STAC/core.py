@@ -10,6 +10,8 @@ from buffer import ReplayBuffer
 from debugging import Debugger
 import pickle
 from tqdm import tqdm
+from render_browser import render_browser
+
 
 class MaxEntrRL():
     def __init__(self, train_env, test_env, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -53,7 +55,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes)
+        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes, self.RL_kwargs.alpha, self.RL_kwargs.max_steps, self.RL_kwargs.max_experiment_steps)
 
         self.evaluation_data = AttrDict()
 
@@ -182,44 +184,69 @@ class MaxEntrRL():
             for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
                 p_targ.data.mul_(self.optim_kwargs.polyak)
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
-
+                
+    # @render_browser
     def test_agent(self, itr=None):
         
+
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.reset_rendering()
 
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
+            obs_average = []
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                obs_average.append(o.detach().cpu().numpy())
                 a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
+
+                # if self.env_name in ['Hopper-v2']:
+                #     yield self.test_env.render(mode='rgb_array')
                 
-                if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
-                    self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr)    
+                
+                # if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
+                self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr, ep_len)    
                 
                 ep_ret += r
                 ep_len += 1
                 
                 o = o2
+            print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
                 # self.debugger.entropy_plot()  
-
+            # print('################## ', np.mean(np.array(obs_average), axis=0))
     
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
-            if not self.RL_kwargs.test_time:
-                self.debugger.log_to_tensorboard(itr=itr)
-                # self.debugger.create_entropy_plots(itr) # For multigoal only
-                self.debugger.reset()
+
+
+        # print('############################# Finished')
+        if not self.RL_kwargs.test_time:
+            self.debugger.log_to_tensorboard(itr=itr)
+            self.debugger.create_entropy_plots(itr) # For multigoal only
+            if self.env_name in ['Hopper-v2']:
+                self.debugger.create_states_distances_plots(itr) # For multigoal only
+                self.debugger.create_states_components_plots(itr) # For multigoal only
+                self.debugger.create_actions_components_plots(itr) # For multigoal only
+        else:
+            if self.env_name in ['Hopper-v2']: 
+                self.debugger.create_slices_plot(itr, fig_path=self.fig_path, fig_size=(14, 4.5))
+                if self.actor == 'svgd_nonparam':
+                    self.debugger.actions_3d_scatter_plot(itr, fig_path=self.fig_path)
+            
+        # print('########################### here is count', self.debugger.boundary_action_counter/self.debugger.action_counter)
+        # print('########################### here is count', self.debugger.boundary_all_actions_counter/self.debugger.action_counter)
+        self.debugger.reset()
         # if (itr + 1)%6800 == 0:
-        # self.ac.save(itr)
+        if not self.RL_kwargs.test_time:
+            self.ac.save(itr)
         
     def save_data(self):
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
@@ -258,7 +285,7 @@ class MaxEntrRL():
             # if step_itr >= self.RL_kwargs.exploration_steps and np.random.uniform(0,1) > 0.3:
             if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, logp = self.ac(o_, deterministic = False, with_logprob=True, all_particles=False)
+                a, logp = self.ac(o_, deterministic = self.RL_kwargs.train_deterministic, with_logprob=True, all_particles=False)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
                 # if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':
@@ -319,7 +346,7 @@ class MaxEntrRL():
                     self.update(data=batch, itr=step_itr)
 
             
-            if (step_itr+1)  >= self.RL_kwargs.collect_stats_after and (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0:
+            if ((step_itr+1)  >= self.RL_kwargs.collect_stats_after and (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0) or step_itr == self.RL_kwargs.max_experiment_steps - 1:
                 # print('___test___')
                 
                 self.test_agent(step_itr)
@@ -329,8 +356,9 @@ class MaxEntrRL():
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)
                         self.debugger.add_histogram(tag, value.cpu(), step_itr)
                 try:
-                    self.debugger.add_scalars('EpRet',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, episode_itr)
-                    self.debugger.add_scalar('EpLen',  np.mean(EpLen), episode_itr)
+                    self.debugger.add_scalars('EpRet/return_detailed',  {'Mean ': np.mean(EpRet), 'Min': np.min(EpRet), 'Max': np.max(EpRet)  }, step_itr)
+                    self.debugger.add_scalars('EpRet/return_mean_only',  {'Mean ': np.mean(EpRet)}, step_itr)
+                    self.debugger.add_scalar('EpLen',  np.mean(EpLen), step_itr)
                 except:
                     print('Statistics collection frequency should be larger then the length of an episode!')
                     

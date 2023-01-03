@@ -23,8 +23,8 @@ import timeit
 if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
-    parser.add_argument('--gpu_id', type=int, default=0)
-    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--gpu_id', type=int, default=2)
+    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
     parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
@@ -36,7 +36,7 @@ if __name__ == '__main__':
     parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
 
     ###### RL 
-    parser.add_argument('--gamma', type=float, default=0.8)
+    parser.add_argument('--gamma', type=float, default=0.99)
     parser.add_argument('--alpha', type=float, default=5)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--load_replay', type=int, default=0)
@@ -53,19 +53,18 @@ if __name__ == '__main__':
     parser.add_argument('--polyak', type=float, default=0.995)
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
-    parser.add_argument('--batch_size', type=int, default=500)
+    parser.add_argument('--batch_size', type=int, default=100)
 
-    ###### sac
-    parser.add_argument('--sac_test_deterministic', type=int, default=0)
-
-    ###### sql
-    parser.add_argument('--sql_test_deterministic', type=int, default=0)
     
-    ###### svgd 
+    ###### action selection
+    parser.add_argument('--train_deterministic', type=int, default=0)
+    parser.add_argument('--test_deterministic', type=int, default=0)
+    parser.add_argument('--action_selection', type=int, default=1, choices=[1,2])
+    ############# 
+
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
     parser.add_argument('--svgd_lr', type=float, default=0.01)
-    parser.add_argument('--svgd_test_deterministic', type=int, default=0)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.3)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
     parser.add_argument('--kernel_sigma_adaptive', type=int, default=4)
@@ -80,7 +79,7 @@ if __name__ == '__main__':
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_mg_a02_g08')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_591999_a1_slr_1')
 
 
     ###################################################################################
@@ -90,10 +89,11 @@ if __name__ == '__main__':
     parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
     ###################################################################################
+
+    
     args = parser.parse_args()  
-    args.sac_test_deterministic = bool(args.sac_test_deterministic)
-    args.sql_test_deterministic = bool(args.sql_test_deterministic)
-    args.svgd_test_deterministic = bool(args.svgd_test_deterministic)
+    args.train_deterministic = bool(args.train_deterministic)
+    args.test_deterministic = bool(args.test_deterministic)
     args.plot = bool(args.plot)
     args.svgd_adaptive_lr = bool(args.svgd_adaptive_lr)
     args.debugging = bool(args.debugging)
@@ -103,8 +103,8 @@ if __name__ == '__main__':
     # print(args.svgd_adaptive_lr)
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
-      
-    
+
+
     if args.test_time:
         print('############################## TEST TIME ###################################')
         print('############################################################################')
@@ -121,6 +121,7 @@ if __name__ == '__main__':
     
     if args.env in ['Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2']:
         args.fig_path = './STAC/mujoco_plots_/'
+        args.max_steps = 1000
     elif args.env == 'max-entropy-v0':
         args.stats_steps_freq = 1000
         args.max_steps = 500
@@ -130,15 +131,15 @@ if __name__ == '__main__':
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
-        args.exploration_steps = 100000000
+        args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 10000000
+        args.max_experiment_steps = 34432423423
         # args.exploration_steps = 100
-        args.update_after = 10000
-        # args.stats_steps_freq = 11
+        args.update_after = 111111110
+        args.stats_steps_freq = 100
         args.num_test_episodes = 1
         # args.max_steps = 500
-        args.collect_stats_after = 1
+        args.collect_stats_after = 0
         # args.entropy_particles = 10
         # args.svgd_particles = 100
 
@@ -183,16 +184,16 @@ if __name__ == '__main__':
     # actor arguments
     if (args.actor in ['svgd_nonparam','svgd_p0_pram','svgd_p0_kernel_pram']):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.svgd_test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
+            svgd_lr=args.svgd_lr, test_deterministic=args.test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation, 
-            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr, adaptive_sig=args.kernel_sigma_adaptive)
+            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr, adaptive_sig=args.kernel_sigma_adaptive, action_selection=args.action_selection)
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.sql_test_deterministic, 
+            svgd_lr=args.svgd_lr, test_deterministic=args.test_deterministic, 
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
     elif (args.actor =='sac'):
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_deterministic=args.sac_test_deterministic, device=device, activation=args.actor_activation, batch_size=args.batch_size)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_deterministic=args.test_deterministic, device=device, activation=args.actor_activation, batch_size=args.batch_size)
     
     # Logging
     #
@@ -201,12 +202,12 @@ if __name__ == '__main__':
         project_name +=  'test_'
     
     # project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
-    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
+    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnd_' + str(args.train_deterministic) + '_ttd_' + str(args.test_deterministic) + '_as_' + str(args.action_selection) + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 
-    project_name += 'experiment_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after)
+    project_name += 'exper_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after) + '_PID_' + str(os.getpid())
 
     # RL args
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,
@@ -214,7 +215,7 @@ if __name__ == '__main__':
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
         max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, 
         debugging=args.debugging, plot_format=args.plot_format, load_replay= args.load_replay, replay_path=args.replay_path, 
-        collect_stats_after=args.collect_stats_after, test_time=args.test_time, model_path=args.model_path)
+        collect_stats_after=args.collect_stats_after, test_time=args.test_time, model_path=args.model_path, train_deterministic=args.train_deterministic)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
@@ -242,6 +243,7 @@ if __name__ == '__main__':
         # Fix max steps here
         train_env = gym.make(args.env)
         test_env = gym.make(args.env)
+
 
     if args.test_time:
         tb_logger = None
@@ -287,15 +289,15 @@ if __name__ == '__main__':
         if args.actor not in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             print('Actor\'s learning rate: ', args.lr_actor)
         print('Batch size: ', args.batch_size)
-        if args.actor == 'sac':
-            print('SAC diterministic action selection: ', args.sac_test_deterministic)
-        if args.actor == 'svgd_sql':
-            print('SQL diterministic action selection: ', args.sql_test_deterministic)
+
+        print('Action selection strategy: ', args.action_selection)
+        print('Train diterministic action selection: ', args.train_deterministic)
+        print('Test diterministic action selection: ', args.test_deterministic)
+
         if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'svgd_sql']:
             print('Number of particles for SVGD: ', args.svgd_particles)
             print('SVGD learning Rate: ', args.svgd_lr)
         if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-            print('SVGD diterministic action selection: ', args.svgd_test_deterministic)
             print('Number of SVGD steps: ', args.svgd_steps)
             print('SVGD initial distribution\'s variance: ', args.svgd_sigma_p0)
             print('SVGD\'s kernel variance: ', args.svgd_kernel_sigma)
@@ -326,7 +328,7 @@ if __name__ == '__main__':
     else:
         start = timeit.default_timer()
         stac.forward()
-        stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
+        # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
     stop = timeit.default_timer()
     print('Time: ', stop - start) 
     print() 
