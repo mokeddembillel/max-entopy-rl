@@ -68,7 +68,7 @@ class MaxEntrRL():
         # Bellman backup for Q functions
         # Target actions come from *current* policy
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-        a2, logp_a2 = self.ac(o2, deterministic=False, with_logprob=True, in_q_loss=False, all_particles=True) 
+        a2, logp_a2 = self.ac(o2, action_selection=None, with_logprob=True, in_q_loss=False) 
         
         with torch.no_grad(): 
             # Target Q-values
@@ -112,7 +112,7 @@ class MaxEntrRL():
         
         o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         
-        a, logp_pi = self.ac(o, deterministic=False, with_logprob=True, all_particles=True)
+        a, logp_pi = self.ac(o, action_selection=None, with_logprob=True)
 
         # get the final action
         q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles)
@@ -124,7 +124,7 @@ class MaxEntrRL():
         if self.actor == 'svgd_sql':
             # actions used to compute the expectation indexed by `i`
             # a_updated = a.clone()
-            a_updated, logp_pi = self.ac(o, deterministic=False, with_logprob=True, all_particles=True)
+            a_updated, logp_pi = self.ac(o, action_selection=None, with_logprob=True)
             # compte grad q wrt a
             grad_q = torch.autograd.grad((q_pi * self.ac.pi.num_particles).sum(), a)[0]
             grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
@@ -187,7 +187,7 @@ class MaxEntrRL():
                 
     # @render_browser
     def test_agent(self, itr=None):
-        
+        robot_pic_rgb = None
 
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.reset_rendering()
@@ -200,15 +200,16 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 obs_average.append(o.detach().cpu().numpy())
-                a, log_p = self.ac(o_, deterministic=self.ac.pi.test_deterministic, with_logprob=True, all_particles=False)
+                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
 
                 # if self.env_name in ['Hopper-v2']:
-                #     yield self.test_env.render(mode='rgb_array')
-                
+                #     robot_pic_rgb = self.test_env.render(mode='rgb_array')
+                    # yield robot_pic_rgb
+                # import pdb; pdb.set_trace()
                 
                 # if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
-                self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr, ep_len)    
+                self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -228,6 +229,13 @@ class MaxEntrRL():
 
 
         # print('############################# Finished')
+        if self.RL_kwargs.all_checkpoints_test:
+            expected_rewards = list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))
+            episode_length = list(map(lambda x: x['episode_length'], self.debugger.episodes_information))
+            self.debugger.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Max_Mean ': np.mean(expected_rewards), 'Max_Min': np.min(expected_rewards), 'Max_Max': np.max(expected_rewards) }, itr)
+            self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
+            self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
+
         if not self.RL_kwargs.test_time:
             self.debugger.log_to_tensorboard(itr=itr)
             self.debugger.create_entropy_plots(itr) # For multigoal only
@@ -237,14 +245,12 @@ class MaxEntrRL():
                 self.debugger.create_actions_components_plots(itr) # For multigoal only
         else:
             if self.env_name in ['Hopper-v2']: 
-                self.debugger.create_slices_plot(itr, fig_path=self.fig_path, fig_size=(14, 4.5))
-                if self.actor == 'svgd_nonparam':
-                    self.debugger.actions_3d_scatter_plot(itr, fig_path=self.fig_path)
+                self.debugger.mujoco_debugging_plots(itr, fig_path=self.fig_path, fig_size=(18, 10))
+
             
         # print('########################### here is count', self.debugger.boundary_action_counter/self.debugger.action_counter)
         # print('########################### here is count', self.debugger.boundary_all_actions_counter/self.debugger.action_counter)
         self.debugger.reset()
-        # if (itr + 1)%6800 == 0:
         if not self.RL_kwargs.test_time:
             self.ac.save(itr)
         
@@ -285,7 +291,7 @@ class MaxEntrRL():
             # if step_itr >= self.RL_kwargs.exploration_steps and np.random.uniform(0,1) > 0.3:
             if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, logp = self.ac(o_, deterministic = self.RL_kwargs.train_deterministic, with_logprob=True, all_particles=False)
+                a, logp = self.ac(o_, action_selection = self.RL_kwargs.train_action_selection, with_logprob=True, itr=step_itr)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
                 # if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':

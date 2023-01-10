@@ -38,8 +38,8 @@ class ActorCritic(nn.Module):
         if self.test_time:
             self.load()
 
-    def forward(self, obs, deterministic=False, with_logprob=True, in_q_loss=False, all_particles=False):
-        return self.pi.act(obs, deterministic, with_logprob, in_q_loss, all_particles)
+    def forward(self, obs, action_selection=None, with_logprob=True, in_q_loss=False, itr=None):
+        return self.pi.act(obs, action_selection, with_logprob, in_q_loss, itr)
 
     def save(self, itr=0):
         torch.save(self.state_dict(), self.save_path + '/' + self.actor_name + '_' + str(itr))

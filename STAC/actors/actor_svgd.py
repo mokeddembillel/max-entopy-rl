@@ -8,10 +8,11 @@ from torch.distributions import Normal, Categorical
 from actors.kernels import RBF
 from utils import GMMDist
 import timeit
+import math 
 
 class ActorSvgd(torch.nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_deterministic, batch_size, adaptive_sig,
-    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None, action_selection=None):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_action_selection, batch_size, adaptive_sig,
+    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None):
         super().__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -24,8 +25,7 @@ class ActorSvgd(torch.nn.Module):
         self.q1 = q1
         self.q2 = q2
         self.sigma_p0 = svgd_sigma_p0
-        self.action_selection = action_selection
-        self.test_deterministic = test_deterministic
+        self.test_action_selection = test_action_selection
         self.batch_size = batch_size
 
         #optimizer parameters
@@ -46,7 +46,7 @@ class ActorSvgd(torch.nn.Module):
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
-        self.delta=1e-3
+        self.delta = 1e-4
         self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
         for i in range(self.act_dim):
             self.drv_delta[i, :, i] = self.delta 
@@ -63,8 +63,9 @@ class ActorSvgd(torch.nn.Module):
         #     self.P = GMMDist(dim=2, n_gmm=gmm, device=self.device)
         
 
-
-
+        self.epsilon_threshold = 0.9
+        self.epsilon_decay = (0.9 - 0.0) / 400000
+        self.beta = (200100 / (0 + 200))
 
     def svgd_optim(self, x, dx, dq): 
         dx = dx.view(x.size())
@@ -154,7 +155,7 @@ class ActorSvgd(torch.nn.Module):
         return a, logp, q_s_a
 
 
-    def act(self, obs, deterministic=False, with_logprob=True, loss_q_=None, all_particles=None):
+    def act(self, obs, action_selection=None, with_logprob=True, loss_q_=None, itr=None):
         logp_a = None
         # logp_normal = None
 
@@ -197,24 +198,42 @@ class ActorSvgd(torch.nn.Module):
         self.a =  a.view(-1, self.num_particles, self.act_dim)
 
         # at test time
-        if (not all_particles) and (deterministic == True):
-            if self.action_selection == 1:
-                a = self.a[:,q_s_a.argmax(-1)]
-                # print('maaaax')
-            elif self.action_selection == 2:
-                # print('softmaax')
-                beta = 1
-                soft_max_probs = torch.exp(beta * q_s_a - q_s_a.max(dim=1, keepdim=True)[0])
+        if action_selection is None:
+            a = self.a
+            # print('None')
+        elif action_selection == 'random':
+            a = self.a[:,np.random.randint(self.num_particles),:]
+            # print('random')
+        elif action_selection == 'max':
+            a = self.a[:,q_s_a.argmax(-1)]
+            # print('max')
+        elif action_selection == 'softmax':
+            # print('softmax')
+            self.beta = 1
+            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+            dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+            a = self.a[:,dist.sample()]
+        elif action_selection == 'adaptive_softmax':
+            # print('adaptive_softmax')
+            if self.beta > 0.5:
+                self.beta = (200100 / (itr + 200))
+            else:
+                self.beta = 0.5
+            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+            # print('############# ', soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+            dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+            a = self.a[:,dist.sample()]
+        elif action_selection == 'softmax_egreedy':
+            # print('adaptive_softmax')
+            self.epsilon_threshold -= self.epsilon_decay
+            eps = np.random.random()
+            if eps > self.epsilon_threshold:
+                self.beta = 1
+                soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
                 dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
                 a = self.a[:,dist.sample()]
             else:
-                print('Wroong parameter !!!!!!!!!!!!!!!')
-        elif (not all_particles) and (deterministic == False):
-
-            a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
-            
-        else:
-            a = self.a
+                a = self.a[:,np.random.randint(self.num_particles),:]
 
         ########## Debugging. to be removed
         # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()

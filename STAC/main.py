@@ -17,6 +17,7 @@ from datetime import datetime
 from utils import AttrDict
 import glob
 import timeit
+from tqdm import tqdm
 
 
 
@@ -54,12 +55,12 @@ if __name__ == '__main__':
     parser.add_argument('--lr_critic', type=float, default=1e-3)
     parser.add_argument('--lr_actor', type=float, default=1e-3)
     parser.add_argument('--batch_size', type=int, default=100)
-
+    
     
     ###### action selection
-    parser.add_argument('--train_deterministic', type=int, default=0)
-    parser.add_argument('--test_deterministic', type=int, default=0)
-    parser.add_argument('--action_selection', type=int, default=1, choices=[1,2])
+    parser.add_argument('--train_action_selection', type=str, default='softmax_egreedy', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--test_action_selection', type=str, default='max', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+  
     ############# 
 
     parser.add_argument('--svgd_particles', type=int, default=10)
@@ -86,21 +87,19 @@ if __name__ == '__main__':
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
     parser.add_argument('--test_time', type=int, default=0) 
+    parser.add_argument('--all_checkpoints_test', type=int, default=0) 
     parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
     ###################################################################################
 
     
     args = parser.parse_args()  
-    args.train_deterministic = bool(args.train_deterministic)
-    args.test_deterministic = bool(args.test_deterministic)
     args.plot = bool(args.plot)
     args.svgd_adaptive_lr = bool(args.svgd_adaptive_lr)
     args.debugging = bool(args.debugging)
     args.load_replay = bool(args.load_replay)
     args.test_time = bool(args.test_time)
-    # print(args.sac_test_deterministic)
-    # print(args.svgd_adaptive_lr)
+    args.all_check_points_test = bool(args.all_checkpoints_test)
     # import pdb; pdb.set_trace()
     ################# Best parameters for a specific thing #################
 
@@ -135,7 +134,7 @@ if __name__ == '__main__':
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 34432423423
         # args.exploration_steps = 100
-        args.update_after = 111111110
+        args.update_after = 200
         args.stats_steps_freq = 100
         args.num_test_episodes = 1
         # args.max_steps = 500
@@ -184,16 +183,16 @@ if __name__ == '__main__':
     # actor arguments
     if (args.actor in ['svgd_nonparam','svgd_p0_pram','svgd_p0_kernel_pram']):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, num_svgd_steps=args.svgd_steps, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.test_deterministic, svgd_sigma_p0 = args.svgd_sigma_p0,
+            svgd_lr=args.svgd_lr, test_action_selection=args.test_action_selection, svgd_sigma_p0 = args.svgd_sigma_p0,
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation, 
-            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr, adaptive_sig=args.kernel_sigma_adaptive, action_selection=args.action_selection)
+            kernel_sigma=args.svgd_kernel_sigma, adaptive_lr=args.svgd_adaptive_lr, adaptive_sig=args.kernel_sigma_adaptive)
     
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
-            svgd_lr=args.svgd_lr, test_deterministic=args.test_deterministic, 
+            svgd_lr=args.svgd_lr, test_action_selection=args.test_action_selection, 
             batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
     elif (args.actor =='sac'):
-        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_deterministic=args.test_deterministic, device=device, activation=args.actor_activation, batch_size=args.batch_size)
+        actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_action_selection=args.test_action_selection, device=device, activation=args.actor_activation, batch_size=args.batch_size)
     
     # Logging
     #
@@ -202,7 +201,7 @@ if __name__ == '__main__':
         project_name +=  'test_'
     
     # project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
-    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnd_' + str(args.train_deterministic) + '_ttd_' + str(args.test_deterministic) + '_as_' + str(args.action_selection) + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
+    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnas_' + args.train_action_selection + '_ttas_' + args.test_action_selection + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
@@ -215,7 +214,7 @@ if __name__ == '__main__':
         update_every=args.update_every, num_test_episodes=args.num_test_episodes, plot=args.plot, max_steps = args.max_steps, 
         max_experiment_steps=int(args.max_experiment_steps), evaluation_data_path = args.evaluation_data_path + project_name, 
         debugging=args.debugging, plot_format=args.plot_format, load_replay= args.load_replay, replay_path=args.replay_path, 
-        collect_stats_after=args.collect_stats_after, test_time=args.test_time, model_path=args.model_path, train_deterministic=args.train_deterministic)
+        collect_stats_after=args.collect_stats_after, test_time=args.test_time, all_checkpoints_test=args.all_checkpoints_test, model_path=args.model_path, train_action_selection=args.train_action_selection)
 
     # optim args
     optim_kwargs = AttrDict(polyak=args.polyak,lr_critic=args.lr_critic, lr_actor=args.lr_actor,batch_size=args.batch_size)
@@ -290,9 +289,8 @@ if __name__ == '__main__':
             print('Actor\'s learning rate: ', args.lr_actor)
         print('Batch size: ', args.batch_size)
 
-        print('Action selection strategy: ', args.action_selection)
-        print('Train diterministic action selection: ', args.train_deterministic)
-        print('Test diterministic action selection: ', args.test_deterministic)
+        print('Train action selection: ', args.train_action_selection)
+        print('Test action selection: ', args.test_action_selection)
 
         if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'svgd_sql']:
             print('Number of particles for SVGD: ', args.svgd_particles)
@@ -317,22 +315,50 @@ if __name__ == '__main__':
     print('Experiment PID: ', os.getpid())
     print('######################################################################################################')
 
-    stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
-        critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+    if args.all_checkpoints_test:
+        # project_name = 'prm_Jan_04_2023_20_57_47_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_20_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811646'
+        # tensorboard_path = './runs/' + project_name + '/'
+        # # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
+        # checkpoints_path = './evaluation_data/' + project_name
+        # tb_logger = SummaryWriter(tensorboard_path)
+        # for i in tqdm(range(3999, 615999 + 4000, 4000)):
+        #     RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
 
-    start = timeit.default_timer()
-    if args.test_time:
-        stac.test_agent(0)
-        # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
+        #     stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
+        #         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
+        #         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+        #     stac.test_agent(i)
+
+
+        project_name = 'prm_Jan_04_2023_20_57_49_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811987'
+        tensorboard_path = './runs/' + project_name + '/'
+        # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
+        checkpoints_path = './evaluation_data/' + project_name
+        tb_logger = SummaryWriter(tensorboard_path)
+        for i in tqdm(range(3999, 999999 + 4000, 4000)):
+            RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
+
+            stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
+                critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
+                RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+            stac.test_agent(i)
+        
     else:
+    
+        stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
+            critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
+            RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+
         start = timeit.default_timer()
-        stac.forward()
-        # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
-    stop = timeit.default_timer()
-    print('Time: ', stop - start) 
-    print() 
-    print(project_name)
+        if args.test_time:
+            stac.test_agent(0)
+            # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
+        else:
+            stac.forward()
+        stop = timeit.default_timer()
+        print('Time: ', stop - start) 
+        print() 
+        print(project_name)
 
 
 

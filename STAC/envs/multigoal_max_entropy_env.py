@@ -271,7 +271,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 self.entropy_tmp = []
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
                 for _ in range(100): ########################## 100
-                    a, log_p = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=True, all_particles=False)
+                    a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
                     if ac.pi.actor=='sac':
                         log_p = log_p.view(-1,ac.pi.num_particles).mean(dim=1)
                     self.entropy_tmp.append(round(-log_p.detach().item(), 2))
@@ -393,7 +393,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
-            actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False, all_particles=True)
+            actions, _ = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
             # if ac.pi.actor == 'svgd_nonparam':
             # print(actions)
