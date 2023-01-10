@@ -41,22 +41,21 @@ class Debugger():
                 'expected_reward': None, 
                 'episode_length': None,
                 })
-
         self.episodes_information[-1]['rewards'].append(r)
-
-
-
-
         if ((ep_len + 1) >= self.env_max_steps) or d: 
             # self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
             self.episodes_information[-1]['episode_length'] = ep_len
 
 
+    def add_scalar(self, tb_path=None, value=None, itr=None):
+            self.tb_logger.add_scalar(tb_path, value, itr)
+    
+    def add_scalars(self, tb_path=None, value=None, itr=None):
+            self.tb_logger.add_scalars(tb_path, value, itr)
+
 
     def log_to_tensorboard(self, itr):
-
-        # 
         expected_rewards = list(map(lambda x: x['expected_reward'], self.episodes_information))
         episode_length = list(map(lambda x: x['episode_length'], self.episodes_information))
 

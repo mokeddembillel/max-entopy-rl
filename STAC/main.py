@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
     parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--all_checkpoints_test', type=int, default=0) 
-    parser.add_argument('--debugging', type=int, default=1)
+    parser.add_argument('--debugging', type=int, default=0)
     ###################################################################################
     ###################################################################################
 
