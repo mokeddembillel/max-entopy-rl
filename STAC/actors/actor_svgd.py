@@ -100,8 +100,6 @@ class ActorSvgd(torch.nn.Module):
             if with_logprob:
                 term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
                 term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).mean(1)
-                self.term1_debug += term1.mean()
-                self.term2_debug += term2.mean()
                 logp = logp - self.svgd_lr * (term1 + term2) 
             
             return phi, log_prob, score_func 

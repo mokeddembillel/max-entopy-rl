@@ -58,7 +58,7 @@ if __name__ == '__main__':
     
     
     ###### action selection
-    parser.add_argument('--train_action_selection', type=str, default='softmax_egreedy', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--train_action_selection', type=str, default='softmax', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
     parser.add_argument('--test_action_selection', type=str, default='max', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
   
     ############# 
@@ -88,7 +88,7 @@ if __name__ == '__main__':
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
     parser.add_argument('--test_time', type=int, default=0) 
     parser.add_argument('--all_checkpoints_test', type=int, default=0) 
-    parser.add_argument('--debugging', type=int, default=0)
+    parser.add_argument('--debugging', type=int, default=1)
     ###################################################################################
     ###################################################################################
 
@@ -132,10 +132,10 @@ if __name__ == '__main__':
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 34432423423
+        args.max_experiment_steps = 10000
         # args.exploration_steps = 100
         args.update_after = 200
-        args.stats_steps_freq = 100
+        args.stats_steps_freq = 1000
         args.num_test_episodes = 1
         # args.max_steps = 500
         args.collect_stats_after = 0
@@ -315,50 +315,21 @@ if __name__ == '__main__':
     print('Experiment PID: ', os.getpid())
     print('######################################################################################################')
 
-    if args.all_checkpoints_test:
-        # project_name = 'prm_Jan_04_2023_20_57_47_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_20_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811646'
-        # tensorboard_path = './runs/' + project_name + '/'
-        # # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
-        # checkpoints_path = './evaluation_data/' + project_name
-        # tb_logger = SummaryWriter(tensorboard_path)
-        # for i in tqdm(range(3999, 615999 + 4000, 4000)):
-        #     RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
-
-        #     stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
-        #         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-        #         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
-        #     stac.test_agent(i)
-
-
-        project_name = 'prm_Jan_04_2023_20_57_49_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811987'
-        tensorboard_path = './runs/' + project_name + '/'
-        # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
-        checkpoints_path = './evaluation_data/' + project_name
-        tb_logger = SummaryWriter(tensorboard_path)
-        for i in tqdm(range(3999, 999999 + 4000, 4000)):
-            RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
-
-            stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
-                critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-                RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
-            stac.test_agent(i)
         
-    else:
     
-        stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
-            critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-            RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+    stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
+        critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
+        RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
 
-        start = timeit.default_timer()
-        if args.test_time:
-            stac.test_agent(0)
-            # stac.debugger.entorpy_landscape(args.fig_path +  project_name + '/')
-        else:
-            stac.forward()
-        stop = timeit.default_timer()
-        print('Time: ', stop - start) 
-        print() 
-        print(project_name)
+    start = timeit.default_timer()
+    if args.test_time:
+        stac.test_agent(0)
+    else:
+        stac.forward()
+    stop = timeit.default_timer()
+    print('Time: ', stop - start) 
+    print() 
+    print(project_name)
 
 
 
