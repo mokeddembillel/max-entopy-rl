@@ -121,7 +121,7 @@ class MaxEntrRL():
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 obs_average.append(o.detach().cpu().numpy())
-                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
+                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
 
                 self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
@@ -172,11 +172,11 @@ class MaxEntrRL():
             # use the learned policy. 
             if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, logp = self.ac(o_, action_selection = self.RL_kwargs.train_action_selection, with_logprob=True, itr=step_itr)
+                a, logp = self.ac(o_, action_selection = self.RL_kwargs.train_action_selection, with_logprob=False, itr=step_itr)
                 a = a.detach().cpu().numpy().squeeze()
             else:
                 a = self.env.action_space.sample()
-               
+
 
             # Step the env
             o2, r, d, info = self.env.step(a)
@@ -186,7 +186,7 @@ class MaxEntrRL():
             d = False if ep_len == self.RL_kwargs.max_steps else d
             
             self.replay_buffer.store(o, a, r, o2, d, info, step_itr)
-                
+
 
             o = o2
 

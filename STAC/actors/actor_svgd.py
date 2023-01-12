@@ -53,8 +53,13 @@ class ActorSvgd(torch.nn.Module):
        
         
 
-        self.epsilon_threshold = 0.9
-        self.epsilon_decay = (0.9 - 0.0) / 400000
+        # self.epsilon_threshold = 0.9
+        # self.epsilon_decay = (0.9 - 0.0) / 400000
+
+        self.epsilon = 0.9  # exploration probability at start
+        self.epsilon_min = 0.0  # minimum exploration probability
+        self.epsilon_decay = 1/52600  # exponential decay rate for exploration prob
+
         self.beta = (200100 / (0 + 200))
 
     def svgd_optim(self, x, dx, dq): 
@@ -142,8 +147,7 @@ class ActorSvgd(torch.nn.Module):
             # print('None')
         elif action_selection == 'softmax':
             # print('softmax')
-            self.beta = 1
-            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
 
@@ -151,31 +155,31 @@ class ActorSvgd(torch.nn.Module):
             a = self.a[:,q_s_a.argmax(-1)]
             # print('max')
         
+        elif action_selection == 'softmax_egreedy':
+            self.epsilon_threshold = self.epsilon_min + (self.epsilon - self.epsilon_min) * np.exp(-self.epsilon_decay * itr)
+            # print('################## ', self.epsilon_threshold)
+            eps = np.random.random()
+            if eps > self.epsilon_threshold:
+                soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
+                dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+                a = self.a[:,dist.sample()]
+            else:
+                a = self.a[:,np.random.randint(self.num_particles),:]
         elif action_selection == 'random':
             a = self.a[:,np.random.randint(self.num_particles),:]
             # print('random')
         
         elif action_selection == 'adaptive_softmax':
             # print('adaptive_softmax')
-            if self.beta > 0.5:
-                self.beta = (200100 / (itr + 200))
+            if self.beta > 1:
+                self.beta = (200100 / (itr + 200)) + 0.5
             else:
-                self.beta = 0.5
+                self.beta = 1
+            # print('################## ', self.beta)
             soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
-            # print('############# ', soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
-        elif action_selection == 'softmax_egreedy':
-            # print('adaptive_softmax')
-            self.epsilon_threshold -= self.epsilon_decay
-            eps = np.random.random()
-            if eps > self.epsilon_threshold:
-                self.beta = 1
-                soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
-                dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
-                a = self.a[:,dist.sample()]
-            else:
-                a = self.a[:,np.random.randint(self.num_particles),:]
+
 
 
         return a.view(-1, self.act_dim), logp_a

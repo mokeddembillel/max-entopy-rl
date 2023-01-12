@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_experiment_steps', type=float, default=5e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=20)
+    parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -201,7 +201,7 @@ if __name__ == '__main__':
         project_name +=  'test_'
     
     # project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_lr_c_' + str(args.lr_critic) + '_lr_a_' + str(args.lr_actor) +'_act_'+str(args.actor_activation)[-6:-2] + '_seed_' + str(args.seed) + '_'
-    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnas_' + args.train_action_selection + '_ttas_' + args.test_action_selection + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_'
+    project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnas_' + args.train_action_selection + '_ttas_' + args.test_action_selection + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_ntep_' + str(args.num_test_episodes) + '_'
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
