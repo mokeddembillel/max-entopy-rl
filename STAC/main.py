@@ -86,9 +86,9 @@ if __name__ == '__main__':
     ###################################################################################
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
-    parser.add_argument('--test_time', type=int, default=0) 
+    parser.add_argument('--test_time', type=int, default=1)
     parser.add_argument('--all_checkpoints_test', type=int, default=0) 
-    parser.add_argument('--debugging', type=int, default=0)
+    parser.add_argument('--debugging', type=int, default=1) 
     ###################################################################################
     ###################################################################################
 
@@ -134,8 +134,8 @@ if __name__ == '__main__':
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 34432423423
         # args.exploration_steps = 100
-        args.update_after = 200
-        args.stats_steps_freq = 100
+        args.update_after = 100000
+        args.stats_steps_freq = 10000
         args.num_test_episodes = 1
         # args.max_steps = 500
         args.collect_stats_after = 0

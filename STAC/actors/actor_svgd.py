@@ -46,10 +46,12 @@ class ActorSvgd(torch.nn.Module):
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
+
         self.delta = 1e-4
         self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
         for i in range(self.act_dim):
             self.drv_delta[i, :, i] = self.delta 
+        # self.drv_delta = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0)
         # Debugging #########################################
         # gmm = 1
         # if (gmm == 1):
@@ -98,13 +100,23 @@ class ActorSvgd(torch.nn.Module):
                         
 
             # start = timeit.default_timer()
-            # drv_obs = obs.unsqueeze(0).repeat(self.act_dim, 1, 1)
-            # drv_X = X.unsqueeze(0).repeat(self.act_dim, 1, 1)
+            drv_obs = obs.unsqueeze(0).repeat(self.act_dim, 1, 1)
+            drv_X = X.unsqueeze(0).repeat(self.act_dim, 1, 1)
+            drv_Xp = drv_X + self.drv_delta
+            drv_Xn = drv_X - self.drv_delta
+            term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
+            term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
+            score_func_2 = ((term_1 - term_2) / (2 * self.delta)).T 
+            
+            # drv_obs = obs.unsqueeze(1).repeat(1, self.act_dim, 1)
+            # drv_X = X.unsqueeze(1)
             # drv_Xp = drv_X + self.drv_delta
             # drv_Xn = drv_X - self.drv_delta
             # term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
             # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
-            # score_func = ((term_1 - term_2) / (2 * self.delta)).T
+            # score_func = ((term_1 - term_2) / (2 * self.delta))
+            
+
             # stop = timeit.default_timer()
             # print('Time deriv numeric: ', stop - start) 
             # print()
@@ -209,8 +221,8 @@ class ActorSvgd(torch.nn.Module):
             # print('max')
         elif action_selection == 'softmax':
             # print('softmax')
-            self.beta = 1
-            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+
+            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
         elif action_selection == 'adaptive_softmax':
@@ -223,17 +235,17 @@ class ActorSvgd(torch.nn.Module):
             # print('############# ', soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
-        elif action_selection == 'softmax_egreedy':
-            # print('adaptive_softmax')
-            self.epsilon_threshold -= self.epsilon_decay
-            eps = np.random.random()
-            if eps > self.epsilon_threshold:
-                self.beta = 1
-                soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
-                dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
-                a = self.a[:,dist.sample()]
-            else:
-                a = self.a[:,np.random.randint(self.num_particles),:]
+        # elif action_selection == 'softmax_egreedy':
+        #     # print('adaptive_softmax')
+        #     self.epsilon_threshold -= self.epsilon_decay
+        #     eps = np.random.random()
+        #     if eps > self.epsilon_threshold:
+        #         self.beta = 1
+        #         soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+        #         dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+        #         a = self.a[:,dist.sample()]
+        #     else:
+        #         a = self.a[:,np.random.randint(self.num_particles),:]
 
         ########## Debugging. to be removed
         # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()

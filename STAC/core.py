@@ -11,6 +11,7 @@ from debugging import Debugger
 import pickle
 from tqdm import tqdm
 from render_browser import render_browser
+import timeit
 
 
 class MaxEntrRL():
@@ -195,12 +196,20 @@ class MaxEntrRL():
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
+            # average_time = []
             obs_average = []
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 obs_average.append(o.detach().cpu().numpy())
+
+                # start = timeit.default_timer()
                 a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
+                # stop = timeit.default_timer()
+                # average_time.append(stop - start)
+                # print('Time deriv auto: ', stop - start) 
+
+
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
 
                 # if self.env_name in ['Hopper-v2']:
@@ -215,6 +224,8 @@ class MaxEntrRL():
                 ep_len += 1
                 
                 o = o2
+            
+            # print('######### average time', np.array(average_time).mean())
             print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
