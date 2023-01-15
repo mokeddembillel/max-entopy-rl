@@ -2,7 +2,7 @@
 import numpy as np
 import torch as torch
 from pdf2image import convert_from_path
-import imageio.v2 as imageio
+# import imageio.v2 as imageio
 
 def count_vars(module):
     num_var = 0
@@ -81,17 +81,17 @@ class GMMDist(object):
 #         extractedPage.save(path + 'Output_' + str(page+1) + '.gif')
 
 #     merger.close()
-def pdf_or_png_to_gif(path, files, plot_format, stats_steps_freq, max_experiment_steps):
+# def pdf_or_png_to_gif(path, files, plot_format, stats_steps_freq, max_experiment_steps):
 
-    images = []
-    for i in range(stats_steps_freq-1,max_experiment_steps, stats_steps_freq):
-        if plot_format == 'pdf':
-            pdf = path + files + str(i) + '.pdf'
-            image = convert_from_path(pdf)[0]
-            image.save(path + files + str(i) + '.png')
+#     images = []
+#     for i in range(stats_steps_freq-1,max_experiment_steps, stats_steps_freq):
+#         if plot_format == 'pdf':
+#             pdf = path + files + str(i) + '.pdf'
+#             image = convert_from_path(pdf)[0]
+#             image.save(path + files + str(i) + '.png')
         
-        images.append(imageio.imread(path + files + str(i) + '.png'))
-    imageio.mimsave(path + 'animation.gif', images)
+#         images.append(imageio.imread(path + files + str(i) + '.png'))
+#     imageio.mimsave(path + 'animation.gif', images)
 
 # pdf_or_png_to_gif('./STAC/multi_goal_plots_/uniform_vs_softmax_exper/Oct_17_2022_14_01_38_svgd_nonparam_Multigoal_alpha_5.0_batch_size_500_lr_critic_0.001_lr_actor_0.001_activation_.ELU_seed_0_svgd_steps_10_svgd_particles_20_svgd_lr_0.05_svgd_sigma_p0_0.1_adaptive_False_svgd_kernel_sigma_None/', 'env_')
     

@@ -21,6 +21,7 @@ class ActorSvgd(torch.nn.Module):
         self.num_particles = num_svgd_particles
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr_init = svgd_lr
+        self.svgd_lr = self.svgd_lr_init
         self.device = device
         self.q1 = q1
         self.q2 = q2
@@ -99,7 +100,7 @@ class ActorSvgd(torch.nn.Module):
             phi = (K_XX.matmul(score_func) + K_grad.sum(1)) / self.num_particles 
 
             # Calculation of the adaptive learning rate should be here. to discuss
-            self.svgd_lr = self.svgd_lr_init
+            
             
             
             if with_logprob:
