@@ -60,12 +60,64 @@ class MaxEntrRL():
         self.evaluation_data = AttrDict()
 
 
+    # def compute_loss_q(self, data, itr):
+    #     o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
+    #     q1 = self.ac.q1(o,a)
+    #     q2 = self.ac.q2(o,a)
+
+
+    #     o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+    #     a2, logp_a2 = self.ac(o2, action_selection=None, with_logprob=True, in_q_loss=False) 
+        
+    #     with torch.no_grad(): 
+    #         # Target Q-values
+    #         q1_pi_targ = self.ac_targ.q1(o2, a2).view(-1, self.ac.pi.num_particles)
+    #         q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
+
+            
+            
+    #         ### option 1
+    #         q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+    #         backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)  
+
+    #         self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
+    #             'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
+
+    #     # MSE loss against Bellman backup
+    #     loss_q1 = ((q1 - backup)**2).mean()
+    #     loss_q2 = ((q2 - backup)**2).mean()
+    #     loss_q = loss_q1 + loss_q2
+        
+    #     self.debugger.add_scalars('Loss_q',  {'loss_q1 ': loss_q1, 'loss_q2': loss_q2, 'total': loss_q  }, itr)
+        
+    #     return loss_q
+
+
+
+    # def update(self, data, itr):
+    #     # First run one gradient descent step for Q1 and Q2
+    #     self.q_optimizer.zero_grad()
+    #     loss_q = self.compute_loss_q(data, itr)
+    #     loss_q.backward()
+        
+    #     self.q_optimizer.step()
+        
+        
+    #     # Finally, update target networks by polyak averaging.
+    #     with torch.no_grad():
+    #         for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
+    #             p_targ.data.mul_(self.optim_kwargs.polyak)
+    #             p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
+                
+    
+
     def compute_loss_q(self, data, itr):
         o, a, r, o2, d = data['obs'], data['act'], data['rew'], data['obs2'], data['done']
         q1 = self.ac.q1(o,a)
         q2 = self.ac.q2(o,a)
 
-
+        # Bellman backup for Q functions
+        # Target actions come from *current* policy
         o2 = o2.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
         a2, logp_a2 = self.ac(o2, action_selection=None, with_logprob=True, in_q_loss=False) 
         
@@ -75,13 +127,24 @@ class MaxEntrRL():
             q2_pi_targ = self.ac_targ.q2(o2, a2).view(-1, self.ac.pi.num_particles)
 
             
-            
-            ### option 1
-            q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-            backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)  
-
-            self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
-                'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
+            if self.actor == 'svgd_sql':
+                q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ / self.RL_kwargs.alpha, dim=-1)
+                # V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)
+                V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
+                # V_soft_ += (self.act_dim * np.log(2))
+                backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
+                self.debugger.add_scalars('Q_target/',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
+            else:
+                ### option 1
+                q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)  
+                ### option 2    
+                # q_pi_targ = torch.min(q1_pi_targ.mean(-1), q2_pi_targ.mean(-1))
+                # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)      
+                self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
+                    'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
+                # self.debugger.add_scalar('Training_Entropy', logp_a2.mean())
 
         # MSE loss against Bellman backup
         loss_q1 = ((q1 - backup)**2).mean()
@@ -90,8 +153,49 @@ class MaxEntrRL():
         
         self.debugger.add_scalars('Loss_q',  {'loss_q1 ': loss_q1, 'loss_q2': loss_q2, 'total': loss_q  }, itr)
         
+        # plz add this to debugger/logger
+        #Q1Vals.append(q1.cpu().detach().numpy())
+        #Q2Vals.append(q2.cpu().detach().numpy())
         return loss_q
 
+
+    def compute_loss_pi(self, data, itr):
+        
+        o = data['obs'].view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
+        
+        a, logp_pi = self.ac(o, action_selection=None, with_logprob=True)
+
+        # get the final action
+        q1_pi = self.ac.q1(o, a).view(-1, self.ac.pi.num_particles)
+        q2_pi = self.ac.q2(o, a).view(-1, self.ac.pi.num_particles)
+        # q_pi = torch.min(q1_pi, q2_pi).mean(-1)
+        q_pi = torch.min(q1_pi, q2_pi).mean(-1)
+
+        # Entropy-regularized policy loss
+        if self.actor == 'svgd_sql':
+            # actions used to compute the expectation indexed by `i`
+            # a_updated = a.clone()
+            a_updated, logp_pi = self.ac(o, action_selection=None, with_logprob=True)
+            # compte grad q wrt a
+            grad_q = torch.autograd.grad((q_pi * self.ac.pi.num_particles).sum(), a)[0]
+            grad_q = grad_q.view(-1, self.ac.pi.num_particles, self.act_dim).unsqueeze(2).detach() #(batch_size, num_svgd_particles, 1, act_dim)
+            
+            a = a.view(-1, self.ac.pi.num_particles, self.act_dim)
+            # a = a.view(-1, self.ac.pi.num_particles, self.act_dim)
+            a_updated = a_updated.view(-1, self.ac.pi.num_particles, self.act_dim)
+
+            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a, input_2=a_updated)
+            a_grad = (1 / self.ac.pi.num_particles) * torch.sum(kappa.unsqueeze(-1) * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
+            # phi = (kappa.matmul(grad_q.squeeze()) + grad_kappa.sum(1)) / self.ac.pi.num_particles
+
+            loss_pi = -a_updated
+            grad_loss_pi = a_grad
+        else:
+            loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
+            grad_loss_pi = None
+            self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
+            
+        return loss_pi, grad_loss_pi
 
 
     def update(self, data, itr):
@@ -99,9 +203,32 @@ class MaxEntrRL():
         self.q_optimizer.zero_grad()
         loss_q = self.compute_loss_q(data, itr)
         loss_q.backward()
-        
+        # Clip gradients. need to be removed later
+        # for p in self.q_params:
+        #         print(p)
+        # torch.nn.utils.clip_grad_norm_(self.q_params, 5)
+        # torch.nn.utils.clip_grad_norm_(self.ac.q1.parameters(), 5)
+        # torch.nn.utils.clip_grad_norm_(self.ac.q2.parameters(), 5)
         self.q_optimizer.step()
         
+        if next(self.ac.pi.parameters(), None) is not None:
+            # Freeze Q-networks so you don't waste computational effort 
+            # computing gradients for them during the policy learning step.
+            for p in self.q_params:
+                p.requires_grad = False
+            
+            loss_pi, grad_loss_pi = self.compute_loss_pi(data, itr)
+
+            # Next run one gradient descent step for pi.
+            self.pi_optimizer.zero_grad()
+            # loss_pi.backward(grad_loss_pi)
+            loss_pi.backward(gradient=grad_loss_pi)
+            # torch.nn.utils.clip_grad_norm_(self.ac.pi.parameters(), 5)
+            self.pi_optimizer.step()
+                
+            # Unfreeze Q-networks so you can optimize it at next DDPG step.
+            for p in self.q_params:
+                p.requires_grad = True
         
         # Finally, update target networks by polyak averaging.
         with torch.no_grad():
@@ -116,11 +243,10 @@ class MaxEntrRL():
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
-            obs_average = []
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
+                
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
-                obs_average.append(o.detach().cpu().numpy())
                 a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
                 o2, r, d, _ = self.test_env.step(a.detach().cpu().numpy().squeeze())
 
@@ -130,7 +256,7 @@ class MaxEntrRL():
                 ep_len += 1
                 
                 o = o2
-            print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
+            # print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)

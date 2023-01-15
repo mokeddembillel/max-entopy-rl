@@ -8,7 +8,6 @@ from envs.max_entropy_env import MaxEntropyEnv
 from envs.multigoal_env import MultiGoalEnv
 from envs.multigoal_env_obstacles import MultiGoalObstaclesEnv
 from envs.multigoal_max_entropy_env import MultiGoalMaxEntropyEnv
-from envs.multigoal_max_entropy_env_obstacles import MultiGoalMaxEntropyObstaclesEnv
 
 import numpy as np
 import gym
