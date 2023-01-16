@@ -8,7 +8,7 @@ import numpy as np
 
 
 class ActorSql(nn.Module):
-    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_action_selection, batch_size, device, hidden_sizes, q1, q2, activation=None):
+    def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_lr, test_action_selection, batch_size, device, hidden_sizes, q1, q2, adaptive_sig, kernel_sigma=None, activation=None):
         super(ActorSql, self).__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -27,8 +27,8 @@ class ActorSql(nn.Module):
         # self.layer2 =  mlp(list(hidden_sizes) + [self.act_dim], nn.Tanh, nn.Tanh)
         
 
-
-        self.kernel = RBF()
+        self.kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, adaptive_sig=adaptive_sig, device=device)
+        # self.kernel = RBF()
 
         # self.a_0 = torch.rand((5*self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
     
@@ -42,7 +42,7 @@ class ActorSql(nn.Module):
         return out
     
     
-    def act(self, obs, action_selection=None, with_logprob=None, in_q_loss=None):   
+    def act(self, obs, action_selection=None, with_logprob=None, in_q_loss=None, itr=None):   
         # a_0 = self.a_0[torch.randint(len(self.a_0), (len(obs),))]
         a_0 = torch.rand((len(obs), self.act_dim)).view(-1,self.act_dim).to(self.device)
 

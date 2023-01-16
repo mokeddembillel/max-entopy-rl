@@ -91,8 +91,8 @@ class Debugger():
         q1_value = self.ac.q1(o,a)
         q2_value = self.ac.q2(o,a)
 
-        self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
-        # if self.ac.pi.actor in ['svgd_nonparam']:
+        if log_p is not None:
+            self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
             # self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug.detach().cpu())
             # self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug.detach().cpu())
             # self.episodes_information[-1]['logp_normal'].append(self.ac.pi.logp_normal_debug.detach().item())
@@ -125,7 +125,6 @@ class Debugger():
             self.episodes_information[-1]['q_hess_mat'].append(hess_q_mat.detach().cpu().numpy())
             self.episodes_information[-1]['max_eigenval'].append(torch.max(torch.linalg.eigvals(hess_q_mat).real).detach().cpu().item())
         self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
-        self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
         self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
 
 

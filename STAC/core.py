@@ -5,14 +5,13 @@ import torch
 from torch.optim import Adam
 from datetime import datetime
 from actorcritic import ActorCritic
-from utils import count_vars, AttrDict, pdf_or_png_to_gif
+from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
 from debugging import Debugger
 import pickle
 from tqdm import tqdm
 from render_browser import render_browser
 import timeit
-
 
 class MaxEntrRL():
     def __init__(self, train_env, test_env, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
@@ -185,6 +184,9 @@ class MaxEntrRL():
             for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
                 p_targ.data.mul_(self.optim_kwargs.polyak)
                 p_targ.data.add_((1 - self.optim_kwargs.polyak) * p.data)
+            # if itr%1000 == 0:
+            #     for p, p_targ in zip(self.ac.parameters(), self.ac_targ.parameters()):
+            #         p_targ.data = deepcopy(p.data)
                 
     # @render_browser
     def test_agent(self, itr=None):
@@ -197,14 +199,14 @@ class MaxEntrRL():
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
             # average_time = []
-            obs_average = []
+            # obs_average = []
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
                 o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
-                obs_average.append(o.detach().cpu().numpy())
+                # obs_average.append(o.detach().cpu().numpy())
 
                 # start = timeit.default_timer()
-                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
+                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
                 # stop = timeit.default_timer()
                 # average_time.append(stop - start)
                 # print('Time deriv auto: ', stop - start) 
@@ -254,9 +256,9 @@ class MaxEntrRL():
                 self.debugger.create_states_distances_plots(itr) # For multigoal only
                 self.debugger.create_states_components_plots(itr) # For multigoal only
                 self.debugger.create_actions_components_plots(itr) # For multigoal only
-        else:
-            if self.env_name in ['Hopper-v2']: 
-                self.debugger.mujoco_debugging_plots(itr, fig_path=self.fig_path, fig_size=(18, 10))
+        # else:
+        #     if self.env_name in ['Hopper-v2']: 
+        #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.fig_path, fig_size=(18, 10))
 
             
         # print('########################### here is count', self.debugger.boundary_action_counter/self.debugger.action_counter)
@@ -302,7 +304,7 @@ class MaxEntrRL():
             # if step_itr >= self.RL_kwargs.exploration_steps and np.random.uniform(0,1) > 0.3:
             if step_itr >= self.RL_kwargs.exploration_steps:
                 o_ = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim)
-                a, logp = self.ac(o_, action_selection = self.RL_kwargs.train_action_selection, with_logprob=True, itr=step_itr)
+                a, logp = self.ac(o_, action_selection = self.RL_kwargs.train_action_selection, with_logprob=False, itr=step_itr)
                 a = a.detach().cpu().numpy().squeeze()
                 # Collect Data Here
                 # if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':

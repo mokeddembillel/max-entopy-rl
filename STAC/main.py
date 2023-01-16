@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu_id', type=int, default=2)
     parser.add_argument('--env', type=str, default='Hopper-v2', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_experiment_steps', type=float, default=5e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=20)
+    parser.add_argument('--num_test_episodes', type=int, default=10)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     
     
     ###### action selection
-    parser.add_argument('--train_action_selection', type=str, default='softmax_egreedy', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--train_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
     parser.add_argument('--test_action_selection', type=str, default='max', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
   
     ############# 
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_lr', type=float, default=0.01)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.3)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
-    parser.add_argument('--kernel_sigma_adaptive', type=int, default=4)
+    parser.add_argument('--kernel_sigma_adaptive', type=int, default=1)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
    
     # tensorboard
@@ -86,9 +86,9 @@ if __name__ == '__main__':
     ###################################################################################
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
-    parser.add_argument('--test_time', type=int, default=1)
+    parser.add_argument('--test_time', type=int, default=0)
     parser.add_argument('--all_checkpoints_test', type=int, default=0) 
-    parser.add_argument('--debugging', type=int, default=1) 
+    parser.add_argument('--debugging', type=int, default=0) 
     ###################################################################################
     ###################################################################################
 
@@ -109,9 +109,9 @@ if __name__ == '__main__':
         print('############################################################################')
         print('############################################################################')
 
-    if args.actor == 'svgd_sql':
-        args.lr_critic = 1e-2
-        args.alpha = 1.
+    # if args.actor == 'svgd_sql':
+    #     args.lr_critic = 1e-2
+    #     args.alpha = 1.
 
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
@@ -190,7 +190,8 @@ if __name__ == '__main__':
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
             svgd_lr=args.svgd_lr, test_action_selection=args.test_action_selection, 
-            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
+            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, 
+            activation=args.actor_activation, kernel_sigma=args.svgd_kernel_sigma, adaptive_sig=args.kernel_sigma_adaptive)
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_action_selection=args.test_action_selection, device=device, activation=args.actor_activation, batch_size=args.batch_size)
     
@@ -205,6 +206,8 @@ if __name__ == '__main__':
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
+    elif args.actor in ['svgd_sql']:
+        project_name += 'sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 
     project_name += 'exper_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after) + '_PID_' + str(os.getpid())
 
