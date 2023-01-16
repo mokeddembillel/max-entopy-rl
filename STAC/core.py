@@ -5,7 +5,7 @@ import torch
 from torch.optim import Adam
 from datetime import datetime
 from actorcritic import ActorCritic
-from utils import count_vars, AttrDict, pdf_or_png_to_gif
+from utils import count_vars, AttrDict
 from buffer import ReplayBuffer
 from debugging import Debugger
 import pickle
