@@ -319,18 +319,18 @@ class ActorSvgd(torch.nn.Module):
         if action_selection is None:
             a = self.a
             # print('None')
-        elif action_selection == 'random':
-            a = self.a[:,np.random.randint(self.num_particles),:]
             # print('random')
         elif action_selection == 'max':
-            a = self.a[:,q_s_a.argmax(-1)]
             # print('max')
+            a = self.a[:,q_s_a.argmax(-1)]
         elif action_selection == 'softmax':
             # print('softmax')
-
             soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
+
+        elif action_selection == 'random':
+            a = self.a[:,np.random.randint(self.num_particles),:]
         elif action_selection == 'adaptive_softmax':
             # print('adaptive_softmax')
             if self.beta > 0.5:
