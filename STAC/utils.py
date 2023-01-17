@@ -1,7 +1,8 @@
 
 import numpy as np
 import torch as torch
-from pdf2image import convert_from_path
+
+# from pdf2image import convert_from_path
 # import imageio.v2 as imageio
 
 def count_vars(module):
