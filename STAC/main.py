@@ -108,9 +108,9 @@ if __name__ == '__main__':
         print('############################################################################')
         print('############################################################################')
 
-    if args.actor == 'svgd_sql':
-        args.lr_critic = 1e-2
-        args.alpha = 1.
+    # if args.actor == 'svgd_sql':
+    #     args.lr_critic = 1e-2
+    #     args.alpha = 1.
 
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
@@ -189,7 +189,8 @@ if __name__ == '__main__':
     elif (args.actor == 'svgd_sql'):
         actor_kwargs=AttrDict(num_svgd_particles=args.svgd_particles, 
             svgd_lr=args.svgd_lr, test_action_selection=args.test_action_selection, 
-            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, activation=args.actor_activation)
+            batch_size=args.batch_size,  device=device, hidden_sizes=[args.hid]*args.l_actor, 
+            activation=args.actor_activation, kernel_sigma=args.svgd_kernel_sigma, adaptive_sig=args.kernel_sigma_adaptive)
     elif (args.actor =='sac'):
         actor_kwargs=AttrDict(hidden_sizes=[args.hid]*args.l_actor, test_action_selection=args.test_action_selection, device=device, activation=args.actor_activation, batch_size=args.batch_size)
     
@@ -204,6 +205,8 @@ if __name__ == '__main__':
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
         project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
+    elif args.actor in ['svgd_sql']:
+        project_name += 'sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 
     project_name += 'exper_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after) + '_PID_' + str(os.getpid())
 
@@ -222,25 +225,10 @@ if __name__ == '__main__':
     critic_kwargs = AttrDict(hidden_sizes=[args.hid]*args.l_critic, activation=args.critic_activation)
 
     # stac
-    if args.env =='Multigoal':
-        train_env = MultiGoalEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-    elif args.env == 'multigoal-max-entropy':
-        train_env = MultiGoalMaxEntropyEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalMaxEntropyEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-    elif args.env == 'multigoal-obstacles':
-        train_env = MultiGoalObstaclesEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalObstaclesEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-    elif args.env == 'multigoal-max-entropy-obstacles':
-        train_env = MultiGoalMaxEntropyObstaclesEnv(env_name='train_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MultiGoalMaxEntropyObstaclesEnv(env_name='test_env', max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-    elif args.env == 'max-entropy-v0':
-        train_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-        test_env = MaxEntropyEnv(max_steps=RL_kwargs.max_steps, plot_format=args.plot_format)
-    else: 
-        # Fix max steps here
-        train_env = gym.make(args.env)
-        test_env = gym.make(args.env)
+
+    # Fix max steps here
+    train_env = gym.make(args.env)
+    test_env = gym.make(args.env)
 
 
     if args.test_time:
@@ -296,6 +284,7 @@ if __name__ == '__main__':
             print('SVGD learning Rate: ', args.svgd_lr)
         if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
             print('Number of SVGD steps: ', args.svgd_steps)
+        if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'svgd_sql']:
             print('SVGD initial distribution\'s variance: ', args.svgd_sigma_p0)
             print('SVGD\'s kernel variance: ', args.svgd_kernel_sigma)
             print('SVGD\'s adaptive learning rate: ', args.svgd_adaptive_lr)
