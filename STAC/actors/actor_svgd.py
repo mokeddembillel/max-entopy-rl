@@ -22,6 +22,7 @@ class ActorSvgd(torch.nn.Module):
         self.num_svgd_steps = num_svgd_steps
         self.svgd_lr_init = svgd_lr
         self.svgd_lr = self.svgd_lr_init
+
         self.device = device
         self.q1 = q1
         self.q2 = q2
@@ -47,7 +48,7 @@ class ActorSvgd(torch.nn.Module):
         # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
-        self.delta = 1e-4
+        self.delta = 1e-3
         self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
         for i in range(self.act_dim):
             self.drv_delta[i, :, i] = self.delta 
@@ -100,7 +101,6 @@ class ActorSvgd(torch.nn.Module):
             phi = (K_XX.matmul(score_func) + K_grad.sum(1)) / self.num_particles 
 
             # Calculation of the adaptive learning rate should be here. to discuss
-            
             
             
             if with_logprob:
