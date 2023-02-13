@@ -133,7 +133,7 @@ class MaxEntrRL():
             # a = a.view(-1, self.ac.pi.num_particles, self.act_dim)
             a_updated = a_updated.view(-1, self.ac.pi.num_particles, self.act_dim)
 
-            kappa, _, _, grad_kappa = self.ac.pi.kernel(input_1=a, input_2=a_updated)
+            kappa, _, _, grad_kappa = self.ac.pi.Kernel(input_1=a, input_2=a_updated)
             a_grad = (1 / self.ac.pi.num_particles) * torch.sum(kappa.unsqueeze(-1) * grad_q + grad_kappa, dim=1) # (batch_size, num_svgd_particles, act_dim)
             # phi = (kappa.matmul(grad_q.squeeze()) + grad_kappa.sum(1)) / self.ac.pi.num_particles
 
@@ -228,7 +228,7 @@ class MaxEntrRL():
                 o = o2
             
             # print('######### average time', np.array(average_time).mean())
-            print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
+            # print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
@@ -238,16 +238,17 @@ class MaxEntrRL():
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
+            # self.test_env.render_paper(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
 
 
         # print('############################# Finished')
-        if self.RL_kwargs.all_checkpoints_test:
-            expected_rewards = list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))
-            episode_length = list(map(lambda x: x['episode_length'], self.debugger.episodes_information))
-            self.debugger.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Max_Mean ': np.mean(expected_rewards), 'Max_Min': np.min(expected_rewards), 'Max_Max': np.max(expected_rewards) }, itr)
-            self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
-            self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
+        # if self.RL_kwargs.all_checkpoints_test:
+        #     expected_rewards = list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))
+        #     episode_length = list(map(lambda x: x['episode_length'], self.debugger.episodes_information))
+        #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Max_Mean ': np.mean(expected_rewards), 'Max_Min': np.min(expected_rewards), 'Max_Max': np.max(expected_rewards) }, itr)
+        #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
+        #     self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
 
         if not self.RL_kwargs.test_time:
             self.debugger.log_to_tensorboard(itr=itr)

@@ -54,11 +54,7 @@ class Debugger():
                 'diff_st_st1': [],
                 'st_components': [],
                 'next_state_rgb': [],
-                # 'logp_toy_line1': [],
-                # 'logp_toy_line2': [],
-                # 'logp_toy_line4': [],
-                # 'logp_wrong': [],
-                ######################
+
                 'rewards': [],
                 'expected_reward': None, 
                 'episode_length': None,
@@ -231,7 +227,7 @@ class Debugger():
     def plot_policy(self, itr, fig_path, plot, num_agents=1):
         num_agents = self.num_test_episodes
         if plot and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
-            ax = self.test_env._init_plot(x_size=8, y_size=8, grid_size=(1,1), debugging=True)
+            ax = self.test_env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
 
             cats_success = np.zeros((3,))
             cats_steps = np.zeros((3,))
@@ -275,8 +271,8 @@ class Debugger():
             #         # print('########################## ', mu, std)
             #         x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
             #         plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
-            # print('######################## ', cats_success)
-            # print('######################## ', cats_steps/cats_success)
+            print('######################## ', cats_success)
+            print('######################## ', cats_steps/cats_success)
             plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + self.plot_format)   
             plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + 'png')   
             plt.close()
@@ -454,7 +450,7 @@ class Debugger():
                 self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
 
             
-        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor != 'svgd_sql':
             feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
 

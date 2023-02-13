@@ -48,15 +48,19 @@ class ActorSvgd(torch.nn.Module):
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
 
-        self.delta = 30
-        self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
-        for i in range(self.act_dim):
-            self.drv_delta[i, :, i] = self.delta 
-        self.drv_delta2 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0)
-        self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
+        self.delta = 1e-3
+        # self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
+        # for i in range(self.act_dim):
+        #     self.drv_delta[i, :, i] = self.delta 
 
-        self.drv_delta3 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0).repeat((self.num_particles, 1, 1))
-        self.ones3 = torch.ones((2, self.num_particles, self.act_dim, self.obs_dim)).to(self.device) 
+
+        # self.drv_delta3 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0).repeat((self.num_particles, 1, 1))
+        # self.ones3 = torch.ones((2, self.num_particles, self.act_dim, self.obs_dim)).to(self.device) 
+
+        #This goes to init ####################
+        self.drv_delta2 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0)
+        self.drv_delta2_ = torch.concat((self.drv_delta2.unsqueeze(0), -self.drv_delta2.unsqueeze(0)), dim=0)
+        self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
         # Debugging #########################################
         # gmm = 1
         # if (gmm == 1):
@@ -114,118 +118,17 @@ class ActorSvgd(torch.nn.Module):
             # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
             # score_func2 = ((term_1 - term_2) / (2 * self.delta)).T 
             
-            # # ###### Method 2
-            # drv_obs = obs.unsqueeze(1).repeat(1, self.act_dim, 1)
-            # drv_X = X.unsqueeze(1)
-            # drv_Xp = drv_X + self.drv_delta2
-            # drv_Xn = drv_X - self.drv_delta2
-            # term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
-            # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
-            # score_func3 = ((term_1 - term_2) / (2 * self.delta))
-            
+            # ###### Method 2
 
-
-            
-            # drv_obs = obs.unsqueeze(1).repeat(1, self.act_dim, 1)
-            # drv_X = X.unsqueeze(1)
-            
-            # drv_obs = drv_obs.detach()
-            # drv_X = drv_X.detach()
-
-            # drv_obs = torch.zeros_like(drv_obs)
-            # drv_X[0, :, :] = torch.tensor([-0.5, -0.5, -0.5])
-            # drv_X[1, :, :] = torch.tensor([0.0, 0.0, 0.0])
-            # drv_X[2, :, :] = torch.tensor([0.5, 0.5, 0.5])
-            
-            # drv_Xp = drv_X + self.drv_delta2
-            # drv_Xn = drv_X - self.drv_delta2
-
-            # drv_obs = drv_obs[0:3, :, :]
-            # drv_Xp = drv_Xp[0:3, :, :]
-            # drv_Xn = drv_Xn[0:3, :, :]
-
-
-
-            # term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
-            # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
-            # score_func4 = ((term_1 - term_2) / (2 * self.delta))
-             
-
-
-
-            # self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
             # drv_obs2 = obs.unsqueeze(1).unsqueeze(0) * self.ones
             # drv_X2 = X.unsqueeze(1)
-
-            # drv_obs2 = drv_obs2.detach()
-            # drv_X2 = drv_X.detach()
-
-            # drv_obs2 = torch.zeros_like(drv_obs2)
-            # drv_X2[0, :, :] = torch.tensor([-0.5, -0.5, -0.5])
-            # drv_X2[1, :, :] = torch.tensor([0.0, 0.0, 0.0])
-            # drv_X2[2, :, :] = torch.tensor([0.5, 0.5, 0.5])
-            
-            # drv_Xp2 = drv_X2 + self.drv_delta2
-            # drv_Xn2 = drv_X2 - self.drv_delta2
-            # drv = torch.concat((drv_Xp2.unsqueeze(0), drv_Xn2.unsqueeze(0)), dim=0)
-
-            # drv_obs2 = drv_obs2[:, 0:3, :, :]
-            # drv = drv[:, 0:3, :, :]
-
+            # drv = drv_X2.unsqueeze(0) + self.drv_delta2_
             # qv_1 = self.q1(drv_obs2, drv)
-            # qv_2 = self.q2(drv_obs2, drv)
+            # qv_2 = self.q2(drv_obs2, drv)            
             # term_1 = torch.min(qv_1[0], qv_2[0])
             # term_2 = torch.min(qv_1[1], qv_2[1])
-            # score_func5 = ((term_1 - term_2) / (2 * self.delta))
-            
-            ###### Method 3
-            # self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
-            # drv_obs2 = obs.unsqueeze(1).unsqueeze(0) * self.ones
-            # drv_X2 = X.unsqueeze(1)
-            # drv_Xp2 = drv_X2 + self.drv_delta2
-            # drv_Xn2 = drv_X2 - self.drv_delta2
-            # drv = torch.concat((drv_Xp2.unsqueeze(0), drv_Xn2.unsqueeze(0)), dim=0)
-            # qv_1 = self.q1(drv_obs2, drv)
-            # qv_2 = self.q2(drv_obs2, drv)
-            # term_1 = torch.min(qv_1[0], qv_2[0])
-            # term_2 = torch.min(qv_1[1], qv_2[1])
-            # score_func4 = ((term_1 - term_2) / (2 * self.delta))
-            
-            # self.drv_delta2 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0)
-            # self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
-            # drv_obs2 = obs.unsqueeze(1).unsqueeze(0) * self.ones
-            # drv_X2 = X.unsqueeze(1)
-            # drv_Xp2 = drv_X2 + self.drv_delta2
-            # drv_Xn2 = drv_X2 - self.drv_delta2
-            # drv = torch.stack((drv_Xp2, drv_Xn2))
-            # drv_tmp2 = drv.reshape((-1, self.act_dim))
-            # drv_obs2_tmp2 = drv_obs2.reshape((-1, self.obs_dim))
-            # # drv_obs2_tmp2.shape
-            # # (drv == drv_tmp2.reshape((2, self.num_particles, self.act_dim, self.act_dim))).all()
-            # # (drv_obs2 == drv_obs2_tmp2.reshape((2, self.num_particles, self.act_dim, self.obs_dim))).all()
-            # qv_1.reshape((2, self.num_particles, self.act_dim))
-            # qv_1 = self.q1(drv_obs2_tmp2, drv_tmp2)
-            # qv_2 = self.q2(drv_obs2_tmp2, drv_tmp2)
-            # term_1 = torch.min(qv_1[0], qv_2[0])
-            # term_2 = torch.min(qv_1[1], qv_2[1])
-            # score_func6 = ((term_1 - term_2) / (2 * self.delta))
-            
+            # score_func = ((term_1 - term_2) / (2 * self.delta))
 
-            # ###### Method 4
-            # self.ones3 *= obs.unsqueeze(1)
-            # drv_X = X.unsqueeze(1)
-            # self.drv_delta3 += drv_X
-            # term_1 = torch.min(self.q1(self.ones3, self.drv_delta3), self.q2(self.ones3, self.drv_delta3))
-            # self.drv_delta3 = 2 * drv_X - self.drv_delta3
-
-            # term_2 = torch.min(self.q1(self.ones3, self.drv_delta3), self.q2(self.ones3, self.drv_delta3))
-            # score_func5 = ((term_1 - term_2) / (2 * self.delta))
-            # self.drv_delta3 = drv_X - self.drv_delta3
-            # self.ones3[:,:,:] = 1
-
-            # stop = timeit.default_timer()
-            # print('Time deriv numeric: ', stop - start) 
-            # print()
 
             X = X.reshape(-1, self.num_particles, self.act_dim)
             score_func = score_func.reshape(X.size())

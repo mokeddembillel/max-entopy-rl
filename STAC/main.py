@@ -25,9 +25,9 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=2)
-    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_sql', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
@@ -59,9 +59,9 @@ if __name__ == '__main__':
     
     ###### action selection
     parser.add_argument('--train_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
-    parser.add_argument('--test_action_selection', type=str, default='max', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--test_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
   
-    ############# 
+
 
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=10)
@@ -76,11 +76,11 @@ if __name__ == '__main__':
     parser.add_argument('--evaluation_data_path', type=str, default='./evaluation_data/')
     parser.add_argument('--fig_path', type=str, default='./STAC/multi_goal_plots_/')
     parser.add_argument('--plot', type=int, default=1)
-    parser.add_argument('--plot_format', type=str, default='svg', choices=['png', 'jpeg', 'pdf', 'svg'])
+    parser.add_argument('--plot_format', type=str, default='pdf', choices=['png', 'jpeg', 'pdf', 'svg'])
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_591999_a1_slr_1')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_me_a02_g08')
 
 
     ###################################################################################
@@ -109,9 +109,11 @@ if __name__ == '__main__':
         print('############################################################################')
         print('############################################################################')
 
-    # if args.actor == 'svgd_sql':
-    #     args.lr_critic = 1e-2
-    #     args.alpha = 1.
+    if args.actor == 'svgd_sql':
+        # args.lr_critic = 1e-2
+        # args.alpha = 1.
+        args.critic_activation = torch.nn.ReLU
+        args.actor_activation = torch.nn.ReLU
 
     if args.actor == 'sac':
         args.critic_activation = torch.nn.ReLU
@@ -132,10 +134,10 @@ if __name__ == '__main__':
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 34432423423
+        args.max_experiment_steps = 10000
         # args.exploration_steps = 100
-        args.update_after = 100000
-        args.stats_steps_freq = 10000
+        args.update_after = 8000
+        args.stats_steps_freq = 4000
         args.num_test_episodes = 1
         # args.max_steps = 500
         args.collect_stats_after = 0
@@ -209,7 +211,10 @@ if __name__ == '__main__':
     elif args.actor in ['svgd_sql']:
         project_name += 'sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 
-    project_name += 'exper_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after) + '_PID_' + str(os.getpid())
+    if args.test_time:
+        project_name += 'PID_' + str(os.getpid())
+    else:
+        project_name += 'exper_' + str(args.max_experiment_steps) + '_explor_' + str(args.exploration_steps) + '_update_' + str(args.update_after) + '_PID_' + str(os.getpid())
 
     # RL args
     RL_kwargs = AttrDict(stats_steps_freq=args.stats_steps_freq,gamma=args.gamma,

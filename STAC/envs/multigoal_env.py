@@ -55,6 +55,7 @@ class MultiGoalEnv(Env, EzPickle):
         
         # logging
         self.episode_observations = [] 
+        self.all_episode_observations = [] 
         self.ep_len = 0
 
         # Plotter params, to be cleaned tomorrow. 
@@ -94,6 +95,7 @@ class MultiGoalEnv(Env, EzPickle):
             unclipped_observation = self.init_mu
 
         self.observation = np.clip(unclipped_observation, self.observation_space.low, self.observation_space.high)
+        self.all_episode_observations.append([list(self.observation)])
         self.ep_len = 0
         return self.observation
 
@@ -141,7 +143,7 @@ class MultiGoalEnv(Env, EzPickle):
 
         if done or self.ep_len == self.max_steps:
             self.episode_observations.append(self.observation)
-        
+        self.all_episode_observations[-1].append(list(self.observation))
         return self.observation, reward, done, None
     
 
@@ -166,47 +168,53 @@ class MultiGoalEnv(Env, EzPickle):
     
     def reset_rendering(self):
         self.episode_observations = []
+        self.all_episode_observations = []
         self.number_of_hits_mode = np.zeros(self.num_goals)
         self.number_of_hits_mode_acc = np.zeros(self.num_goals)
 
     
     def render(self, itr, fig_path, plot, ac=None, paths=None):
-        positions = np.stack(self.episode_observations)
+        paths = self.all_episode_observations
         if plot:
             self._init_plot(self.x_size, self.y_size)
-            self._ax_lst[0].plot(positions[:, 0], positions[:, 1], '+b')
+            for a in range(len(self.all_episode_observations)):
+                positions = np.array(paths[a])
+                self._ax_lst[0].plot(positions[:, 0], positions[:, 1], color='blue')
             
-            if not ac.pi.actor=='sac':
-                num_particles_tmp = ac.pi.num_particles
-                ac.pi.num_particles = self._n_samples
-                ac.pi.Kernel.num_particles = ac.pi.num_particles
-                ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
 
-            self.entropy_list = []
-            for i in range(len(self._obs_lst)):
-                self.entropy_tmp = []
-                o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
-                for _ in range(100):
-                    a, log_p = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=True, all_particles=False)
-                    self.entropy_tmp.append(round(-log_p.detach().item(), 2))
-                self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
-            
-            
-            if not ac.pi.actor=='sac':
-                ac.pi.num_particles = num_particles_tmp
-                ac.pi.Kernel.num_particles = ac.pi.num_particles
-                ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+            if ac.pi.actor!='svgd_sql':
+                if not ac.pi.actor=='sac':
+                    num_particles_tmp = ac.pi.num_particles
+                    ac.pi.num_particles = self._n_samples
+                    ac.pi.Kernel.num_particles = ac.pi.num_particles
+                    ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+
+                self.entropy_list = []
+                for i in range(len(self._obs_lst)):
+                    self.entropy_tmp = []
+                    o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
+                    for _ in range(100):
+                        a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
+                        self.entropy_tmp.append(round(-log_p.detach().item(), 2))
+                    self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
+                
+                
+                if not ac.pi.actor=='sac':
+                    ac.pi.num_particles = num_particles_tmp
+                    ac.pi.Kernel.num_particles = ac.pi.num_particles
+                    ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
 
 
-            for i in range(len(self._obs_lst)):
-                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='#003f40', marker='x', s=50, zorder=2)
-                self._ax_lst[0].annotate(self.entropy_obs_names_plotting[i], (self._obs_lst[i,0] - 0.25, self._obs_lst[i,1] + 0.2), fontsize=18, color='#003f40', zorder=2)
+                for i in range(len(self._obs_lst)):
+                    self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], c='#003f40', marker='x', s=50, zorder=2)
+                    self._ax_lst[0].annotate(self.entropy_obs_names_plotting[i], (self._obs_lst[i,0] - 0.25, self._obs_lst[i,1] + 0.2), fontsize=18, color='#003f40', zorder=2)
             
 
             self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
             plt.plot()
-            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
+            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + 'png')   
+            # plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
             plt.close()
 
         modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
@@ -302,17 +310,17 @@ class MultiGoalEnv(Env, EzPickle):
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         for i in range(len(self._obs_lst)):
-            if ac.pi.actor == 'svgd_nonparam':
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_sql']:
                 
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
-            actions, _ = ac(o, deterministic=ac.pi.test_deterministic, with_logprob=False, all_particles=True)
+            actions, _ = ac(o, action_selection=None, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
             
             x, y = actions[:, 0], actions[:, 1]
-
-            self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
+            if ac.pi.actor not in  ['svgd_sql']:
+                self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
         if ac.pi.actor == 'svgd_nonparam':
             ac.pi.num_particles = num_particles_tmp

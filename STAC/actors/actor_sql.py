@@ -27,7 +27,7 @@ class ActorSql(nn.Module):
         # self.layer2 =  mlp(list(hidden_sizes) + [self.act_dim], nn.Tanh, nn.Tanh)
         
 
-        self.kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, adaptive_sig=adaptive_sig, device=device)
+        self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, adaptive_sig=adaptive_sig, device=device)
         # self.kernel = RBF()
 
         # self.a_0 = torch.rand((5*self.batch_size, self.num_particles, self.act_dim)).view(-1,self.act_dim).to(self.device)
@@ -53,15 +53,18 @@ class ActorSql(nn.Module):
         self.a = a.view(-1, self.num_particles, self.act_dim)
 
         if action_selection is not None:
+
             if action_selection == 'random':
                 a = self.a.view(-1, self.num_particles, self.act_dim)[:,np.random.randint(self.num_particles),:]
             else:
+                # import pdb; pdb.set_trace()
                 q1_values = self.q1(obs, a)
                 q2_values = self.q2(obs, a)
                 q_values = torch.min(q1_values, q2_values)
                 q_values = q_values.view(-1, self.num_particles) # (-1, np)
                 if action_selection == 'max':
                     a = self.a[:,q_values.view(-1, self.num_particles).argmax(-1)]
+                    
                 elif action_selection == 'softmax':
                     beta = 1
                     soft_max_probs = torch.exp(beta * q_values - torch.max(q_values, dim=1, keepdim=True)[0]) # (-1, np)
