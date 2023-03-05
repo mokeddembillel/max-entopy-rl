@@ -292,7 +292,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
             self._plot_level_curves(self._obs_lst, ac)
             self._plot_action_samples(ac)
             plt.plot()
-            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
+            # plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
             plt.savefig(fig_path+ '/env_' + str(itr) + '.' + 'png')   
             plt.close()
 
@@ -368,14 +368,14 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 cs, inline=1, fontsize=10, fmt='%.2f')
 
     def _plot_action_samples(self, ac):
-        if ac.pi.actor == 'svgd_nonparam':
+        if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
             num_particles_tmp = ac.pi.num_particles
             ac.pi.num_particles = self._n_samples
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         
         for i in range(len(self._obs_lst)):
-            if ac.pi.actor in  ['svgd_nonparam', 'svgd_sql']:
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param', 'svgd_sql']:
                 # ac.pi.num_particles = self._n_samples
                 # ac.pi.Kernel.num_particles = ac.pi.num_particles
                 # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
@@ -394,7 +394,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         # ac.pi.num_particles = num_particles_tmp
         # ac.pi.Kernel.num_particles = ac.pi.num_particles
         # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
-        if ac.pi.actor == 'svgd_nonparam':
+        if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
             ac.pi.num_particles = num_particles_tmp
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
@@ -468,7 +468,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         
 
         plt.plot()
-        plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + self.plot_format)   
+        # plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + self.plot_format)   
         plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + 'png')
         plt.close()
 
@@ -500,13 +500,13 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
             _line_objects += ax_1.clabel(
                 cs, inline=1, fontsize=10, fmt='%.2f')
 
-            if ac.pi.actor == 'svgd_nonparam':
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
                 num_particles_tmp = ac.pi.num_particles
                 ac.pi.num_particles = self._n_samples
                 ac.pi.Kernel.num_particles = ac.pi.num_particles
                 ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         
-            if ac.pi.actor in  ['svgd_nonparam', 'svgd_sql']:
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param', 'svgd_sql']:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
@@ -522,13 +522,13 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
             # ac.pi.num_particles = num_particles_tmp
             # ac.pi.Kernel.num_particles = ac.pi.num_particles
             # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
-            if ac.pi.actor == 'svgd_nonparam':
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
                 ac.pi.num_particles = num_particles_tmp
                 ac.pi.Kernel.num_particles = ac.pi.num_particles
                 ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         
             plt.plot()
-            plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + self.plot_format)   
+            # plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + self.plot_format)   
             plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + 'png')
             plt.close()
 

@@ -429,7 +429,7 @@ class MaxEntropyEnv(gym.Env):
 
     def _plot_action_samples(self, ac):
         for i in range(len(self.entropy_obs_list)):
-            if ac.pi.actor == 'svgd_nonparam':
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
                 o = torch.as_tensor(self.entropy_obs_list[i], dtype=torch.float32).repeat([self._n_samples*ac.pi.num_particles,1]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self.entropy_obs_list[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)

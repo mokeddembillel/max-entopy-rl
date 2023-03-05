@@ -36,7 +36,7 @@ class ActorSvgd(torch.nn.Module):
 
         if actor == "svgd_nonparam":
             self.a0 = torch.normal(0, self.sigma_p0, size=(5 * batch_size * num_svgd_particles, self.act_dim)).to(self.device)
-        else:
+        elif actor == 'svgd_p0_pram':
             self.p0 = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
 
         if actor == "svgd_p0_kernel_pram":
@@ -49,34 +49,17 @@ class ActorSvgd(torch.nn.Module):
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
 
         self.delta = 1e-3
-        # self.drv_delta = torch.zeros((self.act_dim, 1, self.act_dim)).to(self.device)
-        # for i in range(self.act_dim):
-        #     self.drv_delta[i, :, i] = self.delta 
 
-
-        # self.drv_delta3 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0).repeat((self.num_particles, 1, 1))
-        # self.ones3 = torch.ones((2, self.num_particles, self.act_dim, self.obs_dim)).to(self.device) 
-
-        #This goes to init ####################
         self.drv_delta2 = (torch.eye(self.act_dim).to(self.device) * self.delta).unsqueeze(0)
         self.drv_delta2_ = torch.concat((self.drv_delta2.unsqueeze(0), -self.drv_delta2.unsqueeze(0)), dim=0)
         self.ones = torch.ones((2, 1, self.act_dim, 1)).to(self.device)
-        # Debugging #########################################
-        # gmm = 1
-        # if (gmm == 1):
-        #     self.init_dist_mu = 4 
-        #     self.init_dist_sigma = 0.2 #6
-        #     self.target_dist_sigma = 1.0
-        #     self.P = torch.distributions.MultivariateNormal(torch.Tensor([0.0,0.0]).to(device),covariance_matrix= self.target_dist_sigma * torch.Tensor([[1.0,0.0],[0.0,1.0]]).to(device))
-        # else:
-        #     self.init_dist_mu = 0
-        #     self.init_dist_sigma = 0.2 #6
-        #     self.P = GMMDist(dim=2, n_gmm=gmm, device=self.device)
-        
+
 
         self.epsilon_threshold = 0.9
         self.epsilon_decay = (0.9 - 0.0) / 400000
         self.beta = (200100 / (0 + 200))
+
+
 
     def svgd_optim(self, x, dx, dq): 
         dx = dx.view(x.size())
@@ -93,6 +76,7 @@ class ActorSvgd(torch.nn.Module):
         self.term2_debug = 0
         self.x_t = [a.detach().cpu().numpy().tolist()]
         self.phis = []
+        q_s_a = None
 
         # @profile
         def phi(X):
@@ -102,34 +86,9 @@ class ActorSvgd(torch.nn.Module):
             log_prob2 = self.q2(obs, X)
             log_prob = torch.min(log_prob1, log_prob2)
 
-            # start = timeit.default_timer()
-            ###### Method 0
+
             score_func = autograd.grad(log_prob.sum(), X, retain_graph=True, create_graph=True)[0]
-            # stop = timeit.default_timer()
-            # print('Time deriv auto: ', stop - start) 
-                        
-            # # start = timeit.default_timer()
-            # ###### Method 1
-            # drv_obs = obs.unsqueeze(0).repeat(self.act_dim, 1, 1)
-            # drv_X = X.unsqueeze(0).repeat(self.act_dim, 1, 1)
-            # drv_Xp = drv_X + self.drv_delta
-            # drv_Xn = drv_X - self.drv_delta
-            # term_1 = torch.min(self.q1(drv_obs, drv_Xp), self.q2(drv_obs, drv_Xp))
-            # term_2 = torch.min(self.q1(drv_obs, drv_Xn), self.q2(drv_obs, drv_Xn))
-            # score_func2 = ((term_1 - term_2) / (2 * self.delta)).T 
-            
-            # ###### Method 2
-
-            # drv_obs2 = obs.unsqueeze(1).unsqueeze(0) * self.ones
-            # drv_X2 = X.unsqueeze(1)
-            # drv = drv_X2.unsqueeze(0) + self.drv_delta2_
-            # qv_1 = self.q1(drv_obs2, drv)
-            # qv_2 = self.q2(drv_obs2, drv)            
-            # term_1 = torch.min(qv_1[0], qv_2[0])
-            # term_2 = torch.min(qv_1[1], qv_2[1])
-            # score_func = ((term_1 - term_2) / (2 * self.delta))
-
-
+           
             X = X.reshape(-1, self.num_particles, self.act_dim)
             score_func = score_func.reshape(X.size())
             K_XX, K_diff, K_gamma, K_grad = self.Kernel(X, X)
@@ -168,7 +127,7 @@ class ActorSvgd(torch.nn.Module):
             #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
             #print("t: ", t, " ", a[0])
         
-        a = self.act_limit * torch.tanh(a) 
+        # a = self.act_limit * torch.tanh(a) 
         #print("___________________")
         # import pdb; pdb.set_trace()
         # if  (a < -1).any() or (a> 1).any():
@@ -183,39 +142,70 @@ class ActorSvgd(torch.nn.Module):
         if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
             # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()
-        else:
+        elif self.actor == 'svgd_p0_pram':
             self.mu, self.sigma = self.p0(obs)
-            a0 = Normal(self.mu, self.sigma).rsample()
-            a0 = self.act_limit * torch.tanh(a0)
+            # self.mu = torch.clamp(self.mu, -1, 1)
+            # self.mu = ((1 + 1) * torch.rand(obs.shape[0], self.act_dim) - 1).to(self.device)
+            # self.sigma = torch.rand(obs.shape[0], self.act_dim).to(self.device)
+            # self.mu = torch.zeros(obs.shape[0], self.act_dim).to(self.device)
+            self.init_dist_normal = Normal(self.mu, self.sigma)
+            a0 = self.init_dist_normal.rsample()
+            # print('############################',  self.mu[0], self.sigma[0])
+            # a0_tanh = self.act_limit * torch.tanh(a0)
 
         self.a0_debbug = a0.view(-1, self.num_particles, self.act_dim)
 
         # run svgd
-        a, logp_svgd, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
+        # a, logp_svgd, q_s_a = self.sampler(obs, a0.detach(), with_logprob) 
+        a, logp_svgd, q_s_a = self.sampler(obs, a0, with_logprob) 
 
         # a, logp_svgd, q_s_a = self.sampler_debug(obs, a0.detach(), with_logprob) 
-        q_s_a = q_s_a.view(-1, self.num_particles)
 
         # compute the entropy 
         if with_logprob:
-            logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
+            # logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
             
-            logp_tanh = - ( 2 * (np.log(2) - a - F.softplus(-2 * a))).sum(axis=-1).view(-1,self.num_particles)
+            # logp_normal = - (self.act_dim * 0.5 * torch.log(2 * torch.pi * self.sigma.view(-1,self.num_particles, self.act_dim)) - (0.5 / self.sigma.view(-1,self.num_particles, self.act_dim)) * ((a0 - self.mu)**2).view(-1,self.num_particles, self.act_dim)).sum(-1)
+            logp_normal = self.init_dist_normal.log_prob(a0).sum(axis=-1).view(-1,self.num_particles)
+            # if logp_normal.mean() > 10:
+            #     pass
+            # else:
+            #     pass
+
+            # logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)
+            # logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
+
+
+            # logp_tanh_1 = - ( 2 * (np.log(2) - a0_tanh - F.softplus(-2 * a0_tanh))).sum(axis=-1).view(-1,self.num_particles)
+
+            logp_tanh_2 = - ( 2 * (np.log(2) - a - F.softplus(-2 * a))).sum(axis=-1).view(-1,self.num_particles)
+            # if logp_tanh_2.mean() > 50:
+            #     print(self.mu.min().cpu().detach().item(), self.mu.mean().cpu().detach().item(), self.mu.max().cpu().detach().item())
+            #     print(self.sigma.min().cpu().detach().item(), self.sigma.mean().cpu().detach().item(), self.sigma.max().cpu().detach().item())
+            #     print('#########################')
+            #     print('#########################')
+            #     import pdb; pdb.set_trace()
             # try:
                 # print('######## ', logp_normal.shape)
                 # print('######## ', logp_svgd.shape)
                 # print('######## ', logp_tanh.shape)
                 # print()
                 # print()
-            logp_a = (logp_normal + logp_svgd + logp_tanh).mean(-1)
+            # logp_a = (logp_normal + logp_svgd + logp_tanh_1 + logp_tanh_2).mean(-1)
+            logp_a = (logp_normal + logp_svgd + logp_tanh_2).mean(-1)
             # logp_wrong_a = (logp_normal + logp_wrong + logp_tanh).mean(-1)
             
 
             self.logp_normal_debug = logp_normal.mean()
-            self.logp_svgd_debug = logp_svgd.mean()
-            self.logp_tanh_debug = logp_tanh.mean()
+            try:
+                self.logp_svgd_debug = logp_svgd.mean()
+            except:
+                self.logp_svgd_debug = torch.tensor(0)
+            self.logp_tanh_debug = logp_tanh_2.mean()
             # except:
             #     import pdb; pdb.set_trace()
+        a = self.act_limit * torch.tanh(a) 
+        
         self.a =  a.view(-1, self.num_particles, self.act_dim)
 
         # at test time
@@ -225,9 +215,11 @@ class ActorSvgd(torch.nn.Module):
             # print('random')
         elif action_selection == 'max':
             # print('max')
+            q_s_a = q_s_a.view(-1, self.num_particles)
             a = self.a[:,q_s_a.argmax(-1)]
         elif action_selection == 'softmax':
             # print('softmax')
+            q_s_a = q_s_a.view(-1, self.num_particles)
             soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
@@ -236,6 +228,7 @@ class ActorSvgd(torch.nn.Module):
             a = self.a[:,np.random.randint(self.num_particles),:]
         elif action_selection == 'adaptive_softmax':
             # print('adaptive_softmax')
+            q_s_a = q_s_a.view(-1, self.num_particles)
             if self.beta > 0.5:
                 self.beta = (200100 / (itr + 200))
             else:

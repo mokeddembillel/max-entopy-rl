@@ -27,7 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--gpu_id', type=int, default=2)
     parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_p0_pram', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
     ###### RL 
     parser.add_argument('--gamma', type=float, default=0.99)
-    parser.add_argument('--alpha', type=float, default=5)
+    parser.add_argument('--alpha', type=float, default=0.2)
     parser.add_argument('--replay_size', type=int, default=1e6)
     parser.add_argument('--load_replay', type=int, default=0)
     parser.add_argument('--replay_path', type=str, default='./STAC/buffers_/')
@@ -68,7 +68,7 @@ if __name__ == '__main__':
     parser.add_argument('--svgd_lr', type=float, default=0.01)
     parser.add_argument('--svgd_sigma_p0', type=float, default=0.3)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
-    parser.add_argument('--kernel_sigma_adaptive', type=int, default=1)
+    parser.add_argument('--kernel_sigma_adaptive', type=int, default=4)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
    
     # tensorboard
@@ -115,7 +115,9 @@ if __name__ == '__main__':
         args.critic_activation = torch.nn.ReLU
         args.actor_activation = torch.nn.ReLU
 
-    if args.actor == 'sac':
+    if args.actor in ['sac', 'svgd_p0_pram']:
+        # args.critic_activation = torch.nn.Tanh
+        # args.actor_activation = torch.nn.Tanh
         args.critic_activation = torch.nn.ReLU
         args.actor_activation = torch.nn.ReLU
         # args.alpha = 0.2
@@ -134,11 +136,11 @@ if __name__ == '__main__':
         print('############################## DEBUGGING ###################################')
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
-        args.max_experiment_steps = 10000
+        args.max_experiment_steps = 30000
         # args.exploration_steps = 100
-        args.update_after = 8000
-        args.stats_steps_freq = 4000
-        args.num_test_episodes = 1
+        args.update_after = 1000
+        args.stats_steps_freq = 400
+        args.num_test_episodes = 10
         # args.max_steps = 500
         args.collect_stats_after = 0
         # args.entropy_particles = 10
@@ -207,7 +209,7 @@ if __name__ == '__main__':
     project_name +=  datetime.now().strftime("%b_%d_%Y_%H_%M_%S")+ '_' + 'tnas_' + args.train_action_selection + '_ttas_' + args.test_action_selection + '_' + args.actor + '_' + args.env + '_alpha_'+str(args.alpha)+'_bs_'+ str(args.batch_size) + '_gamma_' + str(args.gamma) + '_seed_' + str(args.seed) + '_ntep_' + str(args.num_test_episodes) + '_'
 
     if args.actor in ['svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_sad_lr_' + str(args.svgd_adaptive_lr) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
+        project_name += 'ssteps_'+str(args.svgd_steps)+'_sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
     elif args.actor in ['svgd_sql']:
         project_name += 'sparticles_'+str(args.svgd_particles)+'_slr_'+str(args.svgd_lr) + '_ssigma_p0_' + str(args.svgd_sigma_p0) + '_skernel_sigma_' + str(args.svgd_kernel_sigma) + '_' + str(args.kernel_sigma_adaptive) + '_'
 

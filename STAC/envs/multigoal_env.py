@@ -304,13 +304,13 @@ class MultiGoalEnv(Env, EzPickle):
     #         self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
             
     def _plot_action_samples(self, ac):
-        if ac.pi.actor == 'svgd_nonparam':
+        if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
             num_particles_tmp = ac.pi.num_particles
             ac.pi.num_particles = self._n_samples
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         for i in range(len(self._obs_lst)):
-            if ac.pi.actor in  ['svgd_nonparam', 'svgd_sql']:
+            if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param', 'svgd_sql']:
                 
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
@@ -322,7 +322,7 @@ class MultiGoalEnv(Env, EzPickle):
             if ac.pi.actor not in  ['svgd_sql']:
                 self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
-        if ac.pi.actor == 'svgd_nonparam':
+        if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
             ac.pi.num_particles = num_particles_tmp
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)

@@ -167,14 +167,23 @@ class MaxEntrRL():
                 p.requires_grad = False
             
             loss_pi, grad_loss_pi = self.compute_loss_pi(data, itr)
-
+            ###############################################################
+            # for p in self.ac.pi.parameters():
+            #     print(p[:5])
+            #     break
+            # import pdb;pdb.set_trace() ###################################
             # Next run one gradient descent step for pi.
             self.pi_optimizer.zero_grad()
             # loss_pi.backward(grad_loss_pi)
             loss_pi.backward(gradient=grad_loss_pi)
             # torch.nn.utils.clip_grad_norm_(self.ac.pi.parameters(), 5)
             self.pi_optimizer.step()
-                
+            
+            # for p in self.ac.pi.parameters():
+            #     print(p[:5])
+            #     break
+            # import pdb;pdb.set_trace() ###################################
+            ###############################################################
             # Unfreeze Q-networks so you can optimize it at next DDPG step.
             for p in self.q_params:
                 p.requires_grad = True
@@ -206,7 +215,7 @@ class MaxEntrRL():
                 # obs_average.append(o.detach().cpu().numpy())
 
                 # start = timeit.default_timer()
-                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
+                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
                 # stop = timeit.default_timer()
                 # average_time.append(stop - start)
                 # print('Time deriv auto: ', stop - start) 
@@ -232,7 +241,7 @@ class MaxEntrRL():
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
-                # self.debugger.entropy_plot()  
+                self.debugger.entropy_plot()  
             # print('################## ', np.mean(np.array(obs_average), axis=0))
     
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
