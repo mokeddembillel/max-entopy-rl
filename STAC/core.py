@@ -241,11 +241,15 @@ class MaxEntrRL():
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
-                self.debugger.entropy_plot()  
+                # self.debugger.entropy_plot() 
+                self.debugger.entropy_plot_v2()  
+                
             # print('################## ', np.mean(np.array(obs_average), axis=0))
     
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
+         
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
+        
             self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             # self.test_env.render_paper(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
             self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only

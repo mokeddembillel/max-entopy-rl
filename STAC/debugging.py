@@ -560,7 +560,7 @@ class Debugger():
         #############################################################################################################################################
         # investigating smoothness of the q-landscape by computing the 1st and 2nd order derivatives
 
-        if self.ac.pi.actor in ['svgd_p0_pram']:
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
             feed_dict_mu_x = {}
             feed_dict_mu_y = {}
             feed_dict_sigma_x = {}
@@ -1125,3 +1125,77 @@ class Debugger():
             self.episode_counter += 1
 
 
+    def entropy_plot_v2(self):
+        
+        log_p = []
+        logp_normal = []
+        logp_svgd = []
+        logp_tanh = []
+        mu_x = []
+        sigma_x = []
+        mu_y = []
+        sigma_y = []
+        mu_z = []
+        sigma_z = []
+
+        for indx, i in enumerate([10, 100, 500]):
+            if len(self.episodes_information[-1]['log_p']) > i+1:
+                log_p.append(self.episodes_information[-1]['log_p'][i])
+                mu_x.append(self.episodes_information[-1]['mu'][i][0][0])
+                sigma_x.append(self.episodes_information[-1]['sigma'][i][0][0])
+                mu_y.append(self.episodes_information[-1]['mu'][i][0][1])
+                sigma_y.append(self.episodes_information[-1]['sigma'][i][0][1])
+                mu_z.append(self.episodes_information[-1]['mu'][i][0][2])
+                sigma_z.append(self.episodes_information[-1]['sigma'][i][0][2])
+
+
+                logp_normal.append(self.episodes_information[-1]['logp_normal'][i])
+                logp_svgd.append(self.episodes_information[-1]['logp_svgd'][i])
+                logp_tanh.append(self.episodes_information[-1]['logp_tanh'][i])
+
+        if len(log_p) == 3:
+
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_10': logp_normal[0], 'step_100': logp_normal[1], 'step_500': logp_normal[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_10': logp_svgd[0], 'step_100': logp_svgd[1], 'step_500': logp_svgd[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_10': logp_tanh[0], 'step_100': logp_tanh[1], 'step_500': logp_tanh[2]}, itr=self.episode_counter)
+            
+            self.add_scalars(tb_path='Entropy/mu_x', value={'step_10': mu_x[0], 'step_100': mu_x[1], 'step_500': mu_x[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_x', value={'step_10': sigma_x[0], 'step_100': sigma_x[1], 'step_500': sigma_x[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_y', value={'step_10': mu_y[0], 'step_100': mu_y[1], 'step_500': mu_y[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_y', value={'step_10': sigma_y[0], 'step_100': sigma_y[1], 'step_500': sigma_y[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_z', value={'step_10': mu_z[0], 'step_100': mu_z[1], 'step_500': mu_z[2]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_z', value={'step_10': sigma_z[0], 'step_100': sigma_z[1], 'step_500': sigma_z[2]}, itr=self.episode_counter)
+
+
+        elif len(log_p) == 2:
+
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_10': logp_normal[0], 'step_100': logp_normal[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_10': logp_svgd[0], 'step_100': logp_svgd[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_10': logp_tanh[0], 'step_100': logp_tanh[1]}, itr=self.episode_counter)
+            
+            self.add_scalars(tb_path='Entropy/mu_x', value={'step_10': mu_x[0], 'step_100': mu_x[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_x', value={'step_10': sigma_x[0], 'step_100': sigma_x[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_y', value={'step_10': mu_y[0], 'step_100': mu_y[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_y', value={'step_10': sigma_y[0], 'step_100': sigma_y[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_z', value={'step_10': mu_z[0], 'step_100': mu_z[1]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_z', value={'step_10': sigma_z[0], 'step_100': sigma_z[1]}, itr=self.episode_counter)
+
+
+
+
+        elif len(log_p) == 1:
+            
+            self.add_scalars(tb_path='Entropy/logp_normal', value={'step_10': logp_normal[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_10': logp_svgd[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_10': logp_tanh[0]}, itr=self.episode_counter)
+            
+            self.add_scalars(tb_path='Entropy/mu_x', value={'step_10': mu_x[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_x', value={'step_10': sigma_x[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_y', value={'step_10': mu_y[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_y', value={'step_10': sigma_y[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/mu_z', value={'step_10': mu_z[0]}, itr=self.episode_counter)
+            self.add_scalars(tb_path='Entropy/sigma_z', value={'step_10': sigma_z[0]}, itr=self.episode_counter)
+
+
+
+        self.episode_counter += 1
