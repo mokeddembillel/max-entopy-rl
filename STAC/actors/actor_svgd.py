@@ -13,7 +13,7 @@ import line_profiler
 
 class ActorSvgd(torch.nn.Module):
     def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_action_selection, batch_size, adaptive_sig,
-    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None):
+    device, hidden_sizes, q1, q2, activation=torch.nn.ReLU, kernel_sigma=None, adaptive_lr=None, alpha=1):
         super().__init__()
         self.actor = actor
         self.obs_dim = obs_dim
@@ -28,6 +28,7 @@ class ActorSvgd(torch.nn.Module):
         self.sigma_p0 = svgd_sigma_p0
         self.test_action_selection = test_action_selection
         self.batch_size = batch_size
+        self.alpha = alpha
 
         #optimizer parameters
         self.adaptive_lr = adaptive_lr
@@ -66,8 +67,9 @@ class ActorSvgd(torch.nn.Module):
         #print(' ')
         # print()
         x = x + self.svgd_lr * dx
+        # x = x + self.svgd_lr / self.alpha * dx
         return x
-
+    
     
     # @profile
     def sampler(self, obs, a, with_logprob=True):
@@ -81,7 +83,7 @@ class ActorSvgd(torch.nn.Module):
         # @profile
         def phi(X):
             nonlocal logp
-            X.requires_grad_(True)            
+            X.requires_grad_(True)
             log_prob1 = self.q1(obs, X)
             log_prob2 = self.q2(obs, X)
             log_prob = torch.min(log_prob1, log_prob2)
@@ -110,6 +112,7 @@ class ActorSvgd(torch.nn.Module):
                 self.term1_debug += term1.mean()
                 self.term2_debug += term2.mean()
                 logp = logp - self.svgd_lr * (term1 + term2) 
+                # logp = logp - self.svgd_lr / self.alpha * (term1 + term2) 
             
             return phi, log_prob, score_func 
         
@@ -215,10 +218,18 @@ class ActorSvgd(torch.nn.Module):
             # print('random')
         elif action_selection == 'max':
             # print('max')
+            q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+            q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+            q_s_a = torch.min(q_s_a1, q_s_a2)
+
             q_s_a = q_s_a.view(-1, self.num_particles)
             a = self.a[:,q_s_a.argmax(-1)]
         elif action_selection == 'softmax':
             # print('softmax')
+            q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+            q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+            q_s_a = torch.min(q_s_a1, q_s_a2)
+
             q_s_a = q_s_a.view(-1, self.num_particles)
             soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))

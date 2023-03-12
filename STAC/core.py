@@ -241,7 +241,7 @@ class MaxEntrRL():
             if not self.RL_kwargs.test_time:
                 self.evaluation_data['test_episodes_return'].append(ep_ret)
                 self.evaluation_data['test_episodes_length'].append(ep_len)
-                # self.debugger.entropy_plot() 
+                self.debugger.entropy_plot() 
                 self.debugger.entropy_plot_v2()  
                 
             # print('################## ', np.mean(np.array(obs_average), axis=0))
