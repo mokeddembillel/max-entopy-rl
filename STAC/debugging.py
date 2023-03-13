@@ -1047,7 +1047,7 @@ class Debugger():
     #         plt.savefig(fig_path+ '/svgd_episode_' + str(episode_step) + '_step_' + str(self.episodes_information_svgd[-1]['step'][episode_step]) + '.' + self.plot_format)
 
     def entropy_plot(self):
-        if self.env_name in ['Multigoal', 'multigoal-max-entropy']:
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy']:
             log_p = []
             term1 = []
             term2 = []
@@ -1126,7 +1126,7 @@ class Debugger():
 
 
     def entropy_plot_v2(self):
-        if self.env_name in ['Hopper-v2']:
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Hopper-v2']:
             log_p = []
             logp_normal = []
             logp_svgd = []
