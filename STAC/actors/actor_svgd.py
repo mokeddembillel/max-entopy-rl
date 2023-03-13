@@ -166,10 +166,12 @@ class ActorSvgd(torch.nn.Module):
 
         # compute the entropy 
         if with_logprob:
-            # logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
+            if self.actor == "svgd_nonparam":
+                logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
             
             # logp_normal = - (self.act_dim * 0.5 * torch.log(2 * torch.pi * self.sigma.view(-1,self.num_particles, self.act_dim)) - (0.5 / self.sigma.view(-1,self.num_particles, self.act_dim)) * ((a0 - self.mu)**2).view(-1,self.num_particles, self.act_dim)).sum(-1)
-            logp_normal = self.init_dist_normal.log_prob(a0).sum(axis=-1).view(-1,self.num_particles)
+            elif self.actor == 'svgd_p0_pram':
+                logp_normal = self.init_dist_normal.log_prob(a0).sum(axis=-1).view(-1,self.num_particles)
             # if logp_normal.mean() > 10:
             #     pass
             # else:
@@ -225,6 +227,7 @@ class ActorSvgd(torch.nn.Module):
 
             q_s_a = q_s_a.view(-1, self.num_particles)
 
+            # a = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
             a = self.a[:,q_s_a.argmax(-1)]
         elif action_selection == 'softmax':
             # print('softmax')
