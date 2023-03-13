@@ -218,19 +218,23 @@ class ActorSvgd(torch.nn.Module):
             # print('random')
         elif action_selection == 'max':
             # print('max')
-            q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-            q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-            q_s_a = torch.min(q_s_a1, q_s_a2)
+            if self.num_svgd_steps == 0:
+                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+                q_s_a = torch.min(q_s_a1, q_s_a2)
 
             q_s_a = q_s_a.view(-1, self.num_particles)
+
             a = self.a[:,q_s_a.argmax(-1)]
         elif action_selection == 'softmax':
             # print('softmax')
-            q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-            q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-            q_s_a = torch.min(q_s_a1, q_s_a2)
+            if self.num_svgd_steps == 0:
+                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+                q_s_a = torch.min(q_s_a1, q_s_a2)
 
             q_s_a = q_s_a.view(-1, self.num_particles)
+
             soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0]))
             dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
             a = self.a[:,dist.sample()]
