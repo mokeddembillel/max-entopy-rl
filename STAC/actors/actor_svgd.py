@@ -107,8 +107,8 @@ class ActorSvgd(torch.nn.Module):
             
             # compute the entropy
             if with_logprob:
-                term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).mean(2)
-                term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).mean(1)
+                term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).sum(2)/(self.num_particles-1)
+                term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).sum(1) / (self.num_particles-1)
                 self.term1_debug += term1.mean()
                 self.term2_debug += term2.mean()
                 logp = logp - self.svgd_lr * (term1 + term2) 
