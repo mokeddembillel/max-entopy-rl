@@ -59,7 +59,7 @@ class ActorSvgd(torch.nn.Module):
         self.epsilon_threshold = 0.9
         self.epsilon_decay = (0.9 - 0.0) / 400000
         self.beta = (200100 / (0 + 200))
-
+        self.steps_debug = 0
 
 
     def svgd_optim(self, x, dx, dq): 
@@ -74,10 +74,11 @@ class ActorSvgd(torch.nn.Module):
     # @profile
     def sampler(self, obs, a, with_logprob=True):
         logp = 0
-        self.term1_debug = 0
-        self.term2_debug = 0
-        self.x_t = [a.detach().cpu().numpy().tolist()]
-        self.phis = []
+        # self.term1_debug = 0
+        # self.term2_debug = 0
+        # # self.x_t = [a.detach().cpu().numpy().tolist()]
+        # self.phis = []
+        # self.score_funcs = []
         q_s_a = None
 
         # @profile
@@ -109,21 +110,49 @@ class ActorSvgd(torch.nn.Module):
             if with_logprob:
                 term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).sum(2)/(self.num_particles-1)
                 term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).sum(1) / (self.num_particles-1)
-                self.term1_debug += term1.mean()
-                self.term2_debug += term2.mean()
+                # self.term1_debug += term1.mean()
+                # self.term2_debug += term2.mean()
                 logp = logp - self.svgd_lr * (term1 + term2) 
                 # logp = logp - self.svgd_lr / self.alpha * (term1 + term2) 
             
             return phi, log_prob, score_func 
         
-        for t in range(self.num_svgd_steps):
-            phi_, q_s_a, dq = phi(a)
-            # print('PHI ################## ', phi_.detach().cpu().numpy())
-            # import pdb; pdb.set_trace()
-            a = self.svgd_optim(a, phi_, dq)
-            # Collect Data for debugging
-            self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
-            self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+
+        if self.num_svgd_steps =='while':
+            self.steps_debug = 0
+            prev_grad = 100000
+            while True:
+                phi_, q_s_a, dq = phi(a)
+                # print('PHI ################## ', phi_.detach().cpu().numpy())
+                # import pdb; pdb.set_trace()
+                a = self.svgd_optim(a, phi_, dq)
+                # Collect Data for debugging
+                # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
+                # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+                # self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
+                dq_norm = torch.norm(dq.detach(), dim=-1).mean().cpu().item()
+                
+                self.steps_debug += 1
+                # print('Number of steps taken :, ', self.steps_debug, torch.norm(dq.detach(), dim=-1).mean().cpu().item())
+                if abs(prev_grad - dq_norm) < 0.005 or self.steps_debug == 500:
+                    break
+                prev_grad = dq_norm
+
+
+            # if (a > self.act_limit).any():
+            #     break
+            #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+            #print("t: ", t, " ", a[0])
+        else:
+            for t in range(self.num_svgd_steps):
+                phi_, q_s_a, dq = phi(a)
+                # print('PHI ################## ', phi_.detach().cpu().numpy())
+                # import pdb; pdb.set_trace()
+                a = self.svgd_optim(a, phi_, dq)
+                # Collect Data for debugging
+                # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
+                # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+                # self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
 
             # if (a > self.act_limit).any():
             #     break
@@ -201,12 +230,12 @@ class ActorSvgd(torch.nn.Module):
             # logp_wrong_a = (logp_normal + logp_wrong + logp_tanh).mean(-1)
             
 
-            self.logp_normal_debug = logp_normal.mean()
-            try:
-                self.logp_svgd_debug = logp_svgd.mean()
-            except:
-                self.logp_svgd_debug = torch.tensor(0)
-            self.logp_tanh_debug = logp_tanh_2.mean()
+            # self.logp_normal_debug = logp_normal.mean()
+            # try:
+            #     self.logp_svgd_debug = logp_svgd.mean()
+            # except:
+            #     self.logp_svgd_debug = torch.tensor(0)
+            # self.logp_tanh_debug = logp_tanh_2.mean()
             # except:
             #     import pdb; pdb.set_trace()
         a = self.act_limit * torch.tanh(a) 
@@ -220,21 +249,30 @@ class ActorSvgd(torch.nn.Module):
             # print('random')
         elif action_selection == 'max':
             # print('max')
-            if self.num_svgd_steps == 0:
-                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-                q_s_a = torch.min(q_s_a1, q_s_a2)
+            # if self.num_svgd_steps == 0:
+            #     q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+            #     q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+            #     q_s_a = torch.min(q_s_a1, q_s_a2)
+            #     q_s_a = q_s_a.view(-1, self.num_particles)
+            #     self.q_s_a_max = q_s_a.max()
+            #     self.q_s_a_all = q_s_a
 
+            #     a_ = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
+            #     q_s_a1_ = self.q1(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
+            #     q_s_a2_ = self.q2(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
+            #     self.q_s_a_max_orig = torch.min(q_s_a1_, q_s_a2_)
+                
             q_s_a = q_s_a.view(-1, self.num_particles)
-
-            # a = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
+            # a = a_
             a = self.a[:,q_s_a.argmax(-1)]
+
+
         elif action_selection == 'softmax':
             # print('softmax')
-            if self.num_svgd_steps == 0:
-                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-                q_s_a = torch.min(q_s_a1, q_s_a2)
+            # if self.num_svgd_steps == 0:
+            #     q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+            #     q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+            #     q_s_a = torch.min(q_s_a1, q_s_a2)
 
             q_s_a = q_s_a.view(-1, self.num_particles)
 
@@ -244,17 +282,17 @@ class ActorSvgd(torch.nn.Module):
 
         elif action_selection == 'random':
             a = self.a[:,np.random.randint(self.num_particles),:]
-        elif action_selection == 'adaptive_softmax':
-            # print('adaptive_softmax')
-            q_s_a = q_s_a.view(-1, self.num_particles)
-            if self.beta > 0.5:
-                self.beta = (200100 / (itr + 200))
-            else:
-                self.beta = 0.5
-            soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
-            # print('############# ', soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
-            dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
-            a = self.a[:,dist.sample()]
+        # elif action_selection == 'adaptive_softmax':
+        #     # print('adaptive_softmax')
+        #     q_s_a = q_s_a.view(-1, self.num_particles)
+        #     if self.beta > 0.5:
+        #         self.beta = (200100 / (itr + 200))
+        #     else:
+        #         self.beta = 0.5
+        #     soft_max_probs = torch.exp((q_s_a - q_s_a.max(dim=1, keepdim=True)[0])/self.beta)
+        #     # print('############# ', soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+        #     dist = Categorical(soft_max_probs / torch.sum(soft_max_probs, dim=1, keepdim=True))
+        #     a = self.a[:,dist.sample()]
         # elif action_selection == 'softmax_egreedy':
         #     # print('adaptive_softmax')
         #     self.epsilon_threshold -= self.epsilon_decay

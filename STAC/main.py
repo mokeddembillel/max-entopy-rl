@@ -25,9 +25,9 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=2)
-    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_p0_pram', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
@@ -58,15 +58,15 @@ if __name__ == '__main__':
     
     
     ###### action selection
-    parser.add_argument('--train_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
-    parser.add_argument('--test_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--train_action_selection', type=str, default='softmax', choices=['softmax', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--test_action_selection', type=str, default='max', choices=['max', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
   
 
 
     parser.add_argument('--svgd_particles', type=int, default=10)
-    parser.add_argument('--svgd_steps', type=int, default=10)
-    parser.add_argument('--svgd_lr', type=float, default=0.01)
-    parser.add_argument('--svgd_sigma_p0', type=float, default=0.3)
+    parser.add_argument('--svgd_steps', type=int, default=20)
+    parser.add_argument('--svgd_lr', type=float, default=0.1)
+    parser.add_argument('--svgd_sigma_p0', type=float, default=0.5)
     parser.add_argument('--svgd_kernel_sigma', type=float, default=None)
     parser.add_argument('--kernel_sigma_adaptive', type=int, default=4)
     parser.add_argument('--svgd_adaptive_lr', type=int, default=0)
@@ -80,14 +80,14 @@ if __name__ == '__main__':
     parser.add_argument('--stats_steps_freq', type=int, default=400) 
     parser.add_argument('--collect_stats_after', type=int, default=0)
     
-    parser.add_argument('--model_path', type=str, default='./evaluation_data/svgd_nonparam_0_me_a02_g08')
+    parser.add_argument('--model_path', type=str, default='./evaluation_data/z_after/svgd_nonparam_999999')
 
 
     ###################################################################################
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
-    parser.add_argument('--test_time', type=int, default=0)
-    parser.add_argument('--all_checkpoints_test', type=int, default=0) 
+    parser.add_argument('--test_time', type=int, default=1)
+    parser.add_argument('--all_checkpoints_test', type=int, default=1) 
     parser.add_argument('--debugging', type=int, default=0) 
     ###################################################################################
     ###################################################################################
@@ -134,13 +134,14 @@ if __name__ == '__main__':
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
+        args.svgd_steps = 'while'
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 30000
         # args.exploration_steps = 100
         args.update_after = 1000
         args.stats_steps_freq = 400
-        args.num_test_episodes = 10
+        args.num_test_episodes = 1
         # args.max_steps = 500
         args.collect_stats_after = 0
         # args.entropy_particles = 10
@@ -254,13 +255,11 @@ if __name__ == '__main__':
         test_env = gym.make(args.env)
 
 
-    if args.test_time:
-        tb_logger = None
-    else:
-        os.makedirs(args.tensorboard_path + project_name)
+    if not args.test_time:
         os.makedirs(args.evaluation_data_path + project_name)
         os.makedirs(args.replay_path + project_name)
-        tb_logger = SummaryWriter(args.tensorboard_path + project_name)
+    os.makedirs(args.tensorboard_path + project_name)
+    tb_logger = SummaryWriter(args.tensorboard_path + project_name)
     
     if not os.path.exists(args.fig_path + project_name) and RL_kwargs.plot:
         os.makedirs(args.fig_path + project_name)
@@ -326,32 +325,60 @@ if __name__ == '__main__':
     print('######################################################################################################')
 
     if args.all_checkpoints_test:
-        # project_name = 'prm_Jan_04_2023_20_57_47_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_20_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811646'
+        project_name = 'prm_Jan_12_2023_13_53_20_tnas_softmax_ttas_max_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ntep_10_ssteps_20_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_2373730'
+        tensorboard_path = './runs/' + 'cpsm2_' + project_name + '/'
+        # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
+        checkpoints_path = './evaluation_data/' + project_name
+        RL_kwargs.evaluation_data_path = './evaluation_data/' + 'cpsm2_' + project_name
+        try:
+            os.makedirs(args.evaluation_data_path + 'cpsm_' + project_name)
+        except:
+            pass
+        tb_logger = SummaryWriter(tensorboard_path)
+        for i in tqdm(range(3999, 1000000, 8000)):
+            start = timeit.default_timer()
+            # RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(999999)
+            RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
+
+            stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
+                critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
+                RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
+            
+            stac.RL_kwargs.num_test_episodes = 5
+            mean_particles = []
+            # config = [[1, 40], [10, 40], [10, 60], [10, 'while'], [20, 40], [20, 60], [20, 'while']]
+            # config = [[1, 40], [10, 40], [10, 60]]
+            # config = [[20, 40], [20, 60]]
+            config = [[10, 'while']]
+            # config = [[20, 'while']]
+            for p in config:
+                stac.ac.pi.num_particles = p[0]
+                stac.ac.pi.num_svgd_steps = p[1]
+                stac.test_agent(i)
+                mean_particles.append(np.mean(list(map(lambda x: x['expected_reward'], stac.debugger.episodes_information))))
+                stac.debugger.reset()
+            # print({'mean_p'+str(p[0])+'_s'+str(p[1]): mean_particles[c] for c, p in enumerate(config)})
+            stac.save_data()
+            stac.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only_particles',  {'mean_p'+str(p[0])+'_s'+str(p[1]): mean_particles[c] for c, p in enumerate(config)}, i)
+            
+            stop = timeit.default_timer()
+            print('Time deriv auto: ', stop - start) 
+
+
+
+
+        # project_name = 'prm_Jan_04_2023_20_57_49_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811987'
         # tensorboard_path = './runs/' + project_name + '/'
         # # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
         # checkpoints_path = './evaluation_data/' + project_name
         # tb_logger = SummaryWriter(tensorboard_path)
-        # for i in tqdm(range(3999, 615999 + 4000, 4000)):
+        # for i in tqdm(range(3999, 999999 + 4000, 4000)):
         #     RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
 
         #     stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
         #         critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
         #         RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
         #     stac.test_agent(i)
-
-
-        project_name = 'prm_Jan_04_2023_20_57_49_tnd_True_ttd_True_as_2_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_1811987'
-        tensorboard_path = './runs/' + project_name + '/'
-        # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
-        checkpoints_path = './evaluation_data/' + project_name
-        tb_logger = SummaryWriter(tensorboard_path)
-        for i in tqdm(range(3999, 999999 + 4000, 4000)):
-            RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
-
-            stac=MaxEntrRL(train_env, test_env, env=args.env, actor=args.actor, device=device, 
-                critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
-                RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
-            stac.test_agent(i)
         
     else:
     

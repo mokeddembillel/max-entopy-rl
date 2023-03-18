@@ -58,6 +58,10 @@ class MaxEntrRL():
         self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes, self.RL_kwargs.alpha, self.RL_kwargs.max_steps, self.RL_kwargs.max_experiment_steps)
 
         self.evaluation_data = AttrDict()
+        self.evaluation_data['train_episodes_return'] = []
+        self.evaluation_data['train_episodes_length'] = []
+        self.evaluation_data['test_episodes_return'] = []
+        self.evaluation_data['test_episodes_length'] = []
 
 
     def compute_loss_q(self, data, itr):
@@ -199,11 +203,13 @@ class MaxEntrRL():
                 
     # @render_browser
     def test_agent(self, itr=None):
+        # self.ac.pi.num_particles = 10 = 1
         robot_pic_rgb = None
 
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.reset_rendering()
 
+        
         for j in tqdm(range(self.RL_kwargs.num_test_episodes)):
             o, d, ep_ret, ep_len = self.test_env.reset(), False, 0, 0
             
@@ -211,11 +217,34 @@ class MaxEntrRL():
             # obs_average = []
             while not(d or (ep_len == self.RL_kwargs.max_steps)):
                 o = torch.as_tensor(o, dtype=torch.float32).to(self.device).view(-1,self.obs_dim)
-                o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                # o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
                 # obs_average.append(o.detach().cpu().numpy())
 
                 # start = timeit.default_timer()
-                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=True)
+                # self.ac.pi.max_qs = []
+                
+                # self.ac.pi.score_funcs_particles = []
+                # # for p in [1, 10, 20, 40, 60]:
+                # for p in [1, 10, 20, 40, 60]:
+                #     self.ac.pi.num_particles = p
+                #     o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                #     a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
+                #     # self.ac.pi.max_qs.append(self.ac.pi.q_s_a_max.detach().cpu().item())
+                #     self.ac.pi.score_funcs_particles.append(self.ac.pi.score_funcs[-1])
+                # self.ac.pi.num_particles = 10
+                
+                # self.ac.pi.score_funcs_steps = []
+                # # for p in [10, 20, 40, 60, 'while']:
+                # for p in ['while']:
+                #     self.ac.pi.num_svgd_steps = p
+                #     o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                #     a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
+                #     # self.ac.pi.max_qs.append(self.ac.pi.q_s_a_max.detach().cpu().item())
+                #     self.ac.pi.score_funcs_steps.append(self.ac.pi.score_funcs[-1])
+                # self.ac.pi.num_svgd_steps = 20
+
+                o_ = o.view(-1,1,self.obs_dim).repeat(1,self.ac.pi.num_particles,1).view(-1,self.obs_dim) # move this inside pi.act
+                a, log_p = self.ac(o_, action_selection=self.ac.pi.test_action_selection, with_logprob=False)
                 # stop = timeit.default_timer()
                 # average_time.append(stop - start)
                 # print('Time deriv auto: ', stop - start) 
@@ -229,24 +258,26 @@ class MaxEntrRL():
                 # import pdb; pdb.set_trace()
                 
                 # if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
-                self.debugger.collect_data(o, a.detach(), o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
+                self.debugger.collect_data(o.detach().cpu().numpy().squeeze(), a.detach().cpu().numpy().squeeze(), o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
                 
                 ep_ret += r
                 ep_len += 1
                 
                 o = o2
-            
+                # print(ep_len)
+
             # print('######### average time', np.array(average_time).mean())
             # print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
+            self.evaluation_data['test_episodes_return'].append(ep_ret)
+            self.evaluation_data['test_episodes_length'].append(ep_len)
             if not self.RL_kwargs.test_time:
-                self.evaluation_data['test_episodes_return'].append(ep_ret)
-                self.evaluation_data['test_episodes_length'].append(ep_len)
                 self.debugger.entropy_plot() 
                 self.debugger.entropy_plot_v2()  
                 
-            # print('################## ', np.mean(np.array(obs_average), axis=0))
-    
+                # print('################## ', np.mean(np.array(obs_average), axis=0))
+        
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
+        # self.ac.pi.num_particles = 10
          
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
         
@@ -263,8 +294,8 @@ class MaxEntrRL():
         #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
         #     self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
 
+        self.debugger.log_to_tensorboard(itr=itr)
         if not self.RL_kwargs.test_time:
-            self.debugger.log_to_tensorboard(itr=itr)
             self.debugger.create_entropy_plots(itr) # For multigoal only
             if self.env_name in ['Hopper-v2']:
                 self.debugger.create_states_distances_plots(itr) # For multigoal only
@@ -275,9 +306,8 @@ class MaxEntrRL():
         #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.fig_path, fig_size=(18, 10))
 
             
-        # print('########################### here is count', self.debugger.boundary_action_counter/self.debugger.action_counter)
-        # print('########################### here is count', self.debugger.boundary_all_actions_counter/self.debugger.action_counter)
-        self.debugger.reset()
+
+        # self.debugger.reset()
         if not self.RL_kwargs.test_time:
             self.ac.save(itr)
         
@@ -285,7 +315,7 @@ class MaxEntrRL():
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
         # if self.RL_kwargs.load_replay:
         #     self.replay_buffer.save()
-        self.ac.save()
+        # self.ac.save()
 
     def forward(self):
         # Freeze target networks with respect to optimizers (only update via polyak averaging)
@@ -302,10 +332,7 @@ class MaxEntrRL():
         EpLen = []
 
 
-        self.evaluation_data['train_episodes_return'] = []
-        self.evaluation_data['train_episodes_length'] = []
-        self.evaluation_data['test_episodes_return'] = []
-        self.evaluation_data['test_episodes_length'] = []
+       
         
         # Main loop: collect experience in env and update/log each epoch
         # while step_itr < self.RL_kwargs.max_experiment_steps:
