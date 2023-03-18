@@ -258,8 +258,9 @@ if __name__ == '__main__':
     if not args.test_time:
         os.makedirs(args.evaluation_data_path + project_name)
         os.makedirs(args.replay_path + project_name)
-    os.makedirs(args.tensorboard_path + project_name)
-    tb_logger = SummaryWriter(args.tensorboard_path + project_name)
+    if not args.all_checkpoints_test:
+        os.makedirs(args.tensorboard_path + project_name)
+        tb_logger = SummaryWriter(args.tensorboard_path + project_name)
     
     if not os.path.exists(args.fig_path + project_name) and RL_kwargs.plot:
         os.makedirs(args.fig_path + project_name)
@@ -325,17 +326,22 @@ if __name__ == '__main__':
     print('######################################################################################################')
 
     if args.all_checkpoints_test:
-        project_name = 'prm_Jan_12_2023_13_53_20_tnas_softmax_ttas_max_svgd_nonparam_Hopper-v2_alpha_1.0_bs_100_gamma_0.99_seed_0_ntep_10_ssteps_20_sparticles_10_slr_0.1_ssigma_p0_0.5_sad_lr_False_skernel_sigma_None_4_exper_1000000.0_explor_10000_update_1000_PID_2373730'
-        tensorboard_path = './runs/' + 'cpsm2_' + project_name + '/'
+        tag = 'cptestW_' ######################################################################
+        # project_name = 'stac_Hopper_s0'
+        project_name = 'stac_Walker2d_s0'
+        # project_name = 'stac_HalfCheetah_s0'
+        # project_name = 'stac_Ant_s0'
+        tensorboard_path = './runs/' + tag + project_name + '/'
         # tensorboard_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
         checkpoints_path = './evaluation_data/' + project_name
-        RL_kwargs.evaluation_data_path = './evaluation_data/' + 'cpsm2_' + project_name
+        RL_kwargs.evaluation_data_path = './evaluation_data/' + tag + project_name
         try:
-            os.makedirs(args.evaluation_data_path + 'cpsm_' + project_name)
+            os.makedirs(args.evaluation_data_path + tag + project_name)
         except:
             pass
         tb_logger = SummaryWriter(tensorboard_path)
         for i in tqdm(range(3999, 1000000, 8000)):
+        # for i in tqdm(range(3999, 3000000, 8000)):
             start = timeit.default_timer()
             # RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(999999)
             RL_kwargs.model_path = checkpoints_path + '/svgd_nonparam_' + str(i)
@@ -344,7 +350,7 @@ if __name__ == '__main__':
                 critic_kwargs=critic_kwargs, actor_kwargs=actor_kwargs,
                 RL_kwargs=RL_kwargs, optim_kwargs=optim_kwargs,tb_logger=tb_logger, fig_path=args.fig_path +  project_name)
             
-            stac.RL_kwargs.num_test_episodes = 5
+            stac.RL_kwargs.num_test_episodes = 10
             mean_particles = []
             # config = [[1, 40], [10, 40], [10, 60], [10, 'while'], [20, 40], [20, 60], [20, 'while']]
             # config = [[1, 40], [10, 40], [10, 60]]
