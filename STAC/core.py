@@ -144,7 +144,9 @@ class MaxEntrRL():
             loss_pi = -a_updated
             grad_loss_pi = a_grad
         else:
-            loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
+            # loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
+            # loss_pi = (10 * logp_pi - q_pi).mean()
+            loss_pi = (5 * logp_pi - q_pi).mean()
             grad_loss_pi = None
             self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
             
@@ -272,7 +274,7 @@ class MaxEntrRL():
             self.evaluation_data['test_episodes_length'].append(ep_len)
             if not self.RL_kwargs.test_time:
                 self.debugger.entropy_plot() 
-                self.debugger.entropy_plot_v2()  
+                # self.debugger.entropy_plot_v2()  
                 
                 # print('################## ', np.mean(np.array(obs_average), axis=0))
         
@@ -296,7 +298,7 @@ class MaxEntrRL():
 
         self.debugger.log_to_tensorboard(itr=itr)
         if not self.RL_kwargs.test_time:
-            self.debugger.create_entropy_plots(itr) # For multigoal only
+            # self.debugger.create_entropy_plots(itr) # For multigoal only
             if self.env_name in ['Hopper-v2']:
                 self.debugger.create_states_distances_plots(itr) # For multigoal only
                 self.debugger.create_states_components_plots(itr) # For multigoal only

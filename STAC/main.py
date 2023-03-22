@@ -25,16 +25,16 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser() 
     parser.add_argument('--gpu_id', type=int, default=2)
-    parser.add_argument('--env', type=str, default='Hopper-v2', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
+    parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'max-entropy-v0', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
+    parser.add_argument('--actor', type=str, default='svgd_p0_pram', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
     parser.add_argument('--l_critic', type=int, default=2)
     parser.add_argument('--l_actor', type=int, default=3)
     parser.add_argument('--critic_activation', type=object, default=torch.nn.ELU)
-    parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU)    
+    parser.add_argument('--actor_activation', type=object, default=torch.nn.ELU) 
 
     ###### RL 
     parser.add_argument('--gamma', type=float, default=0.99)
@@ -58,8 +58,8 @@ if __name__ == '__main__':
     
     
     ###### action selection
-    parser.add_argument('--train_action_selection', type=str, default='softmax', choices=['softmax', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
-    parser.add_argument('--test_action_selection', type=str, default='max', choices=['max', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--train_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
+    parser.add_argument('--test_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
   
 
 
@@ -86,8 +86,8 @@ if __name__ == '__main__':
     ###################################################################################
     ###################################################################################
     parser.add_argument('--experiment_importance', type=str, default='dbg', choices=['dbg', 'prm', 'scn']) 
-    parser.add_argument('--test_time', type=int, default=1)
-    parser.add_argument('--all_checkpoints_test', type=int, default=1) 
+    parser.add_argument('--test_time', type=int, default=0)
+    parser.add_argument('--all_checkpoints_test', type=int, default=0) 
     parser.add_argument('--debugging', type=int, default=0) 
     ###################################################################################
     ###################################################################################
@@ -134,7 +134,7 @@ if __name__ == '__main__':
     
     if args.debugging:
         print('############################## DEBUGGING ###################################')
-        args.svgd_steps = 'while'
+        # args.svgd_steps = 'while'
         args.exploration_steps = 0
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 30000

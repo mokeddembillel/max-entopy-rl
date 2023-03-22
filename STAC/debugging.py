@@ -99,20 +99,20 @@ class Debugger():
         # q1_value = self.ac.q1(o,a)
         # q2_value = self.ac.q2(o,a)
 
-        # if log_p is not None:
-        #     self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
-        #     # self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug.detach().cpu())
-        #     # self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug.detach().cpu())
-        #     self.episodes_information[-1]['logp_normal'].append(self.ac.pi.logp_normal_debug.detach().item())
-        #     self.episodes_information[-1]['logp_svgd'].append(self.ac.pi.logp_svgd_debug.detach().item())
-        #     self.episodes_information[-1]['logp_tanh'].append(self.ac.pi.logp_tanh_debug.detach().item())
+        if log_p is not None:
+            self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
+            # self.episodes_information[-1]['term1'].append(self.ac.pi.term1_debug.detach().cpu())
+            # self.episodes_information[-1]['term2'].append(self.ac.pi.term2_debug.detach().cpu())
+            self.episodes_information[-1]['logp_normal'].append(self.ac.pi.logp_normal_debug.detach().item())
+            self.episodes_information[-1]['logp_svgd'].append(self.ac.pi.logp_svgd_debug.detach().item())
+            self.episodes_information[-1]['logp_tanh'].append(self.ac.pi.logp_tanh_debug.detach().item())
             # self.episodes_information[-1]['logp_toy_line1'].append(self.ac.pi.logp_line1.mean().cpu().detach().item())
             # self.episodes_information[-1]['logp_toy_line2'].append(self.ac.pi.logp_line2.mean().cpu().detach().item())
             # self.episodes_information[-1]['logp_toy_line4'].append(self.ac.pi.logp_line4.mean().cpu().detach().item())
             # self.episodes_information[-1]['logp_wrong'].append(self.ac.pi.logp_wrong.mean().cpu().detach().item())
 
-        # if self.env_name in ['Hopper-v2'] and robot_pic_rgb is not None:
-        #     self.episodes_information[-1]['next_state_rgb'].append(robot_pic_rgb.tolist())
+        if self.env_name in ['Hopper-v2'] and robot_pic_rgb is not None:
+            self.episodes_information[-1]['next_state_rgb'].append(robot_pic_rgb.tolist())
 
 
 
@@ -133,9 +133,9 @@ class Debugger():
 
 
 
-        # if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-        #     self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
-        #     self.episodes_information[-1]['sigma'].append(self.ac.pi.sigma.detach().cpu().numpy())
+        if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            self.episodes_information[-1]['mu'].append(self.ac.pi.mu.detach().cpu().numpy())
+            self.episodes_information[-1]['sigma'].append(self.ac.pi.sigma.detach().cpu().numpy())
         
         # if self.ac.pi.actor in ['svgd_nonparam', 'svgd_p0_pram']:
         #     self.episodes_information[-1]['diff_p0_p'].append(torch.linalg.norm(self.ac.pi.a - self.ac.pi.a0_debbug, dim=2).mean().cpu().detach().item())
@@ -148,9 +148,9 @@ class Debugger():
         #     hess_q_mat = torch.stack([torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0], torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0]]).squeeze()
         #     hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0]) + torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
         #     self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
-        #     # import pdb; pdb.set_trace()
-        #     self.episodes_information[-1]['q_hess_mat'].append(hess_q_mat.detach().cpu().numpy())
-        #     self.episodes_information[-1]['max_eigenval'].append(torch.max(torch.linalg.eigvals(hess_q_mat).real).detach().cpu().item())
+            # # import pdb; pdb.set_trace()
+            # self.episodes_information[-1]['q_hess_mat'].append(hess_q_mat.detach().cpu().numpy())
+            # self.episodes_information[-1]['max_eigenval'].append(torch.max(torch.linalg.eigvals(hess_q_mat).real).detach().cpu().item())
         # self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
         # self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
 
@@ -470,36 +470,36 @@ class Debugger():
 
     def log_to_tensorboard(self, itr):
         # related to the modes
-        # if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
-        #     self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
-        #     self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
-        #     self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_' + str(i): self.test_env.number_of_hits_mode_acc[i] for i in range(self.test_env.num_goals)}, itr)
-        #     # elif self.env_name == 'Multigoal':
-        #     #     self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_0': self.test_env.number_of_hits_mode_acc[0], 'mode_1': self.test_env.number_of_hits_mode_acc[1], 'mode_2': self.test_env.number_of_hits_mode_acc[2], 'mode_3': self.test_env.number_of_hits_mode_acc[3]}, itr)
-        #     for ind in range(self.test_env.num_goals):
-        #         self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+            self.tb_logger.add_scalar('modes/num_modes',(self.test_env.number_of_hits_mode>0).sum(), itr)
+            self.tb_logger.add_scalar('modes/total_number_of_hits_mode',self.test_env.number_of_hits_mode.sum(), itr)
+            self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_' + str(i): self.test_env.number_of_hits_mode_acc[i] for i in range(self.test_env.num_goals)}, itr)
+            # elif self.env_name == 'Multigoal':
+            #     self.tb_logger.add_scalars('modes/hits_mode_accurate',{'mode_0': self.test_env.number_of_hits_mode_acc[0], 'mode_1': self.test_env.number_of_hits_mode_acc[1], 'mode_2': self.test_env.number_of_hits_mode_acc[2], 'mode_3': self.test_env.number_of_hits_mode_acc[3]}, itr)
+            for ind in range(self.test_env.num_goals):
+                self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
 
             
-        # if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor != 'svgd_sql':
-        #     feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
-        #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
+        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor != 'svgd_sql':
+            feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
+            self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
 
-        #     feed_dict = {'goal_' + str(i): self.average_cumulative_entropy[i] for i in range(self.test_env.num_goals)}
-        #     self.tb_logger.add_scalars('Entropy/max_entropy_env_CumulEntropies',  feed_dict, itr)
-        #     ########################################################################################################################################################
-            # if self.env_name in ['max-entropy-v0']:
-            #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Paths', {f'path_{i + 1}': self.test_env.paths[i] for i in range(len(self.test_env.paths))}, itr)
-            #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Failures', {'goal_1': self.train_env.failures[0], 'goal_2': self.train_env.failures[1]}, itr)
+            feed_dict = {'goal_' + str(i): self.average_cumulative_entropy[i] for i in range(self.test_env.num_goals)}
+            self.tb_logger.add_scalars('Entropy/max_entropy_env_CumulEntropies',  feed_dict, itr)
+            ########################################################################################################################################################
+            if self.env_name in ['max-entropy-v0']:
+                self.tb_logger.add_scalars('Entropy/max_entropy_env_Paths', {f'path_{i + 1}': self.test_env.paths[i] for i in range(len(self.test_env.paths))}, itr)
+                self.tb_logger.add_scalars('Entropy/max_entropy_env_Failures', {'goal_1': self.train_env.failures[0], 'goal_2': self.train_env.failures[1]}, itr)
 
-                # if self.ac.pi.actor == 'sac':
-                #     feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
-                #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_x',  feed_dict, itr)
-                #     feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
-                #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_y',  feed_dict, itr)
-                #     feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
-                #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_x',  feed_dict, itr)
-                #     feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
-                #     self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_y',  feed_dict, itr)
+                if self.ac.pi.actor == 'sac':
+                    feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
+                    self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_x',  feed_dict, itr)
+                    feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.mean_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
+                    self.tb_logger.add_scalars('Entropy/max_entropy_env_Means_y',  feed_dict, itr)
+                    feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_x[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
+                    self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_x',  feed_dict, itr)
+                    feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.sigma_list_y[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
+                    self.tb_logger.add_scalars('Entropy/max_entropy_env_Sigmas_y',  feed_dict, itr)
             
 
             # if self.env_name in ['max-entropy-v0']:
@@ -536,39 +536,39 @@ class Debugger():
             ########################################################################################################################################################
 
         
-            # if self.env_name in ['multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
-            #     feed_dict = {}
-            #     o = torch.tensor(self.test_env._obs_lst[3].astype(np.float32)).to(self.ac.pi.device)
-            #     left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
-            #     topleft = torch.from_numpy(np.array([-1, 0.75]).astype(np.float32)).to(self.ac.pi.device)
-            #     bottomleft = torch.from_numpy(np.array([-1, -0.75]).astype(np.float32)).to(self.ac.pi.device)
-            #     # topleft = torch.from_numpy(np.array([-1, 0.4364186]).astype(np.float32)).to(self.ac.pi.device)
-            #     # bottomleft = torch.from_numpy(np.array([-1, -0.4364186]).astype(np.float32)).to(self.ac.pi.device)
-            #     # topleft = torch.from_numpy(np.array([-0.4364186, 1]).astype(np.float32)).to(self.ac.pi.device)
-            #     # bottomleft = torch.from_numpy(np.array([-0.4364186, -1]).astype(np.float32)).to(self.ac.pi.device)
-            #     right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
-            #     feed_dict[self.test_env.entropy_obs_names[3] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
-            #     feed_dict[self.test_env.entropy_obs_names[3] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
-            #     feed_dict[self.test_env.entropy_obs_names[3] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
-            #     feed_dict[self.test_env.entropy_obs_names[3] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
+            if self.env_name in ['multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+                feed_dict = {}
+                o = torch.tensor(self.test_env._obs_lst[3].astype(np.float32)).to(self.ac.pi.device)
+                left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
+                topleft = torch.from_numpy(np.array([-1, 0.75]).astype(np.float32)).to(self.ac.pi.device)
+                bottomleft = torch.from_numpy(np.array([-1, -0.75]).astype(np.float32)).to(self.ac.pi.device)
+                # topleft = torch.from_numpy(np.array([-1, 0.4364186]).astype(np.float32)).to(self.ac.pi.device)
+                # bottomleft = torch.from_numpy(np.array([-1, -0.4364186]).astype(np.float32)).to(self.ac.pi.device)
+                # topleft = torch.from_numpy(np.array([-0.4364186, 1]).astype(np.float32)).to(self.ac.pi.device)
+                # bottomleft = torch.from_numpy(np.array([-0.4364186, -1]).astype(np.float32)).to(self.ac.pi.device)
+                right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
+                feed_dict[self.test_env.entropy_obs_names[3] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[3] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
                 
-            #     o = torch.tensor(self.test_env._obs_lst[2].astype(np.float32)).to(self.ac.pi.device)
-            #     left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
-            #     topleft = torch.from_numpy(np.array([-1, 1]).astype(np.float32)).to(self.ac.pi.device)
-            #     bottomleft = torch.from_numpy(np.array([-1, -1]).astype(np.float32)).to(self.ac.pi.device)
-            #     # topleft = torch.from_numpy(np.array([-1, 0.5582575]).astype(np.float32)).to(self.ac.pi.device)
-            #     # bottomleft = torch.from_numpy(np.array([-1, -0.5582575]).astype(np.float32)).to(self.ac.pi.device)
-            #     # topleft = torch.from_numpy(np.array([-0.3273268, 1]).astype(np.float32)).to(self.ac.pi.device)
-            #     # bottomleft = torch.from_numpy(np.array([-0.3273268, -1]).astype(np.float32)).to(self.ac.pi.device)
-            #     feed_dict[self.test_env.entropy_obs_names[2] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
-            #     feed_dict[self.test_env.entropy_obs_names[2] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
-            #     feed_dict[self.test_env.entropy_obs_names[2] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
+                o = torch.tensor(self.test_env._obs_lst[2].astype(np.float32)).to(self.ac.pi.device)
+                left = torch.from_numpy(np.array([-1, 0]).astype(np.float32)).to(self.ac.pi.device)
+                topleft = torch.from_numpy(np.array([-1, 1]).astype(np.float32)).to(self.ac.pi.device)
+                bottomleft = torch.from_numpy(np.array([-1, -1]).astype(np.float32)).to(self.ac.pi.device)
+                # topleft = torch.from_numpy(np.array([-1, 0.5582575]).astype(np.float32)).to(self.ac.pi.device)
+                # bottomleft = torch.from_numpy(np.array([-1, -0.5582575]).astype(np.float32)).to(self.ac.pi.device)
+                # topleft = torch.from_numpy(np.array([-0.3273268, 1]).astype(np.float32)).to(self.ac.pi.device)
+                # bottomleft = torch.from_numpy(np.array([-0.3273268, -1]).astype(np.float32)).to(self.ac.pi.device)
+                feed_dict[self.test_env.entropy_obs_names[2] + '_topleft'] = torch.min(self.ac.q1(o, topleft), self.ac.q2(o, topleft)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[2] + '_left'] = torch.min(self.ac.q1(o, left), self.ac.q2(o, left)).detach().cpu().item()
+                feed_dict[self.test_env.entropy_obs_names[2] + '_bottomleft'] = torch.min(self.ac.q1(o, bottomleft), self.ac.q2(o, bottomleft)).detach().cpu().item()
 
-            #     o = torch.tensor(self.test_env._obs_lst[4].astype(np.float32)).to(self.ac.pi.device)
-            #     right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
-            #     feed_dict[self.test_env.entropy_obs_names[4] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
+                o = torch.tensor(self.test_env._obs_lst[4].astype(np.float32)).to(self.ac.pi.device)
+                right = torch.from_numpy(np.array([1, 0]).astype(np.float32)).to(self.ac.pi.device)
+                feed_dict[self.test_env.entropy_obs_names[4] + '_right'] = torch.min(self.ac.q1(o, right), self.ac.q2(o, right)).detach().cpu().item()
 
-            #     self.tb_logger.add_scalars('Entropy/max_entropy_env_q_values',  feed_dict, itr)
+                self.tb_logger.add_scalars('Entropy/max_entropy_env_q_values',  feed_dict, itr)
                 
             # if self.env_name == 'max-entropy-v0':
             #     for s in range(self.env_max_steps - 1):
@@ -634,25 +634,25 @@ class Debugger():
         #     #     self.debugging_counter += 1
 
 
-        # if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
-        #     feed_dict_mu_x = {}
-        #     feed_dict_mu_y = {}
-        #     feed_dict_sigma_x = {}
-        #     feed_dict_sigma_y = {}
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+            feed_dict_mu_x = {}
+            feed_dict_mu_y = {}
+            feed_dict_sigma_x = {}
+            feed_dict_sigma_y = {}
 
-        #     for i in range(len(self.test_env._obs_lst)):
+            for i in range(len(self.test_env._obs_lst)):
                 
-        #         o = torch.as_tensor(self.test_env._obs_lst[i], dtype=torch.float32).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0]).to(self.ac.pi.device)
-        #         actions, _ = self.ac(o, action_selection=None, with_logprob=False)
-        #         mu, sigma = self.ac.pi.mu, self.ac.pi.sigma
-        #         feed_dict_mu_x[self.test_env.entropy_obs_names[i]] = mu[0][0]
-        #         feed_dict_mu_y[self.test_env.entropy_obs_names[i]] = mu[0][1]
-        #         feed_dict_sigma_x[self.test_env.entropy_obs_names[i]] = sigma[0][0]
-        #         feed_dict_sigma_y[self.test_env.entropy_obs_names[i]] = sigma[0][1]
-        #     self.tb_logger.add_scalars('Entropy/mean_x',  feed_dict_mu_x, itr)
-        #     self.tb_logger.add_scalars('Entropy/mean_y',  feed_dict_mu_y, itr)
-        #     self.tb_logger.add_scalars('Entropy/std_x',  feed_dict_sigma_x, itr)
-        #     self.tb_logger.add_scalars('Entropy/std_y',  feed_dict_sigma_y, itr)
+                o = torch.as_tensor(self.test_env._obs_lst[i], dtype=torch.float32).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0]).to(self.ac.pi.device)
+                actions, _ = self.ac(o, action_selection=None, with_logprob=False)
+                mu, sigma = self.ac.pi.mu, self.ac.pi.sigma
+                feed_dict_mu_x[self.test_env.entropy_obs_names[i]] = mu[0][0]
+                feed_dict_mu_y[self.test_env.entropy_obs_names[i]] = mu[0][1]
+                feed_dict_sigma_x[self.test_env.entropy_obs_names[i]] = sigma[0][0]
+                feed_dict_sigma_y[self.test_env.entropy_obs_names[i]] = sigma[0][1]
+            self.tb_logger.add_scalars('Entropy/mean_x',  feed_dict_mu_x, itr)
+            self.tb_logger.add_scalars('Entropy/mean_y',  feed_dict_mu_y, itr)
+            self.tb_logger.add_scalars('Entropy/std_x',  feed_dict_sigma_x, itr)
+            self.tb_logger.add_scalars('Entropy/std_y',  feed_dict_sigma_y, itr)
 
 
 
@@ -1129,83 +1129,83 @@ class Debugger():
     #                 self._line_objects += self._ax_lst[0].plot(x, y, c=color)
     #         plt.savefig(fig_path+ '/svgd_episode_' + str(episode_step) + '_step_' + str(self.episodes_information_svgd[-1]['step'][episode_step]) + '.' + self.plot_format)
 
-    # def entropy_plot(self):
-    #     if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy']:
-    #         log_p = []
-    #         term1 = []
-    #         term2 = []
-    #         logp_normal = []
-    #         logp_svgd = []
-    #         logp_tanh = []
-    #         mu = []
-    #         sigma = []
-    #         # logp_toy_line1 = []
-    #         # logp_toy_line2 = []
-    #         # logp_toy_line4 = []
-    #         # logp_wrong = []
-    #         for indx, i in enumerate([0, 10, 25]):
-    #             if len(self.episodes_information[-1]['log_p']) > i+1:
-    #                 log_p.append(self.episodes_information[-1]['log_p'][i])
-    #                 mu.append(np.absolute(self.episodes_information[-1]['mu'][i]).mean())
-    #                 sigma.append(np.absolute(self.episodes_information[-1]['sigma'][i]).mean())
+    def entropy_plot(self):
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Multigoal', 'multigoal-max-entropy']:
+            log_p = []
+            term1 = []
+            term2 = []
+            logp_normal = []
+            logp_svgd = []
+            logp_tanh = []
+            mu = []
+            sigma = []
+            # logp_toy_line1 = []
+            # logp_toy_line2 = []
+            # logp_toy_line4 = []
+            # logp_wrong = []
+            for indx, i in enumerate([0, 10, 25]):
+                if len(self.episodes_information[-1]['log_p']) > i+1:
+                    log_p.append(self.episodes_information[-1]['log_p'][i])
+                    mu.append(np.absolute(self.episodes_information[-1]['mu'][i]).mean())
+                    sigma.append(np.absolute(self.episodes_information[-1]['sigma'][i]).mean())
 
-    #                 # term1.append(self.episodes_information[-1]['term1'][i])
-    #                 # term2.append(self.episodes_information[-1]['term2'][i])
-    #                 logp_normal.append(self.episodes_information[-1]['logp_normal'][i])
-    #                 logp_svgd.append(self.episodes_information[-1]['logp_svgd'][i])
-    #                 logp_tanh.append(self.episodes_information[-1]['logp_tanh'][i])
-    #                 # logp_toy_line1.append(self.episodes_information[-1]['logp_toy_line1'][i])
-    #                 # logp_toy_line2.append(self.episodes_information[-1]['logp_toy_line2'][i])
-    #                 # logp_toy_line4.append(self.episodes_information[-1]['logp_toy_line4'][i])
-    #                 # logp_wrong.append(self.episodes_information[-1]['logp_wrong'][i])
-    #         if len(log_p) == 3:
-    #             # print('############################# ', (len(self.episodes_information)- 1))
-    #             # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1], 'step_25': log_p[2]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1], 'step_25': term1[2]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1], 'step_25': term2[2]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1], 'step_25': logp_normal[2]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1], 'step_25': logp_svgd[2]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1], 'step_25': logp_tanh[2]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0], 'step_10': mu[1], 'step_25': mu[2]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0], 'step_10': sigma[1], 'step_25': sigma[2]}, itr=self.episode_counter)
+                    # term1.append(self.episodes_information[-1]['term1'][i])
+                    # term2.append(self.episodes_information[-1]['term2'][i])
+                    logp_normal.append(self.episodes_information[-1]['logp_normal'][i])
+                    logp_svgd.append(self.episodes_information[-1]['logp_svgd'][i])
+                    logp_tanh.append(self.episodes_information[-1]['logp_tanh'][i])
+                    # logp_toy_line1.append(self.episodes_information[-1]['logp_toy_line1'][i])
+                    # logp_toy_line2.append(self.episodes_information[-1]['logp_toy_line2'][i])
+                    # logp_toy_line4.append(self.episodes_information[-1]['logp_toy_line4'][i])
+                    # logp_wrong.append(self.episodes_information[-1]['logp_wrong'][i])
+            if len(log_p) == 3:
+                # print('############################# ', (len(self.episodes_information)- 1))
+                # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1], 'step_25': log_p[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1], 'step_25': term1[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1], 'step_25': term2[2]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1], 'step_25': logp_normal[2]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1], 'step_25': logp_svgd[2]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1], 'step_25': logp_tanh[2]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0], 'step_10': mu[1], 'step_25': mu[2]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0], 'step_10': sigma[1], 'step_25': sigma[2]}, itr=self.episode_counter)
 
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1], 'step_25': logp_toy_line1[2]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1], 'step_25': logp_toy_line2[2]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1], 'step_25': logp_toy_line4[2]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1], 'step_25': logp_wrong[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1], 'step_25': logp_toy_line1[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1], 'step_25': logp_toy_line2[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1], 'step_25': logp_toy_line4[2]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1], 'step_25': logp_wrong[2]}, itr=self.episode_counter)
 
 
-    #         elif len(log_p) == 2:
-    #             # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0], 'step_10': mu[1]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0], 'step_10': sigma[1]}, itr=self.episode_counter)
+            elif len(log_p) == 2:
+                # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0], 'step_10': log_p[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0], 'step_10': term1[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0], 'step_10': term2[1]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0], 'step_10': logp_normal[1]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0], 'step_10': logp_svgd[1]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0], 'step_10': logp_tanh[1]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0], 'step_10': mu[1]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0], 'step_10': sigma[1]}, itr=self.episode_counter)
 
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0], 'step_10': logp_toy_line1[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0], 'step_10': logp_toy_line2[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0], 'step_10': logp_toy_line4[1]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0], 'step_10': logp_wrong[1]}, itr=self.episode_counter)
 
-    #         elif len(log_p) == 1:
-    #             # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0]}, itr=self.episode_counter)
-    #             self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0]}, itr=self.episode_counter)
+            elif len(log_p) == 1:
+                # self.add_scalars(tb_path='Entropy/entropy', value={'step_0': log_p[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term1', value={'step_0': term1[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/term2', value={'step_0': term2[0]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_normal', value={'step_0': logp_normal[0]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_svgd', value={'step_0': logp_svgd[0]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/logp_tanh', value={'step_0': logp_tanh[0]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/mu', value={'step_0': mu[0]}, itr=self.episode_counter)
+                self.add_scalars(tb_path='Entropy/sigma', value={'step_0': sigma[0]}, itr=self.episode_counter)
 
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0]}, itr=self.episode_counter)
-    #             # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line1', value={'step_0': logp_toy_line1[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line2', value={'step_0': logp_toy_line2[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_toy_line4', value={'step_0': logp_toy_line4[0]}, itr=self.episode_counter)
+                # self.add_scalars(tb_path='Entropy/logp_wrong', value={'step_0': logp_wrong[0]}, itr=self.episode_counter)
 
-    #         self.episode_counter += 1
+            self.episode_counter += 1
 
 
     # def entropy_plot_v2(self):

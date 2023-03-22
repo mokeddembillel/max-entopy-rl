@@ -76,9 +76,9 @@ class ActorSvgd(torch.nn.Module):
         logp = 0
         # self.term1_debug = 0
         # self.term2_debug = 0
-        # # self.x_t = [a.detach().cpu().numpy().tolist()]
-        # self.phis = []
-        # self.score_funcs = []
+        self.x_t = [a.detach().cpu().numpy().tolist()]
+        self.phis = []
+        self.score_funcs = []
         q_s_a = None
 
         # @profile
@@ -127,9 +127,9 @@ class ActorSvgd(torch.nn.Module):
                 # import pdb; pdb.set_trace()
                 a = self.svgd_optim(a, phi_, dq)
                 # Collect Data for debugging
-                # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
-                # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
-                # self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
+                self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
+                self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+                self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
                 dq_norm = torch.norm(dq.detach(), dim=-1).mean().cpu().item()
                 
                 self.steps_debug += 1
@@ -230,12 +230,12 @@ class ActorSvgd(torch.nn.Module):
             # logp_wrong_a = (logp_normal + logp_wrong + logp_tanh).mean(-1)
             
 
-            # self.logp_normal_debug = logp_normal.mean()
-            # try:
-            #     self.logp_svgd_debug = logp_svgd.mean()
-            # except:
-            #     self.logp_svgd_debug = torch.tensor(0)
-            # self.logp_tanh_debug = logp_tanh_2.mean()
+            self.logp_normal_debug = logp_normal.mean()
+            try:
+                self.logp_svgd_debug = logp_svgd.mean()
+            except:
+                self.logp_svgd_debug = torch.tensor(0)
+            self.logp_tanh_debug = logp_tanh_2.mean()
             # except:
             #     import pdb; pdb.set_trace()
         a = self.act_limit * torch.tanh(a) 
