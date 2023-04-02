@@ -15,8 +15,7 @@ import timeit
 
 class MaxEntrRL():
     def __init__(self, train_env, test_env, env, actor, critic_kwargs=AttrDict(), actor_kwargs=AttrDict(), device="cuda",   
-        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None, fig_path=None):
-        self.fig_path = fig_path
+        RL_kwargs=AttrDict(), optim_kwargs=AttrDict(), tb_logger=None):
         self.env_name = env
         self.actor = actor 
         self.device = device
@@ -55,7 +54,7 @@ class MaxEntrRL():
 
         # Count variables (protip: try to get a feel for how different size networks behave!)
         # var_counts = tuple(count_vars(module) for module in [self.ac.pi, self.ac.q1, self.ac.q2])
-        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes, self.RL_kwargs.alpha, self.RL_kwargs.max_steps, self.RL_kwargs.max_experiment_steps)
+        self.debugger = Debugger(tb_logger, self.ac, self.env_name, self.env, self.test_env, self.RL_kwargs.plot_format, self.RL_kwargs.update_after, self.RL_kwargs.num_test_episodes, self.RL_kwargs.alpha_c, self.RL_kwargs.alpha_a, self.RL_kwargs.max_steps, self.RL_kwargs.max_experiment_steps)
 
         self.evaluation_data = AttrDict()
         self.evaluation_data['train_episodes_return'] = []
@@ -82,21 +81,21 @@ class MaxEntrRL():
             
             if self.actor == 'svgd_sql':
                 q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-                V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ / self.RL_kwargs.alpha, dim=-1)
-                # V_soft_ = self.RL_kwargs.alpha * torch.logsumexp(q_pi_targ, dim=-1)
-                V_soft_ += self.RL_kwargs.alpha * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
+                V_soft_ = self.RL_kwargs.alpha_c * torch.logsumexp(q_pi_targ / self.RL_kwargs.alpha_c, dim=-1)
+                # V_soft_ = self.RL_kwargs.alpha_c * torch.logsumexp(q_pi_targ, dim=-1)
+                V_soft_ += self.RL_kwargs.alpha_c * (self.act_dim * np.log(2) - np.log(self.ac.pi.num_particles))
                 # V_soft_ += (self.act_dim * np.log(2))
                 backup = r + self.RL_kwargs.gamma * (1 - d) * V_soft_
                 self.debugger.add_scalars('Q_target/',  {'r ': r.mean(), 'V_soft': (self.RL_kwargs.gamma * (1 - d) * V_soft_).mean(), 'backup': backup.mean()}, itr)
             else:
                 ### option 1
                 q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha * logp_a2)  
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha_c * logp_a2)  
                 ### option 2    
                 # q_pi_targ = torch.min(q1_pi_targ.mean(-1), q2_pi_targ.mean(-1))
-                # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha * logp_a2)      
+                # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha_c * logp_a2)      
                 self.debugger.add_scalars('Q_target/',  {'r': r.mean(), 'Q': (self.RL_kwargs.gamma * (1 - d) * q_pi_targ.mean(-1)).mean(),\
-                    'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
+                    'entropy': (self.RL_kwargs.gamma * (1 - d) * self.RL_kwargs.alpha_c * logp_a2).mean(), 'backup': backup.mean(), 'pure_entropy':logp_a2.mean()}, itr)
                 # self.debugger.add_scalar('Training_Entropy', logp_a2.mean())
 
         # MSE loss against Bellman backup
@@ -144,11 +143,11 @@ class MaxEntrRL():
             loss_pi = -a_updated
             grad_loss_pi = a_grad
         else:
-            # loss_pi = (self.RL_kwargs.alpha * logp_pi - q_pi).mean()
+            loss_pi = (self.RL_kwargs.alpha_a * logp_pi - q_pi).mean()
             # loss_pi = (10 * logp_pi - q_pi).mean()
-            loss_pi = (5 * logp_pi - q_pi).mean()
+            # loss_pi = (5 * logp_pi - q_pi).mean()
             grad_loss_pi = None
-            self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
+            self.debugger.add_scalars('Loss_pi',  {'logp_pi ': (self.RL_kwargs.alpha_a * logp_pi).mean(), 'q_pi': -q_pi.mean(), 'total': loss_pi  }, itr)
             
         return loss_pi, grad_loss_pi
 
@@ -260,7 +259,7 @@ class MaxEntrRL():
                 # import pdb; pdb.set_trace()
                 
                 # if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
-                self.debugger.collect_data(o.detach().cpu().numpy().squeeze(), a.detach().cpu().numpy().squeeze(), o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
+                self.debugger.collect_data(o, a, o2, r, d, log_p, itr, ep_len, robot_pic_rgb=robot_pic_rgb)    
                 
                 ep_ret += r
                 ep_len += 1
@@ -283,9 +282,9 @@ class MaxEntrRL():
          
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
         
-            self.test_env.render(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
-            # self.test_env.render_paper(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot, ac=self.ac, paths=self.replay_buffer.paths)
-            self.debugger.plot_policy(itr=itr, fig_path=self.fig_path, plot=self.RL_kwargs.plot) # For multigoal only
+            # self.test_env.render(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
+            self.test_env.render_paper(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
+            self.debugger.plot_policy(itr=itr, fig_path=self.RL_kwargs.fig_path) # For multigoal only
 
 
         # print('############################# Finished')
@@ -305,7 +304,7 @@ class MaxEntrRL():
                 self.debugger.create_actions_components_plots(itr) # For multigoal only
         # else:
         #     if self.env_name in ['Hopper-v2']: 
-        #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.fig_path, fig_size=(18, 10))
+        #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.RL_kwargs.fig_path, fig_size=(18, 10))
 
             
 
@@ -353,7 +352,7 @@ class MaxEntrRL():
                 # if self.RL_kwargs.debugging and self.actor == 'svgd_nonparam':
                 #     self.debugger.collect_svgd_data(False, o, logp=logp)
                 #     # Plot all the particles
-                #     self.debugger.plot_svgd_particles_q_contours(self.fig_path)
+                #     self.debugger.plot_svgd_particles_q_contours(self.RL_kwargs.fig_path)
             else:
                 a = self.env.action_space.sample()
                 # Collect Data Here
@@ -430,5 +429,5 @@ class MaxEntrRL():
             step_itr += 1
         self.save_data()
         # if self.RL_kwargs.plot:
-        #     pdf_or_png_to_gif(self.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.collect_stats_after + self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
+        #     pdf_or_png_to_gif(self.RL_kwargs.fig_path + '/', 'env_', self.RL_kwargs.plot_format, self.RL_kwargs.collect_stats_after + self.RL_kwargs.stats_steps_freq, self.RL_kwargs.max_experiment_steps)
 

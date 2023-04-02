@@ -8,7 +8,7 @@ from mpl_toolkits.mplot3d import Axes3D
 
 
 class Debugger():
-    def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format, update_after, num_test_episodes, alpha, env_max_steps, max_experiment_steps):
+    def __init__(self, tb_logger, ac, env_name, train_env, test_env, plot_format, update_after, num_test_episodes, alpha_c, alpha_a, env_max_steps, max_experiment_steps):
         # Still need some improvements that i will do tomorrow
         self.ac = ac
         self.tb_logger = tb_logger
@@ -23,7 +23,8 @@ class Debugger():
         self.plot_format = plot_format
         self.plot_cumulative_entropy = update_after + 5000
         self.num_test_episodes = num_test_episodes
-        self.alpha = alpha
+        self.alpha_c = alpha_c
+        self.alpha_a = alpha_a
         self.boundary_action_counter = 0 
         self.boundary_all_actions_counter = 0 
         self.action_counter = 0 
@@ -84,20 +85,20 @@ class Debugger():
                 'q_hess_end': None, 
                 })
 
-        self.episodes_information[-1]['observations'].append(o)
+        self.episodes_information[-1]['observations'].append(o.detach().cpu().numpy().squeeze())
 
         if self.ac.pi.actor in ['svgd_nonparam', 'svgd_p0_pram']:
             self.episodes_information[-1]['actions'].append(self.ac.pi.a.detach().cpu().numpy().squeeze())
             # self.episodes_information[-1]['x_t'].append(np.array(self.ac.pi.x_t))
-        self.episodes_information[-1]['action'].append(a)
+        self.episodes_information[-1]['action'].append(a.detach().cpu().numpy().squeeze())
         self.episodes_information[-1]['rewards'].append(r)
 
         self.episodes_information[-1]['debug_steps'].append(self.ac.pi.steps_debug)
 
 
         # a.requires_grad = True
-        # q1_value = self.ac.q1(o,a)
-        # q2_value = self.ac.q2(o,a)
+        q1_value = self.ac.q1(o,a)
+        q2_value = self.ac.q2(o,a)
 
         if log_p is not None:
             self.episodes_information[-1]['log_p'].append(-log_p.detach().item())
@@ -142,17 +143,17 @@ class Debugger():
         # self.episodes_information[-1]['diff_st_st1'].append(np.linalg.norm(o2 - o.squeeze().cpu().detach().numpy()))
         # self.episodes_information[-1]['st_components'].append(o2)
 
-        # grad_q_ = torch.autograd.grad(torch.min(q1_value, q2_value), a, retain_graph=True, create_graph=True)[0].squeeze()
-        # self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().item())
-        # if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
-        #     hess_q_mat = torch.stack([torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0], torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0]]).squeeze()
-        #     hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0]) + torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
-        #     self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
-            # # import pdb; pdb.set_trace()
-            # self.episodes_information[-1]['q_hess_mat'].append(hess_q_mat.detach().cpu().numpy())
-            # self.episodes_information[-1]['max_eigenval'].append(torch.max(torch.linalg.eigvals(hess_q_mat).real).detach().cpu().item())
-        # self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
-        # self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
+        self.episodes_information[-1]['q1_values'] = q1_value.detach().cpu().numpy()
+        self.episodes_information[-1]['q2_values'] = q2_value.detach().cpu().numpy()
+        grad_q_ = torch.autograd.grad(torch.min(q1_value, q2_value), a, retain_graph=True, create_graph=True)[0].squeeze()
+        self.episodes_information[-1]['q_score'].append(torch.abs(grad_q_).mean().detach().cpu().item())
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+            hess_q_mat = torch.stack([torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0], torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0]]).squeeze()
+            hess_q = ((torch.abs(torch.autograd.grad(grad_q_[0], a, retain_graph=True)[0]) + torch.abs(torch.autograd.grad(grad_q_[1], a, retain_graph=True)[0])).sum()/4)
+            self.episodes_information[-1]['q_hess'].append(hess_q.detach().cpu().item())
+            # import pdb; pdb.set_trace()
+            self.episodes_information[-1]['q_hess_mat'].append(hess_q_mat.detach().cpu().numpy())
+            self.episodes_information[-1]['max_eigenval'].append(torch.max(torch.linalg.eigvals(hess_q_mat).real).detach().cpu().item())
 
 
 
@@ -170,7 +171,7 @@ class Debugger():
         if ((ep_len + 1) >= self.env_max_steps) or d: 
             self.episodes_information[-1]['observations'].append(o2.squeeze())
             self.episodes_information[-1]['expected_reward'] = np.sum(self.episodes_information[-1]['rewards'])
-            self.episodes_information[-1]['episode_length'] = ep_len
+            self.episodes_information[-1]['episode_length'] = ep_len + 1
             if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
                 self.episodes_information[-1]['intersection'] = self.test_env.intersection
                 # if d == False:
@@ -185,15 +186,15 @@ class Debugger():
                     self.average_cumulative_entropy[self.test_env.min_dist_index] = ((self.cumulative_entropy_coutner[self.test_env.min_dist_index] - 1) * self.average_cumulative_entropy[self.test_env.min_dist_index] + np.array(self.episodes_information[-1]['log_p']).mean()) / (self.cumulative_entropy_coutner[self.test_env.min_dist_index])
                     # print('####################### ', self.average_cumulative_entropy)
 
-            # if ep_len >= 5:
-            #     self.episodes_information[-1]['q_score_start'] = np.mean(self.episodes_information[-1]['q_score'][:5])
-            #     self.episodes_information[-1]['q_hess_start'] = np.mean(self.episodes_information[-1]['q_hess'][:5])
-            # if ep_len >= 17:
-            #     self.episodes_information[-1]['q_score_mid'] = np.mean(self.episodes_information[-1]['q_score'][12:17])
-            #     self.episodes_information[-1]['q_hess_mid'] = np.mean(self.episodes_information[-1]['q_hess'][12:17])
-            # if ep_len >= 30:
-            #     self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:ep_len])
-            #     self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:ep_len])
+            if ep_len >= 5:
+                self.episodes_information[-1]['q_score_start'] = np.mean(self.episodes_information[-1]['q_score'][:5])
+                self.episodes_information[-1]['q_hess_start'] = np.mean(self.episodes_information[-1]['q_hess'][:5])
+            if ep_len >= 17:
+                self.episodes_information[-1]['q_score_mid'] = np.mean(self.episodes_information[-1]['q_score'][12:17])
+                self.episodes_information[-1]['q_hess_mid'] = np.mean(self.episodes_information[-1]['q_hess'][12:17])
+            if ep_len >= 30:
+                self.episodes_information[-1]['q_score_end'] = np.mean(self.episodes_information[-1]['q_score'][25:ep_len])
+                self.episodes_information[-1]['q_hess_end'] = np.mean(self.episodes_information[-1]['q_hess'][25:ep_len])
     
     # def create_entropy_plots(self, itr):
     #     if self.env_name in ['Hopper-v2', 'Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor in ['svgd_nonparam'] and ((itr + 1)%64000 == 0 or itr == self.max_experiment_steps):
@@ -255,9 +256,9 @@ class Debugger():
                 
 
          
-    def plot_policy(self, itr, fig_path, plot, num_agents=1):
+    def plot_policy(self, itr, fig_path, num_agents=1):
         num_agents = self.num_test_episodes
-        if plot and self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
             ax = self.test_env._init_plot(x_size=7, y_size=7, grid_size=(1,1), debugging=True)
 
             cats_success = np.zeros((3,))
@@ -480,7 +481,7 @@ class Debugger():
                 self.tb_logger.add_scalar('modes/prob_mod_'+str(ind),self.test_env.number_of_hits_mode[ind]/self.test_env.number_of_hits_mode.sum() if self.test_env.number_of_hits_mode.sum() != 0 else 0.0, itr)
 
             
-        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor != 'svgd_sql':
+        if self.env_name in ['max-entropy-v0','multigoal-max-entropy', 'multigoal-max-entropy-obstacles'] and self.ac.pi.actor != 'svgd_sql' and self.test_env.entropy_list is not None:
             feed_dict = {str(self.test_env.entropy_obs_names[i]): self.test_env.entropy_list[i] for i in range(self.test_env.entropy_obs_names.shape[0])}
             self.tb_logger.add_scalars('Entropy/max_entropy_env_Entropies',  feed_dict, itr)
 
@@ -673,47 +674,47 @@ class Debugger():
         # if self.ac.pi.actor in ['svgd_nonparam', 'svgd_p0_pram']:
         #     self.tb_logger.add_scalars('actions/action_boundry', {'all_particles': self.boundary_action_counter/self.action_counter, 'actions': self.boundary_all_actions_counter/self.action_counter}, itr)
             
-        # q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))
-        # q_score_mean = list(map(lambda x: x.mean(), q_score_))
-        # q_score_min = list(map(lambda x: x.min(), q_score_))
-        # q_score_max = list(map(lambda x: x.max(), q_score_))
-        # self.tb_logger.add_scalars('smoothness/q_score_detailed',  {'Mean ': np.mean(q_score_mean), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
-        # self.tb_logger.add_scalars('smoothness/q_score_mean_only',  {'Mean ': np.mean(q_score_mean)}, itr)
-        # q_score_averaged = []
+        q_score_ = list(map(lambda x: np.stack(x['q_score']), self.episodes_information))
+        q_score_mean = list(map(lambda x: x.mean(), q_score_))
+        q_score_min = list(map(lambda x: x.min(), q_score_))
+        q_score_max = list(map(lambda x: x.max(), q_score_))
+        self.tb_logger.add_scalars('smoothness/q_score_detailed',  {'Mean ': np.mean(q_score_mean), 'Min': np.mean(q_score_min), 'Max': np.mean(q_score_max)  }, itr)
+        self.tb_logger.add_scalars('smoothness/q_score_mean_only',  {'Mean ': np.mean(q_score_mean)}, itr)
+        q_score_averaged = []
 
-        # for i in ['_start', '_mid', '_end']:
-        #     q_score_i = np.array(list(map(lambda x: x['q_score' + i], self.episodes_information)))
-        #     q_score_averaged.append(np.mean(q_score_i[q_score_i != np.array(None)]))
-        # self.tb_logger.add_scalars('smoothness/q_score_averaged',  {'Start ': q_score_averaged[0], 'Mid': q_score_averaged[1], 'End': q_score_averaged[2] }, itr)
+        for i in ['_start', '_mid', '_end']:
+            q_score_i = np.array(list(map(lambda x: x['q_score' + i], self.episodes_information)))
+            q_score_averaged.append(np.mean(q_score_i[q_score_i != np.array(None)]))
+        self.tb_logger.add_scalars('smoothness/q_score_averaged',  {'Start ': q_score_averaged[0], 'Mid': q_score_averaged[1], 'End': q_score_averaged[2] }, itr)
 
-        # if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
+        if self.env_name in ['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles']:
 
-        #     q_hess_ = list(map(lambda x: np.stack(x['q_hess']), self.episodes_information))
-        #     q_hess_mean = list(map(lambda x: x.mean(), q_hess_))
-        #     q_hess_min = list(map(lambda x: x.min(), q_hess_))
-        #     q_hess_max = list(map(lambda x: x.max(), q_hess_))
+            q_hess_ = list(map(lambda x: np.stack(x['q_hess']), self.episodes_information))
+            q_hess_mean = list(map(lambda x: x.mean(), q_hess_))
+            q_hess_min = list(map(lambda x: x.min(), q_hess_))
+            q_hess_max = list(map(lambda x: x.max(), q_hess_))
 
-        #     q_eigenvals = list(map(lambda x: np.stack(x['max_eigenval']), self.episodes_information))
-        #     q_eigenvals_min = list(map(lambda x: x.min(), q_eigenvals))
-        #     q_eigenvals_mean = list(map(lambda x: x.mean(), q_eigenvals))
-        #     q_eigenvals_max = list(map(lambda x: x.max(), q_eigenvals))
-        #     q_eigenvals_abs_min = list(map(lambda x: np.absolute(x).min(), q_eigenvals))
-        #     q_eigenvals_abs_mean = list(map(lambda x: np.absolute(x).mean(), q_eigenvals))
-        #     q_eigenvals_abs_max = list(map(lambda x: np.absolute(x).max(), q_eigenvals))
-
+            q_eigenvals = list(map(lambda x: np.stack(x['max_eigenval']), self.episodes_information))
+            q_eigenvals_min = list(map(lambda x: x.min(), q_eigenvals))
+            q_eigenvals_mean = list(map(lambda x: x.mean(), q_eigenvals))
+            q_eigenvals_max = list(map(lambda x: x.max(), q_eigenvals))
+            q_eigenvals_abs_min = list(map(lambda x: np.absolute(x).min(), q_eigenvals))
+            q_eigenvals_abs_mean = list(map(lambda x: np.absolute(x).mean(), q_eigenvals))
+            q_eigenvals_abs_max = list(map(lambda x: np.absolute(x).max(), q_eigenvals))
+            # print('########### ', np.mean(q_hess_mean))
         
 
-            # self.tb_logger.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess_mean), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
-            # self.tb_logger.add_scalars('smoothness/q_eigenvals', {'Mean ': np.mean(q_eigenvals_mean), 'Min': np.mean(q_eigenvals_min), 'Max': np.mean(q_eigenvals_max)  }, itr)
-            # self.tb_logger.add_scalars('smoothness/q_eigenvals_abs', {'Mean ': np.mean(q_eigenvals_abs_mean), 'Min': np.mean(q_eigenvals_abs_min), 'Max': np.mean(q_eigenvals_abs_max)  }, itr)
+            self.tb_logger.add_scalars('smoothness/q_hess', {'Mean ': np.mean(q_hess_mean), 'Min': np.mean(q_hess_min), 'Max': np.mean(q_hess_max)  }, itr)
+            self.tb_logger.add_scalars('smoothness/q_eigenvals', {'Mean ': np.mean(q_eigenvals_mean), 'Min': np.mean(q_eigenvals_min), 'Max': np.mean(q_eigenvals_max)  }, itr)
+            self.tb_logger.add_scalars('smoothness/q_eigenvals_abs', {'Mean ': np.mean(q_eigenvals_abs_mean), 'Min': np.mean(q_eigenvals_abs_min), 'Max': np.mean(q_eigenvals_abs_max)  }, itr)
             
-            # q_hess_averaged = []
+            q_hess_averaged = []
 
 
-            # for i in ['_start', '_mid', '_end']:
-            #     q_hess_i = np.array(list(map(lambda x: x['q_hess' + i], self.episodes_information)))
-            #     q_hess_averaged.append(np.mean(q_hess_i[q_hess_i != np.array(None)]))
-            # self.tb_logger.add_scalars('smoothness/q_hess_averaged', {'Start ': q_hess_averaged[0], 'Mid': q_hess_averaged[1], 'End': q_hess_averaged[2] }, itr)
+            for i in ['_start', '_mid', '_end']:
+                q_hess_i = np.array(list(map(lambda x: x['q_hess' + i], self.episodes_information)))
+                q_hess_averaged.append(np.mean(q_hess_i[q_hess_i != np.array(None)]))
+            self.tb_logger.add_scalars('smoothness/q_hess_averaged', {'Start ': q_hess_averaged[0], 'Mid': q_hess_averaged[1], 'End': q_hess_averaged[2] }, itr)
 
         
         debug_steps_min = np.stack(list(map(lambda x: np.array(x['debug_steps']).min(), self.episodes_information)))

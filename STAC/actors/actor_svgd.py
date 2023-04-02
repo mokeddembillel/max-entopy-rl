@@ -118,41 +118,41 @@ class ActorSvgd(torch.nn.Module):
             return phi, log_prob, score_func 
         
 
-        if self.num_svgd_steps =='while':
-            self.steps_debug = 0
-            prev_grad = 100000
-            while True:
-                phi_, q_s_a, dq = phi(a)
-                # print('PHI ################## ', phi_.detach().cpu().numpy())
-                # import pdb; pdb.set_trace()
-                a = self.svgd_optim(a, phi_, dq)
-                # Collect Data for debugging
-                self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
-                self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
-                self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
-                dq_norm = torch.norm(dq.detach(), dim=-1).mean().cpu().item()
+        # if self.num_svgd_steps =='while':
+        #     self.steps_debug = 0
+        #     prev_grad = 100000
+        #     while True:
+        #         phi_, q_s_a, dq = phi(a)
+        #         # print('PHI ################## ', phi_.detach().cpu().numpy())
+        #         # import pdb; pdb.set_trace()
+        #         a = self.svgd_optim(a, phi_, dq)
+        #         # Collect Data for debugging
+        #         self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
+        #         self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+        #         self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
+        #         dq_norm = torch.norm(dq.detach(), dim=-1).mean().cpu().item()
                 
-                self.steps_debug += 1
-                # print('Number of steps taken :, ', self.steps_debug, torch.norm(dq.detach(), dim=-1).mean().cpu().item())
-                if abs(prev_grad - dq_norm) < 0.005 or self.steps_debug == 500:
-                    break
-                prev_grad = dq_norm
+        #         self.steps_debug += 1
+        #         # print('Number of steps taken :, ', self.steps_debug, torch.norm(dq.detach(), dim=-1).mean().cpu().item())
+        #         if abs(prev_grad - dq_norm) < 0.005 or self.steps_debug == 500:
+        #             break
+        #         prev_grad = dq_norm
 
 
-            # if (a > self.act_limit).any():
-            #     break
-            #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
-            #print("t: ", t, " ", a[0])
-        else:
-            for t in range(self.num_svgd_steps):
-                phi_, q_s_a, dq = phi(a)
-                # print('PHI ################## ', phi_.detach().cpu().numpy())
-                # import pdb; pdb.set_trace()
-                a = self.svgd_optim(a, phi_, dq)
-                # Collect Data for debugging
-                # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
-                # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
-                # self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
+        #     # if (a > self.act_limit).any():
+        #     #     break
+        #     #a = torch.clamp(a, -self.act_limit, self.act_limit).detach()
+        #     #print("t: ", t, " ", a[0])
+        # else:
+        for t in range(self.num_svgd_steps):
+            phi_, q_s_a, dq = phi(a)
+            # print('PHI ################## ', phi_.detach().cpu().numpy())
+            # import pdb; pdb.set_trace()
+            a = self.svgd_optim(a, phi_, dq)
+            # Collect Data for debugging
+            # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
+            # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
+            # self.score_funcs.append(torch.norm(dq.detach(), dim=-1).mean().cpu().numpy().tolist())
 
             # if (a > self.act_limit).any():
             #     break
@@ -249,18 +249,17 @@ class ActorSvgd(torch.nn.Module):
             # print('random')
         elif action_selection == 'max':
             # print('max')
-            # if self.num_svgd_steps == 0:
-            #     q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-            #     q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-            #     q_s_a = torch.min(q_s_a1, q_s_a2)
-            #     q_s_a = q_s_a.view(-1, self.num_particles)
+            if self.num_svgd_steps == 0:
+                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+                q_s_a = torch.min(q_s_a1, q_s_a2)
             #     self.q_s_a_max = q_s_a.max()
             #     self.q_s_a_all = q_s_a
 
-            #     a_ = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
-            #     q_s_a1_ = self.q1(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
-            #     q_s_a2_ = self.q2(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
-            #     self.q_s_a_max_orig = torch.min(q_s_a1_, q_s_a2_)
+                a_ = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
+                # q_s_a1_ = self.q1(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
+                # q_s_a2_ = self.q2(obs[0].unsqueeze(0), a_.view(-1, self.act_dim))
+                # self.q_s_a_max_orig = torch.min(q_s_a1_, q_s_a2_)
                 
             q_s_a = q_s_a.view(-1, self.num_particles)
             # a = a_
@@ -269,10 +268,10 @@ class ActorSvgd(torch.nn.Module):
 
         elif action_selection == 'softmax':
             # print('softmax')
-            # if self.num_svgd_steps == 0:
-            #     q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
-            #     q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
-            #     q_s_a = torch.min(q_s_a1, q_s_a2)
+            if self.num_svgd_steps == 0:
+                q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))
+                q_s_a2 = self.q2(obs, a.view(-1, self.act_dim))
+                q_s_a = torch.min(q_s_a1, q_s_a2)
 
             q_s_a = q_s_a.view(-1, self.num_particles)
 

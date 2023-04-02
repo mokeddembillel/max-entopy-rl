@@ -16,7 +16,7 @@ class ActorSac(torch.nn.Module):
         self.test_action_selection = test_action_selection
         self.device = device 
         self.policy_net = MLPSquashedGaussian(obs_dim, act_dim, hidden_sizes, activation)
-
+        self.steps_debug = 0
 
     def log_prob(self, pi_distribution, pi_action):
         logp_pi = pi_distribution.log_prob(pi_action).sum(axis=-1)

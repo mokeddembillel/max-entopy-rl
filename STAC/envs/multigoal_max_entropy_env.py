@@ -47,6 +47,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$'])
         self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2]]) + self.goal_positions
         
+        self.entropy_list = None
         self._obs_lst = np.array([
             [-3.5, -2.5],
             [-2.5, 0.5],
@@ -250,51 +251,50 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         self.number_of_hits_mode_acc = np.zeros(self.num_goals)
         
     
-    def render(self, itr, fig_path, plot, ac=None, paths=None):
+    def render(self, itr, fig_path, ac=None, paths=None):
         # positions = np.stack(self.episode_observations)
         paths = self.all_episode_observations
-        if plot:
-            self._init_plot(self.x_size, self.y_size)
-            for a in range(len(self.all_episode_observations)):
-                positions = np.array(paths[a])
-                self._ax_lst[0].plot(positions[:, 0], positions[:, 1], color='blue')
-                
-            if ac.pi.actor!='svgd_sql':
-
-                num_particles_tmp = ac.pi.num_particles
-                ac.pi.num_particles = self._n_samples
-                if not ac.pi.actor=='sac':
-                    ac.pi.Kernel.num_particles = ac.pi.num_particles
-                    ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
-
-                self.entropy_list = []
-                for i in range(len(self._obs_lst)):
-                    self.entropy_tmp = []
-                    o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
-                    for _ in range(100): ########################## 100
-                        a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
-                        if ac.pi.actor=='sac':
-                            log_p = log_p.view(-1,ac.pi.num_particles).mean(dim=1)
-                        self.entropy_tmp.append(round(-log_p.detach().item(), 2))
-                    self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
-                
-                
-                ac.pi.num_particles = num_particles_tmp
-                if not ac.pi.actor=='sac':
-                    ac.pi.Kernel.num_particles = ac.pi.num_particles
-                    ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
-
-            for i in range(len(self._obs_lst)):
-                self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], color='white', edgecolors='#D13B00', marker='X', s=60, zorder=5)
-                self._ax_lst[0].annotate(self.entropy_obs_names_plotting[i], (self._obs_lst[i,0] - 0.25, self._obs_lst[i,1] + 0.2), fontsize=20, color='white', path_effects=[pe.withStroke(linewidth=2, foreground="#D13B00")], zorder=5)
-               
+        self._init_plot(self.x_size, self.y_size)
+        for a in range(len(self.all_episode_observations)):
+            positions = np.array(paths[a])
+            self._ax_lst[0].plot(positions[:, 0], positions[:, 1], color='blue')
             
-            self._plot_level_curves(self._obs_lst, ac)
-            self._plot_action_samples(ac)
-            plt.plot()
-            # plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
-            plt.savefig(fig_path+ '/env_' + str(itr) + '.' + 'png')   
-            plt.close()
+        if ac.pi.actor!='svgd_sql':
+
+            num_particles_tmp = ac.pi.num_particles
+            ac.pi.num_particles = self._n_samples
+            if not ac.pi.actor=='sac':
+                ac.pi.Kernel.num_particles = ac.pi.num_particles
+                ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+
+            self.entropy_list = []
+            for i in range(len(self._obs_lst)):
+                self.entropy_tmp = []
+                o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
+                for _ in range(100): ########################## 100
+                    a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
+                    if ac.pi.actor=='sac':
+                        log_p = log_p.view(-1,ac.pi.num_particles).mean(dim=1)
+                    self.entropy_tmp.append(round(-log_p.detach().item(), 2))
+                self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
+            
+            
+            ac.pi.num_particles = num_particles_tmp
+            if not ac.pi.actor=='sac':
+                ac.pi.Kernel.num_particles = ac.pi.num_particles
+                ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+
+        for i in range(len(self._obs_lst)):
+            self._ax_lst[0].scatter(self._obs_lst[i, 0], self._obs_lst[i, 1], color='white', edgecolors='#D13B00', marker='X', s=60, zorder=5)
+            self._ax_lst[0].annotate(self.entropy_obs_names_plotting[i], (self._obs_lst[i,0] - 0.25, self._obs_lst[i,1] + 0.2), fontsize=20, color='white', path_effects=[pe.withStroke(linewidth=2, foreground="#D13B00")], zorder=5)
+            
+        
+        self._plot_level_curves(self._obs_lst, ac)
+        self._plot_action_samples(ac)
+        plt.plot()
+        # plt.savefig(fig_path+ '/env_' + str(itr) + '.' + self.plot_format)   
+        plt.savefig(fig_path+ '/env_' + str(itr) + '.' + 'png')   
+        plt.close()
 
         modes_dist = (((positions).reshape(-1,1,2) - np.expand_dims(self.goal_positions,0))**2).sum(-1)
         ind = modes_dist[np.where(modes_dist.min(-1)<1)[0]].argmin(-1)
@@ -407,7 +407,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
 
 
 
-    def render_paper(self, itr, fig_path, plot, ac=None, paths=None):
+    def render_paper(self, itr, fig_path, ac=None, paths=None):
         # positions = np.stack(self.episode_observations)
         ######## ENV PLOT ########
         ##########################
@@ -468,7 +468,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
         
 
         plt.plot()
-        # plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + self.plot_format)   
+        plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + self.plot_format)   
         plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + 'png')
         plt.close()
 
@@ -528,7 +528,7 @@ class MultiGoalMaxEntropyEnv(Env, EzPickle):
                 ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
         
             plt.plot()
-            # plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + self.plot_format)   
+            plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + self.plot_format)   
             plt.savefig(fig_path+ '/landscape_' + self.entropy_obs_names[i] + '_' + str(itr) + '.' + 'png')
             plt.close()
 

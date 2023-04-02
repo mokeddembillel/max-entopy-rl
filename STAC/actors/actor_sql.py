@@ -18,6 +18,7 @@ class ActorSql(nn.Module):
         self.num_particles = num_svgd_particles
         self.batch_size = batch_size
         self.device = device
+        self.steps_debug = 0
 
         self.q1 = q1
         self.q2 = q2
