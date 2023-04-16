@@ -60,7 +60,7 @@ class RBF(torch.nn.Module):
             log_std = self.log_std_layer(dist_sq)
             log_std = torch.clamp(log_std, self.log_std_min, self.log_std_max)
             sigma = torch.exp(log_std)
-        
+        self.sigma_debug = torch.mean(sigma).detach().cpu().item()
         # print('***** sigma ', sigma[0])
 
         gamma = 1.0 / (1e-8 + 2 * sigma**2) 

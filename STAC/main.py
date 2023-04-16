@@ -45,7 +45,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_experiment_steps', type=float, default=5e4)
     parser.add_argument('--exploration_steps', type=int, default=10000, help="pure exploration at the beginning of the training")
 
-    parser.add_argument('--num_test_episodes', type=int, default=10)
+    parser.add_argument('--num_test_episodes', type=int, default=20)
     parser.add_argument('--update_after', type=int, default=1000)
     parser.add_argument('--update_every', type=int, default=50)
     parser.add_argument('--max_steps', type=int, default=30)
@@ -128,26 +128,20 @@ if __name__ == '__main__':
     if args.debugging:
         print('############################## DEBUGGING ###################################')
         # args.svgd_steps = 'while'
-        args.exploration_steps = 0
+        args.exploration_steps = 1000
         # args.actor = 'svgd_sql'
         args.max_experiment_steps = 30000
         # args.exploration_steps = 100
-        args.update_after = 1000
-        args.stats_steps_freq = 400
-        args.num_test_episodes = 1
+        args.update_after = 100
+        args.stats_steps_freq = 5
+        args.num_test_episodes = 10
         # args.max_steps = 500
         args.collect_stats_after = 0
-        # args.entropy_particles = 10
-        # args.svgd_particles = 100
 
-        # args.update_after = 1000000
-        # args.stats_steps_freq = 400
-        # args.num_test_episodes = 1
-        # args.max_steps = 500
-        # args.collect_stats_after = 0
-
-
-
+        # args.a_c = 1
+        # args.a_a = 1
+        # args.svgd_lr = 0.1
+        # args.test_action_selection = 'max'
         # tmp = 400000
         # args.max_experiment_steps =  415000 
         # args.exploration_steps = tmp 
@@ -334,11 +328,16 @@ if __name__ == '__main__':
     print('######################################################################################################')
 
     if args.all_checkpoints_test:
-        tag = 'cp_softmax_' ######################################################################
+        tag = 'cp_' + args.test_action_selection + '_' ######################################################################
         # project_name = 'stac_Hopper_s0'
         # project_name = 'stac_Walker2d_s0'
         # project_name = 'stac_HalfCheetah_s0'
-        project_name = 'scn_Mar_30_2023_15_38_54_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_0_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_59665'
+        # project_name = 'scn_Mar_30_2023_15_38_54_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_0_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_59665'
+        # project_name = 'scn_Mar_30_2023_15_39_15_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_1_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_60003'
+        # project_name = 'scn_Mar_30_2023_15_39_34_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_2_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_60273'
+        # project_name = 'scn_Mar_30_2023_15_40_44_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_5_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_58081'
+        # project_name = 'scn_Mar_30_2023_15_40_44_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_10_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_58292'
+        # project_name = 'scn_Mar_30_2023_15_40_53_svgd_p0_pram_Hopper-v2_tnas_random_ttas_max_a_c_1.0_a_a_1.0_bs_100_gamma_0.99_seed_0_ntep_2_ss_20_sp_10_slr_0.1_sks_None_4_expr_1000000.0_explr_10000_updt_1000_PID_58647'
         data_path = './runs/Hopper-v2/svgd_p0_pram/' + project_name
         # data_path = './runs/' + 'dbg_Jan_07_2023_03_26_08_tnas_random_ttas_random_svgd_nonparam_Hopper-v2_alpha_5_bs_100_gamma_0.99_seed_0_ssteps_10_sparticles_10_slr_0.01_ssigma_p0_0.3_sad_lr_False_skernel_sigma_None_4_exper_34432423423_explor_0_update_111111110_PID_1932237' + '/'
         checkpoints_path = data_path + '/evaluation_data'
@@ -374,7 +373,8 @@ if __name__ == '__main__':
             stac.debugger.reset()
             # print({'mean_p'+str(p[0])+'_s'+str(p[1]): mean_particles[c] for c, p in enumerate(config)})
             stac.save_data()
-            stac.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only_particles',  {'mean_p'+str(p[0])+'_s'+str(p[1]): mean_particles[c] for c, p in enumerate(config)}, i)
+            # stac.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only_particles',  {'mean_p'+str(p[0])+'_s'+str(p[1]): mean_particles[c] for c, p in enumerate(config)}, i)
+            stac.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only_particles',  {'mean_p': mean_particles[0]}, i)
             
             stop = timeit.default_timer()
             print('Time deriv auto: ', stop - start) 

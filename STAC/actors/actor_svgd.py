@@ -79,6 +79,7 @@ class ActorSvgd(torch.nn.Module):
         self.x_t = [a.detach().cpu().numpy().tolist()]
         self.phis = []
         self.score_funcs = []
+        self.kernel_sigmas = []
         q_s_a = None
 
         # @profile
@@ -149,6 +150,8 @@ class ActorSvgd(torch.nn.Module):
             # print('PHI ################## ', phi_.detach().cpu().numpy())
             # import pdb; pdb.set_trace()
             a = self.svgd_optim(a, phi_, dq)
+
+            self.kernel_sigmas.append(self.Kernel.sigma_debug)
             # Collect Data for debugging
             # self.x_t.append((self.act_limit * torch.tanh(a)).detach().cpu().numpy().tolist())
             # self.phis.append((self.svgd_lr * phi_.detach().cpu().numpy()).tolist())
@@ -175,13 +178,50 @@ class ActorSvgd(torch.nn.Module):
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
             # a0 = torch.clamp(a0, -self.act_limit, self.act_limit).detach()
         elif self.actor == 'svgd_p0_pram':
-            self.mu, self.sigma = self.p0(obs)
-            # self.mu = torch.clamp(self.mu, -1, 1)
-            # self.mu = ((1 + 1) * torch.rand(obs.shape[0], self.act_dim) - 1).to(self.device)
-            # self.sigma = torch.rand(obs.shape[0], self.act_dim).to(self.device)
-            # self.mu = torch.zeros(obs.shape[0], self.act_dim).to(self.device)
+            ############################################################
+            ns = int(500/self.num_particles)
+            obs_tmp = obs.view(-1, self.num_particles, self.obs_dim).repeat(1, ns, 1)
+            self.mu, self.sigma = self.p0(obs_tmp)
+            ############################################################
+            
+            # self.mu, self.sigma = self.p0(obs)
             self.init_dist_normal = Normal(self.mu, self.sigma)
             a0 = self.init_dist_normal.rsample()
+
+
+            ############################################################
+            indicies = torch.logical_and(a0 > -3 * self.sigma, a0 < 3 * self.sigma).all(-1)
+            
+            if (indicies.type(torch.float32).sum(-1) > self.num_particles).all():
+                new_a0 = []
+                for i in range(a0.shape[0]):
+                    new_a0.append(a0[i][indicies[i]][:self.num_particles])
+                new_a0 = torch.stack(new_a0)
+                a0 = new_a0.view(-1,self.act_dim)
+                self.mu, self.sigma = self.mu[:, :self.num_particles, :].reshape(-1, self.act_dim), self.sigma[:, :self.num_particles, :].reshape(-1, self.act_dim)
+                
+                self.init_dist_normal = Normal(self.mu, self.sigma)
+            else:
+                raise Exception("Number of sampled particles not enough")
+            ############################################################
+            
+
+            # ns = 100
+            # c1 = torch.tensor([0.3, 0.5, 0.6]).view(1, 1, -1).repeat(3, ns, 1)
+
+            # t1 = torch.rand((3, ns, 3))
+            
+            # if ((t1 > c1).all(-1).type(torch.float32).sum(-1) > self.num_particles).all():
+            #     (t1 > c1).all(-1)
+            #     new_tensor = []
+            #     # for i in range(self.batch_size):
+            #     for i in range(3):
+            #         new_tensor.append(t1[i][(t1 > c1).all(-1)[i]][:self.num_particles])
+            #         # print(t1[i][(t1 > c1).all(-1)[i]])
+            #     new_a0 = torch.stack(new_tensor)
+            #     t1[(t1 > c1).all(-1)].shape
+
+
             # print('############################',  self.mu[0], self.sigma[0])
             # a0_tanh = self.act_limit * torch.tanh(a0)
 
@@ -198,8 +238,8 @@ class ActorSvgd(torch.nn.Module):
             if self.actor == "svgd_nonparam":
                 logp_normal = - self.act_dim * 0.5 * np.log(2 * np.pi * self.sigma_p0) - (0.5 / self.sigma_p0) * (a0**2).sum(-1).view(-1,self.num_particles)
             
-            # logp_normal = - (self.act_dim * 0.5 * torch.log(2 * torch.pi * self.sigma.view(-1,self.num_particles, self.act_dim)) - (0.5 / self.sigma.view(-1,self.num_particles, self.act_dim)) * ((a0 - self.mu)**2).view(-1,self.num_particles, self.act_dim)).sum(-1)
             elif self.actor == 'svgd_p0_pram':
+                # logp_normal = - (self.act_dim * 0.5 * torch.log(2 * torch.pi * self.sigma.view(-1,self.num_particles, self.act_dim)) - (0.5 / self.sigma.view(-1,self.num_particles, self.act_dim)) * ((a0 - self.mu)**2).view(-1,self.num_particles, self.act_dim)).sum(-1)
                 logp_normal = self.init_dist_normal.log_prob(a0).sum(axis=-1).view(-1,self.num_particles)
             # if logp_normal.mean() > 10:
             #     pass
@@ -228,7 +268,9 @@ class ActorSvgd(torch.nn.Module):
             # logp_a = (logp_normal + logp_svgd + logp_tanh_1 + logp_tanh_2).mean(-1)
             logp_a = (logp_normal + logp_svgd + logp_tanh_2).mean(-1)
             # logp_wrong_a = (logp_normal + logp_wrong + logp_tanh).mean(-1)
-            
+            # if torch.absolute(logp_a).mean().detach().cpu().item() > 500:
+            #     import pdb; pdb.set_trace()
+                
 
             self.logp_normal_debug = logp_normal.mean()
             try:
@@ -238,6 +280,8 @@ class ActorSvgd(torch.nn.Module):
             self.logp_tanh_debug = logp_tanh_2.mean()
             # except:
             #     import pdb; pdb.set_trace()
+        
+            
         a = self.act_limit * torch.tanh(a) 
         
         self.a =  a.view(-1, self.num_particles, self.act_dim)
@@ -263,6 +307,7 @@ class ActorSvgd(torch.nn.Module):
                 
             q_s_a = q_s_a.view(-1, self.num_particles)
             # a = a_
+            # a = self.mu.view(-1, self.num_particles, self.act_dim)[:, 0, :]
             a = self.a[:,q_s_a.argmax(-1)]
 
 

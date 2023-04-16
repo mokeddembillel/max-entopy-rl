@@ -59,8 +59,10 @@ class MaxEntrRL():
         self.evaluation_data = AttrDict()
         self.evaluation_data['train_episodes_return'] = []
         self.evaluation_data['train_episodes_length'] = []
-        self.evaluation_data['test_episodes_return'] = []
-        self.evaluation_data['test_episodes_length'] = []
+        self.evaluation_data['max' + 'test_episodes_return'] = []
+        self.evaluation_data['max' + 'test_episodes_length'] = []
+        self.evaluation_data['softmax' + 'test_episodes_return'] = []
+        self.evaluation_data['softmax' + 'test_episodes_length'] = []
 
 
     def compute_loss_q(self, data, itr):
@@ -90,7 +92,8 @@ class MaxEntrRL():
             else:
                 ### option 1
                 q_pi_targ = torch.min(q1_pi_targ, q2_pi_targ)
-                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha_c * logp_a2)  
+                backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ.mean(-1) - self.RL_kwargs.alpha_c * logp_a2) 
+                # print('############ critic', torch.min(logp_a2).detach().cpu().item(), torch.max(logp_a2).detach().cpu().item()) 
                 ### option 2    
                 # q_pi_targ = torch.min(q1_pi_targ.mean(-1), q2_pi_targ.mean(-1))
                 # backup = r + self.RL_kwargs.gamma * (1 - d) * (q_pi_targ - self.RL_kwargs.alpha_c * logp_a2)      
@@ -144,6 +147,8 @@ class MaxEntrRL():
             grad_loss_pi = a_grad
         else:
             loss_pi = (self.RL_kwargs.alpha_a * logp_pi - q_pi).mean()
+            # print('############ actor ', torch.min(logp_pi).detach().cpu().item(), torch.max(logp_pi).detach().cpu().item()) 
+
             # loss_pi = (10 * logp_pi - q_pi).mean()
             # loss_pi = (5 * logp_pi - q_pi).mean()
             grad_loss_pi = None
@@ -203,9 +208,11 @@ class MaxEntrRL():
             #         p_targ.data = deepcopy(p.data)
                 
     # @render_browser
-    def test_agent(self, itr=None):
+    def test_agent(self, itr=None, action_selection=None):
         # self.ac.pi.num_particles = 10 = 1
         robot_pic_rgb = None
+        if action_selection:
+            self.ac.pi.test_action_selection = action_selection
 
         if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             self.test_env.reset_rendering()
@@ -269,48 +276,49 @@ class MaxEntrRL():
 
             # print('######### average time', np.array(average_time).mean())
             # print('####### --actor: ', self.actor, ' --alpha: ', str(self.RL_kwargs.alpha) , ' --ep_return: ', ep_ret, ' --ep_length: ', ep_len)
-            self.evaluation_data['test_episodes_return'].append(ep_ret)
-            self.evaluation_data['test_episodes_length'].append(ep_len)
+            self.evaluation_data[self.ac.pi.test_action_selection + 'test_episodes_return'].append(ep_ret)
+            self.evaluation_data[self.ac.pi.test_action_selection + 'test_episodes_length'].append(ep_len)
             if not self.RL_kwargs.test_time:
-                self.debugger.entropy_plot() 
+                self.debugger.entropy_plot()
+                self.debugger.init_dist_plots()
                 # self.debugger.entropy_plot_v2()  
                 
                 # print('################## ', np.mean(np.array(obs_average), axis=0))
         
         # print('##################### modes_hits', self.test_env.number_of_hits_mode_acc)
         # self.ac.pi.num_particles = 10
-         
-        if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
-        
-            # self.test_env.render(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
-            self.test_env.render_paper(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
-            self.debugger.plot_policy(itr=itr, fig_path=self.RL_kwargs.fig_path) # For multigoal only
-
-
-        # print('############################# Finished')
-        # if self.RL_kwargs.all_checkpoints_test:
-        #     expected_rewards = list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))
-        #     episode_length = list(map(lambda x: x['episode_length'], self.debugger.episodes_information))
-        #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Max_Mean ': np.mean(expected_rewards), 'Max_Min': np.min(expected_rewards), 'Max_Max': np.max(expected_rewards) }, itr)
-        #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
-        #     self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
-
-        self.debugger.log_to_tensorboard(itr=itr)
-        if not self.RL_kwargs.test_time:
-            # self.debugger.create_entropy_plots(itr) # For multigoal only
-            if self.env_name in ['Hopper-v2']:
-                self.debugger.create_states_distances_plots(itr) # For multigoal only
-                self.debugger.create_states_components_plots(itr) # For multigoal only
-                self.debugger.create_actions_components_plots(itr) # For multigoal only
-        # else:
-        #     if self.env_name in ['Hopper-v2']: 
-        #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.RL_kwargs.fig_path, fig_size=(18, 10))
-
+        if action_selection in ['max', 'random']:
+            if self.env_name in ['multigoal-max-entropy', 'Multigoal', 'max-entropy-v0', 'multigoal-obstacles', 'multigoal-max-entropy-obstacles']:
             
+                self.test_env.render(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
+                # self.test_env.render_paper(itr=itr, fig_path=self.RL_kwargs.fig_path, ac=self.ac, paths=self.replay_buffer.paths)
+                self.debugger.plot_policy(itr=itr, fig_path=self.RL_kwargs.fig_path) # For multigoal only
 
-        # self.debugger.reset()
-        if not self.RL_kwargs.test_time:
-            self.ac.save(itr)
+
+            # print('############################# Finished')
+            # if self.RL_kwargs.all_checkpoints_test:
+            #     expected_rewards = list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))
+            #     episode_length = list(map(lambda x: x['episode_length'], self.debugger.episodes_information))
+            #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Max_Mean ': np.mean(expected_rewards), 'Max_Min': np.min(expected_rewards), 'Max_Max': np.max(expected_rewards) }, itr)
+            #     self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Max_Mean ': np.mean(expected_rewards)}, itr)
+            #     self.debugger.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
+    
+            self.debugger.log_to_tensorboard(itr=itr)
+            if not self.RL_kwargs.test_time:
+                # self.debugger.create_entropy_plots(itr) # For multigoal only
+                if self.env_name in ['Hopper-v2']:
+                    self.debugger.create_states_distances_plots(itr) # For multigoal only
+                    self.debugger.create_states_components_plots(itr) # For multigoal only
+                    self.debugger.create_actions_components_plots(itr) # For multigoal only
+            # else:
+            #     if self.env_name in ['Hopper-v2']: 
+            #         self.debugger.mujoco_debugging_plots(itr, fig_path=self.RL_kwargs.fig_path, fig_size=(18, 10))
+
+                
+
+            # self.debugger.reset()
+            if not self.RL_kwargs.test_time:
+                self.ac.save(itr)
         
     def save_data(self):
         pickle.dump(self.evaluation_data, open(self.RL_kwargs.evaluation_data_path + '/evaluation_data.pickle', "wb"))
@@ -409,9 +417,15 @@ class MaxEntrRL():
             
             if ((step_itr+1)  >= self.RL_kwargs.collect_stats_after and (step_itr+1) % self.RL_kwargs.stats_steps_freq == 0) or step_itr == self.RL_kwargs.max_experiment_steps - 1:
                 # print('___test___')
-                
-                self.test_agent(step_itr)
-                
+                mean_return = []
+                for action_selection in ['max', 'softmax']:
+                    self.test_agent(step_itr, action_selection)
+                    mean_return.append(np.mean(list(map(lambda x: x['expected_reward'], self.debugger.episodes_information))))
+                self.debugger.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'max': mean_return[0], 'softmax': mean_return[1]}, step_itr)
+
+
+
+
                 for tag, value in self.ac.named_parameters():    ### commented right now ###
                     if value.grad is not None:
                         self.debugger.add_histogram(tag + "/grad", value.grad.cpu(), step_itr)

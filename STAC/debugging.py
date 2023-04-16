@@ -17,6 +17,7 @@ class Debugger():
         self.test_env = test_env
         self.episodes_information = []
         self.episode_counter = 0
+        self.episode_counter_2 = 0
         self.debugging_counter = 0
         self.colors = ['red', 'orange', 'purple']
         self.episodes_information_svgd = []
@@ -43,6 +44,7 @@ class Debugger():
                 'action': [],
                 'actions': [],
                 'x_t': [],
+                'kernel_sigma': [],
                 # Debugging ##########
                 'max_q': [],
                 'max_q_orig': [],
@@ -94,7 +96,8 @@ class Debugger():
         self.episodes_information[-1]['rewards'].append(r)
 
         self.episodes_information[-1]['debug_steps'].append(self.ac.pi.steps_debug)
-
+        self.episodes_information[-1]['kernel_sigma'].append(self.ac.pi.kernel_sigmas)
+        self.test_env.entropy_list = None
 
         # a.requires_grad = True
         q1_value = self.ac.q1(o,a)
@@ -114,6 +117,7 @@ class Debugger():
 
         if self.env_name in ['Hopper-v2'] and robot_pic_rgb is not None:
             self.episodes_information[-1]['next_state_rgb'].append(robot_pic_rgb.tolist())
+
 
 
 
@@ -295,13 +299,13 @@ class Debugger():
                 # ax.annotate(str(len(positions)), (positions[-1,0], positions[-1,1]), fontsize=6)
             # path = self.episodes_information[0]
             # positions = np.stack(path['observations'])
-            if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
-                for i in range(len(positions)-1):
-                    mu = path['mu'][i][0]
-                    std = path['sigma'][i][0]
-                    # print('################################ ', mu, std)
-                    x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
-                    plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
+            # if self.ac.pi.actor in ['sac', 'svgd_p0_pram', 'svgd_p0_kernel_pram']:
+            #     for i in range(len(positions)-1):
+            #         mu = path['mu'][i][0]
+            #         std = path['sigma'][i][0]
+            #         # print('################################ ', mu, std)
+            #         x_values = np.linspace(positions[i] + mu + self.test_env.action_space.low, positions[i] + mu + self.test_env.action_space.high , 30)
+            #         plt.plot(x_values[:,0] , gaussian(x_values, positions[i]+mu, std)[:,0])
             # print('######################## ', cats_success)
             # print('######################## ', cats_steps/cats_success)
             # plt.savefig(fig_path + '/path_vis_'+ str(itr) + '.' + self.plot_format)   
@@ -655,7 +659,27 @@ class Debugger():
             self.tb_logger.add_scalars('Entropy/std_x',  feed_dict_sigma_x, itr)
             self.tb_logger.add_scalars('Entropy/std_y',  feed_dict_sigma_y, itr)
 
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['multigoal-max-entropy']:
+            feed_dict_mu_x = {}
+            feed_dict_mu_y = {}
+            feed_dict_sigma_x = {}
+            feed_dict_sigma_y = {}
 
+            for i in range(len(self.test_env._obs_lst)):
+                
+                o = torch.as_tensor(self.test_env._obs_lst[i], dtype=torch.float32).view(-1,1,self.test_env.observation_space.shape[0]).repeat(1,self.ac.pi.num_particles,1).view(-1,self.test_env.observation_space.shape[0]).to(self.ac.pi.device)
+                actions, _ = self.ac(o, action_selection=None, with_logprob=False)
+                mu, sigma = self.ac.pi.mu, self.ac.pi.sigma
+                feed_dict_mu_x[self.test_env.entropy_obs_names[i]] = mu[0][0]
+                feed_dict_mu_y[self.test_env.entropy_obs_names[i]] = mu[0][1]
+                feed_dict_sigma_x[self.test_env.entropy_obs_names[i]] = sigma[0][0]
+                feed_dict_sigma_y[self.test_env.entropy_obs_names[i]] = sigma[0][1]
+            self.tb_logger.add_scalars('Entropy/mean_x',  feed_dict_mu_x, itr)
+            self.tb_logger.add_scalars('Entropy/mean_y',  feed_dict_mu_y, itr)
+            self.tb_logger.add_scalars('Entropy/std_x',  feed_dict_sigma_x, itr)
+            self.tb_logger.add_scalars('Entropy/std_y',  feed_dict_sigma_y, itr)
+
+            
 
 
         # if self.ac.pi.actor in ['svgd_nonparam', 'svgd_p0_pram']:
@@ -717,6 +741,15 @@ class Debugger():
             self.tb_logger.add_scalars('smoothness/q_hess_averaged', {'Start ': q_hess_averaged[0], 'Mid': q_hess_averaged[1], 'End': q_hess_averaged[2] }, itr)
 
         
+
+        np.array(self.episodes_information[-1]['kernel_sigma'])
+        
+
+        kernel_sigma_min = np.stack(list(map(lambda x: np.array(x['kernel_sigma']).min(), self.episodes_information)))
+        kernel_sigma_mean = np.stack(list(map(lambda x: np.array(x['kernel_sigma']).mean(), self.episodes_information)))
+        kernel_sigma_max = np.stack(list(map(lambda x: np.array(x['kernel_sigma']).max(), self.episodes_information)))
+        self.tb_logger.add_scalars('kernel/sigma',  {'Mean': np.mean(kernel_sigma_mean), 'Min': np.min(kernel_sigma_min), 'Max': np.max(kernel_sigma_max)}, itr)
+
         debug_steps_min = np.stack(list(map(lambda x: np.array(x['debug_steps']).min(), self.episodes_information)))
         debug_steps_mean = np.stack(list(map(lambda x: np.array(x['debug_steps']).mean(), self.episodes_information)))
         debug_steps_max = np.stack(list(map(lambda x: np.array(x['debug_steps']).max(), self.episodes_information)))
@@ -726,13 +759,13 @@ class Debugger():
 
 
 
-        # 
+        
         expected_rewards = list(map(lambda x: x['expected_reward'], self.episodes_information))
         episode_length = list(map(lambda x: x['episode_length'], self.episodes_information))
 
         # import pdb; pdb.set_trace()
-        self.tb_logger.add_scalars('Test_EpRet/return_detailed',  {'Mean': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
-        self.tb_logger.add_scalars('Test_EpRet/return_mean_only',  {'Mean': np.mean(expected_rewards)}, itr)
+        # self.tb_logger.add_scalars('Test_EpRet/return_detailed' + '_' + self.ac.pi.test_action_selection,  {'Mean': np.mean(expected_rewards), 'Min': np.min(expected_rewards), 'Max': np.max(expected_rewards) }, itr)
+        # self.tb_logger.add_scalars('Test_EpRet/return_mean_only' + '_' + self.ac.pi.test_action_selection,  {'Mean': np.mean(expected_rewards)}, itr)
         self.tb_logger.add_scalar('Test_EpLen', np.mean(episode_length) , itr)
         
         
@@ -763,7 +796,16 @@ class Debugger():
 #############################################################################################################################################################################################################################
 
 
+    def init_dist_plots(self):
+        if self.ac.pi.actor in ['svgd_p0_pram'] and self.env_name in ['Hopper-v2']:
 
+            for i in range(10, 160, 10):
+                if len(self.episodes_information[-1]['mu']) > i:
+                    feed_dict_mu = {'x': self.episodes_information[-1]['mu'][i][0][0], 'y': self.episodes_information[-1]['mu'][i][0][1], 'z': self.episodes_information[-1]['mu'][i][0][2]}
+                    feed_dict_sigma = {'x': self.episodes_information[-1]['sigma'][i][0][0], 'y': self.episodes_information[-1]['sigma'][i][0][1], 'z': self.episodes_information[-1]['sigma'][i][0][2]}
+                    self.tb_logger.add_scalars('Entropy/mean_Hopper_' + str(i), feed_dict_mu, self.episode_counter_2)
+                    self.tb_logger.add_scalars('Entropy/std_Hopper_' + str(i), feed_dict_sigma, self.episode_counter_2)
+            self.episode_counter_2 += 1
 
 
     # def entorpy_landscape(self, fig_path):

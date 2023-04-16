@@ -325,11 +325,11 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
 
         
             
-        # self.entropy_list = []
-        # for i in range(len(self._obs_lst)):
-        #     o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
-        #     a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
-        #     self.entropy_list.append(round(-log_p.detach().item(), 2))
+        self.entropy_list = []
+        for i in range(len(self._obs_lst)):
+            o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
+            a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
+            self.entropy_list.append(round(-log_p.detach().item(), 2))
 
 
         if ac.pi.actor!='svgd_sql':
@@ -479,7 +479,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
 
 
     
-    def render_paper(self, itr, fig_path, plot, ac=None, paths=None):
+    def render_paper(self, itr, fig_path, ac=None, paths=None):
         # positions = np.stack(self.episode_observations)
         ######## ENV PLOT ########
         ##########################
@@ -508,7 +508,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
             for goal_x, goal_y in self.goal_positions
         ], axis=0)
         for obstacle in self.obstacles:
-            self._ax_lst[0].plot(obstacle[:, 0], obstacle[:, 1], c='brown', linewidth=3, zorder=1)
+            ax.plot(obstacle[:, 0], obstacle[:, 1], c='brown', linewidth=3, zorder=1)
         costs = goal_costs
         contours = ax.contour(X, Y, costs, 20)
         ax.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
@@ -523,10 +523,33 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
 
 
         paths = self.all_episode_observations
-        
+        cats_success = np.zeros((3,))
+        cats_steps = np.zeros((3,))
         for a in range(len(self.all_episode_observations)):
-            positions = np.array(paths[a])
-            ax.plot(positions[:, 0], positions[:, 1], color='blue')
+            positions = np.array(self.all_episode_observations[a])
+            intersection = np.array(self.episode_intersections[a])
+            goal = np.array(self.episode_goals[a])
+            if not intersection:
+                cats_success[0]+= 1
+                cats_steps[0]+= len(positions)
+                ax.plot(positions[:, 0], positions[:, 1], color='blue')
+            else:
+                # print('########################## ', path['goal'])
+                if goal != None:
+                    cats_success[1]+= 1
+                    cats_steps[1]+= len(positions)
+                    ax.plot(positions[:, 0], positions[:, 1], color='lime')
+                else:
+                    cats_success[2]+= 1
+                    cats_steps[2]+= len(positions)
+                    ax.plot(positions[:, 0], positions[:, 1], color='red')
+
+
+
+
+        # for a in range(len(self.all_episode_observations)):
+        #     positions = np.array(paths[a])
+        #     ax.plot(positions[:, 0], positions[:, 1], color='blue')
             
         
 
