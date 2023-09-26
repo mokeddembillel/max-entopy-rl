@@ -1,6 +1,6 @@
 # Stein Soft Actor-Critic (S2AC)
 ​
-Our approach: Stein Soft Actor-Critic (S2AC), a model-free RL algorithm that aims at learning policies that can represent arbitrary action distributions without compromising efficiency. STAC uses Stein Variational Gradient Descent (SVGD) as the underlying policy to generate action samples from distributions represented using EBMs, and adopts the policy iteration procedure like SAC that maintains sample efficiency.
+Our approach: Stein Soft Actor-Critic (S2AC), a model-free RL algorithm that aims at learning policies that can represent arbitrary action distributions without compromising efficiency. S2AC uses Stein Variational Gradient Descent (SVGD) as the underlying policy to generate action samples from distributions represented using EBMs, and adopts the policy iteration procedure like SAC that maintains sample efficiency.
 ​
 ​
 ## Installation
@@ -52,7 +52,7 @@ Now, you're good to go!
 Run the following code:
 
 ```bash
-python ./STAC/main.py --env Multigoal --max_experiment_steps 5e5 --seed 33 --actor svgd_nonparam --train_action_selection random --test_action_s
+python ./S2AC/main.py --env Multigoal --max_experiment_steps 5e5 --seed 33 --actor svgd_nonparam --train_action_selection random --test_action_s
 election softmax --gpu_id 1 --svgd_steps 10 --a_c 0.2 --a_a 0.2
 ```
 
@@ -61,6 +61,6 @@ election softmax --gpu_id 1 --svgd_steps 10 --a_c 0.2 --a_a 0.2
 Run the following code:
 
 ```bash
-python ./STAC/main.py --env Walker2d-v2 --max_experiment_steps 5e5 --seed 33 --actor svgd_p0_pram --train_action_selection random --test_action_s
+python ./S2AC/main.py --env Walker2d-v2 --max_experiment_steps 5e5 --seed 33 --actor svgd_p0_pram --train_action_selection random --test_action_s
 election softmax --gpu_id 1 --svgd_steps 3 --a_c 0.2 --a_a 0.2
 ```
