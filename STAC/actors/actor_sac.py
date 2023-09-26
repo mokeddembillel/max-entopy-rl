@@ -23,7 +23,7 @@ class ActorSac(torch.nn.Module):
         logp_pi -= (2*(np.log(2) - pi_action - F.softplus(-2*pi_action))).sum(axis=-1)
         return logp_pi
 
-    def act(self, obs, action_selection=None, with_logprob=None, loss_q_=None, itr=None):
+    def act(self, obs, action_selection=None, with_logprob=None, itr=None):
         self.mu, self.sigma = self.policy_net(obs)
 
         pi_distribution = Normal(self.mu, self.sigma)
@@ -37,5 +37,4 @@ class ActorSac(torch.nn.Module):
         
         a = torch.tanh(a)
         a = self.act_limit * a
-        
         return a.reshape(-1, self.act_dim), logp_pi

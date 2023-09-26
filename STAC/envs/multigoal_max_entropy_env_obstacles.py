@@ -57,68 +57,6 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
             [4, 0]
         ])
 
-        # self.goal_positions = np.array(((5, 0),(-4, 3), (-5, 0),(-4, -3)), dtype=np.float32)
-        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
-        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
-        
-        # self._obs_lst = np.array([
-        #     [-3.5, -2.5],
-        #     [-3.5, 0],
-        #     [-3.5, 2.5],
-        #     [-2.5, -0.5],
-        #     [-1, 0],
-        #     [-2.5, 0.5],
-        #     [0, 0],
-        #     [1, 0],
-        #     [2, 0],
-        #     [4, 0], 
-        #     [3, 1],
-        #     [3, -1],
-
-        # ])
-
-        
-        # self.goal_positions = np.array(((5, 0),(-4.5825756, -2), (-5, 0),(-4.5825756, 2)), dtype=np.float32)
-        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
-        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
-        
-        # self._obs_lst = np.array([
-        #     [-3.5, -1.5],
-        #     [-3.5, 0],
-        #     [-3.5, 1.5],
-        #     [-2.5, -0.5],
-        #     [-1, 0],
-        #     [-2.5, 0.5],
-        #     [0, 0],
-        #     [1, 0],
-        #     [2, 0],
-        #     [4, 0], 
-        #     [3, 1],
-        #     [3, -1],
-
-        # ])
-
-        # self.goal_positions = np.array(((5, 0), (-2, 4.5825756) , (-5, 0), (-2, -4.5825756) ), dtype=np.float32)
-        # self.goal_names_plotting = np.array(['$G_1$', '$G_2$', '$G_3$', '$G_4$'])
-        # self.goal_names_positions = np.array([[0.5, -0.2], [-1.2, -0.15], [-1.2, -0.2], [-1.2, -0.2]]) + self.goal_positions
-        
-        # self._obs_lst = np.array([
-        #     [-1.5, -3.5],
-        #     [-1.5, 0],
-        #     [-1.5, 3.5],
-        #     [-0.5, -1.25],
-        #     [-0.5, 0],
-        #     [-0.5, 1.25],
-        #     [0, 0],
-        #     [1, 0],
-        #     [2, 0],
-        #     [4, 0], 
-        #     [3, 1],
-        #     [3, -1],
-
-        # ])
-
-
         self.num_goals = len(self.goal_positions)
         self.goal_threshold = 0.5 #1.0
         self.goal_reward = goal_reward
@@ -135,10 +73,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
         self.all_episode_observations = [] 
         self.ep_len = 0
         self.env_name = env_name
-        # Plotter params, to be cleaned tomorrow. 
-        # self._obs_lst = [[0,0],[-2.5,-2.5],[2.5,2.5]]
-        # self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l'])
-        # self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$', '$s_g$', '$s_h$', '$s_i$', '$s_j$', '$s_k$', '$s_l$'])
+        
         self.entropy_obs_names = np.array(['a', 'b', 'c', 'd', 'e', 'f'])
         self.entropy_obs_names_plotting = np.array(['$s_a$', '$s_b$', '$s_c$', '$s_d$', '$s_e$', '$s_f$'])
 
@@ -208,7 +143,6 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
 
         # compute reward
         reward = self.compute_reward(self.observation, action)
-        # reward = 0.0 ############# Need to be removed
 
         # compute done
         distance_to_goals = [np.linalg.norm(self.observation - goal_position)for goal_position in self.goal_positions]
@@ -223,9 +157,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
             self.goal = self.min_dist_index
 
         if done or self.ep_len == self.max_steps:
-            # print('######################## ', self.ep_len)
-            # print('######################## ', done)
-            # import pdb; pdb.set_trace()
+
             self.episode_observations.append(self.observation)
             self.episode_intersections.append(self.intersection)
             self.episode_goals.append(self.goal)
@@ -312,7 +244,6 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
                 cats_steps[0]+= len(positions)
                 self._ax_lst[0].plot(positions[:, 0], positions[:, 1], color='blue')
             else:
-                # print('########################## ', path['goal'])
                 if goal != None:
                     cats_success[1]+= 1
                     cats_steps[1]+= len(positions)
@@ -344,7 +275,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
             for i in range(len(self._obs_lst)):
                 self.entropy_tmp = []
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).to(ac.pi.device).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0])
-                for _ in range(100): ########################################## back to 100 later ##########################################
+                for _ in range(100):
                     a, log_p = ac(o, action_selection=ac.pi.test_action_selection, with_logprob=True)
                     self.entropy_tmp.append(round(-log_p.detach().item(), 2))
                 self.entropy_list.append(round(np.array(self.entropy_tmp).mean(), 2))
@@ -381,9 +312,7 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
         self._ax_lst[0].axis('equal')
         self._ax_lst[0].set_xlim(self.xlim)
         self._ax_lst[0].set_ylim(self.xlim)
-        # self._ax_lst[0].set_title('Multigoal Environment', fontsize=20)
-        # self._ax_lst[0].set_xlabel('x', fontsize=20)
-        # self._ax_lst[0].set_ylabel('y', fontsize=20)
+
         self._ax_lst[0].xaxis.set_tick_params(labelsize=15)
         self._ax_lst[0].yaxis.set_tick_params(labelsize=15)
         x_min, x_max = tuple(1.1 * np.array(self.xlim))
@@ -409,13 +338,11 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
         self._ax_lst[0].plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
 
         
-        # print( '#########################################', goal_names_positions)
         for i in range(len(self.goal_positions)):
                 self._ax_lst[0].annotate(self.goal_names_plotting[i], self.goal_names_positions[i], fontsize=19, color='red', zorder=2)
 
 
         if not debugging:
-            ###### Setup Q Contours plot ######
             for i in range(self.n_plots):
                 ax = plt.subplot2grid(grid_size, (3 + i//3,i%3))
                 ax.xaxis.set_tick_params(labelsize=15)
@@ -453,109 +380,21 @@ class MultiGoalMaxEntropyObstaclesEnv(Env, EzPickle):
         
         for i in range(len(self._obs_lst)):
             if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param', 'svgd_sql']:
-                # ac.pi.num_particles = self._n_samples
-                # ac.pi.Kernel.num_particles = ac.pi.num_particles
-                # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).view(-1,1,self.observation_space.shape[0]).repeat(1,ac.pi.num_particles,1).view(-1,self.observation_space.shape[0]).to(ac.pi.device)
             else:
                 o = torch.as_tensor(self._obs_lst[i], dtype=torch.float32).repeat([self._n_samples,1]).to(ac.pi.device)
             actions, _ = ac(o, action_selection=None, with_logprob=False)
             actions = actions.cpu().detach().numpy().squeeze()
-            # if ac.pi.actor == 'svgd_nonparam':
 
-            # else:
             x, y = actions[:, 0], actions[:, 1]
             if ac.pi.actor not in  ['svgd_sql']:
                 self._ax_lst[i+1].set_title('Entr(' + self.entropy_obs_names_plotting[i] + ')=' + str(self.entropy_list[i]), fontsize=15)
             self._line_objects += self._ax_lst[i+1].plot(x, y, 'b*')
-        # ac.pi.num_particles = num_particles_tmp
-        # ac.pi.Kernel.num_particles = ac.pi.num_particles
-        # ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
+
         if ac.pi.actor in  ['svgd_nonparam', 'svgd_p0_param']:
             ac.pi.num_particles = num_particles_tmp
             ac.pi.Kernel.num_particles = ac.pi.num_particles
             ac.pi.identity = torch.eye(ac.pi.num_particles).to(ac.pi.device)
 
 
-
-    
-    def render_paper(self, itr, fig_path, ac=None, paths=None):
-        # positions = np.stack(self.episode_observations)
-        ######## ENV PLOT ########
-        ##########################
-        x_size = 7
-        y_size = 7 
-        xlim = (-7, 7)
-        ylim = (-7, 7)
-        fig_env_1 = plt.figure(figsize=(x_size, y_size), constrained_layout=True) 
-        ax = plt.subplot2grid((1,1), (0,0), colspan=3, rowspan=3)
-        ax.axis('equal')
-        ax.set_xlim(xlim)
-        ax.set_ylim(xlim)
-        # ax.set_title('Multigoal Environment', fontsize=20)
-        # ax.set_xlabel('x', fontsize=20)
-        # ax.set_ylabel('y', fontsize=20)
-        ax.xaxis.set_tick_params(labelsize=15)
-        ax.yaxis.set_tick_params(labelsize=15)
-        x_min, x_max = tuple(1.1 * np.array(xlim))
-        y_min, y_max = tuple(1.1 * np.array(ylim))
-        X, Y = np.meshgrid(
-            np.arange(x_min, x_max, 0.01),
-            np.arange(y_min, y_max, 0.01)
-        )
-        goal_costs = np.amin([
-            (X - goal_x) ** 2 + (Y - goal_y) ** 2
-            for goal_x, goal_y in self.goal_positions
-        ], axis=0)
-        for obstacle in self.obstacles:
-            ax.plot(obstacle[:, 0], obstacle[:, 1], c='brown', linewidth=3, zorder=1)
-        costs = goal_costs
-        contours = ax.contour(X, Y, costs, 20)
-        ax.clabel(contours, inline=1, fontsize=10, fmt='%.0f')
-        ax.set_xlim([x_min, x_max])
-        ax.set_ylim([y_min, y_max])
-        ax.plot(self.goal_positions[:, 0], self.goal_positions[:, 1], 'ro')
-
-        
-        # print( '#########################################', goal_names_positions)
-        for i in range(len(self.goal_positions)):
-                ax.annotate(self.goal_names_plotting[i], self.goal_names_positions[i], fontsize=19, color='red', zorder=2)
-
-
-        paths = self.all_episode_observations
-        cats_success = np.zeros((3,))
-        cats_steps = np.zeros((3,))
-        for a in range(len(self.all_episode_observations)):
-            positions = np.array(self.all_episode_observations[a])
-            intersection = np.array(self.episode_intersections[a])
-            goal = np.array(self.episode_goals[a])
-            if not intersection:
-                cats_success[0]+= 1
-                cats_steps[0]+= len(positions)
-                ax.plot(positions[:, 0], positions[:, 1], color='blue')
-            else:
-                # print('########################## ', path['goal'])
-                if goal != None:
-                    cats_success[1]+= 1
-                    cats_steps[1]+= len(positions)
-                    ax.plot(positions[:, 0], positions[:, 1], color='lime')
-                else:
-                    cats_success[2]+= 1
-                    cats_steps[2]+= len(positions)
-                    ax.plot(positions[:, 0], positions[:, 1], color='red')
-
-
-
-
-        # for a in range(len(self.all_episode_observations)):
-        #     positions = np.array(paths[a])
-        #     ax.plot(positions[:, 0], positions[:, 1], color='blue')
-            
-        
-
-        plt.plot()
-        plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + self.plot_format)   
-        plt.savefig(fig_path+ '/env_paper_' + str(itr) + '.' + 'png')
-        plt.close()
-
-        
