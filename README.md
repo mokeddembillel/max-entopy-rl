@@ -7,10 +7,13 @@ Our approach: Stein Soft Actor-Critic (S2AC), a model-free RL algorithm that aim
 ​
 Step 1: Download MuJoCo mjpro150 {your operating system} [here](https://www.roboti.us/download.html)
 ​
+
 Step 2: Place it under [/home/username/.mujoco]()
 ​
+
 Step 3: Copy the mjkey.txt file in the repo under [/home/username/.mujoco]() 
 ​
+
 Step 4: Add this path to the .bashrc file
 ​
 ```
@@ -64,3 +67,8 @@ Run the following code:
 python ./S2AC/main.py --env Walker2d-v2 --max_experiment_steps 5e5 --seed 33 --actor svgd_p0_pram --train_action_selection random --test_action_s
 election softmax --gpu_id 1 --svgd_steps 3 --a_c 0.2 --a_a 0.2
 ```
+
+
+## Run the Toy Experiment
+
+Run the cells in the Notebook ```ToyExperiments.ipynb``` 
