@@ -1,11 +1,17 @@
 import torch
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 import torch.autograd as autograd
 from networks import MLPSquashedGaussian, MLPFunction
 from torch.distributions import Normal, Categorical
 from actors.kernels import RBF
-
+from utils import GMMDist, trunc_normal_
+import timeit
+import math 
+import line_profiler
+import time
+from memory_profiler import profile
 
 class ActorSvgd(torch.nn.Module):
     def __init__(self, actor, obs_dim, act_dim, act_limit, num_svgd_particles, svgd_sigma_p0, num_svgd_steps, svgd_lr, test_action_selection, batch_size, adaptive_sig,
@@ -28,6 +34,9 @@ class ActorSvgd(torch.nn.Module):
         self.alpha = alpha
         self.with_amor_infer = with_amor_infer
 
+        #optimizer parameters
+        self.beta = 0.999
+        self.v_dx = 0
 
         if actor == "svgd_nonparam":
             self.a0 = torch.normal(0, self.sigma_p0, size=(5 * batch_size * num_svgd_particles, self.act_dim)).to(self.device)
@@ -36,9 +45,10 @@ class ActorSvgd(torch.nn.Module):
         if self.with_amor_infer:
             self.amortized_net = MLPFunction(obs_dim, act_dim, act_dim, hidden_sizes, activation)
 
+
         self.Kernel = RBF(num_particles=self.num_particles, sigma=kernel_sigma, adaptive_sig=adaptive_sig, device=device)
         
-        # Identity
+        # identity
         self.identity = torch.eye(self.num_particles).to(self.device)
         self.identity_mat = torch.eye(self.act_dim).to(self.device)
 
@@ -49,8 +59,10 @@ class ActorSvgd(torch.nn.Module):
         return x
     
     
+    # @profile
     def sampler(self, obs, a, with_logprob=True):
         logp = 0
+
         q_s_a = None
 
         def phi(X):
@@ -67,36 +79,36 @@ class ActorSvgd(torch.nn.Module):
             score_func = score_func.reshape(X.size())
             K_XX, K_diff, K_gamma, K_grad = self.Kernel(X, X)
             phi = (K_XX.matmul(score_func) + K_grad.sum(1)) / self.num_particles 
-            
+
             # compute the entropy
             if with_logprob:
                 term1 = (K_grad * score_func.unsqueeze(1)).sum(-1).sum(2)/(self.num_particles-1)
                 term2 = -2 * K_gamma.squeeze(-1).squeeze(-1) * ((K_grad.permute(0,2,1,3) * K_diff).sum(-1) - self.act_dim * (K_XX - self.identity)).sum(1) / (self.num_particles-1)
 
                 logp = logp - self.svgd_lr * (term1 + term2) 
+
             
             return phi, log_prob 
         
 
         for t in range(self.num_svgd_steps):
-            phi_, q_s_a = phi(a)
-
+            phi_, q_s_a, = phi(a)
             a = self.svgd_optim(a, phi_)
-
+            self.kernel_sigmas.append(self.Kernel.sigma_debug)
         return a, logp, q_s_a
 
     def act(self, obs, action_selection=None, with_logprob=True, itr=None):
+        start_time = time.time()
         logp_a = None
         
         if self.with_amor_infer:
             a_0 = torch.rand((len(obs), self.act_dim)).view(-1,self.act_dim).to(self.device)
-            a_amor = torch.tanh(self.amortized_net(obs, a_0)) * self.act_limit
+            self.a_amor = torch.tanh(self.amortized_net(obs, a_0)) * self.act_limit # (bs, np, od)
 
         if self.actor == "svgd_nonparam":
             a0 = self.a0[torch.randint(len(self.a0), (len(obs),))]
         elif self.actor == 'svgd_p0_pram':
-
-            ns = int(2000/self.num_particles)
+            ns = int(50/self.num_particles)
             obs_tmp = obs.view(-1, self.num_particles, self.obs_dim).repeat(1, ns, 1)
             self.mu, self.sigma = self.p0(obs_tmp)
             self.sigma = torch.clamp(self.sigma, 0.1, 1.0)
@@ -118,7 +130,6 @@ class ActorSvgd(torch.nn.Module):
                     
                     self.init_dist_normal = Normal(self.mu, self.sigma)
                     break
-
 
 
         self.a0_debbug = a0.view(-1, self.num_particles, self.act_dim)
@@ -146,6 +157,7 @@ class ActorSvgd(torch.nn.Module):
         # at test time
         if action_selection is None:
             a = self.a
+            a = self.a_amor
         elif action_selection == 'max':
             if self.num_svgd_steps == 0:
                 q_s_a1 = self.q1(obs, a.view(-1, self.act_dim))

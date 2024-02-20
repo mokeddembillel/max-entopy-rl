@@ -24,7 +24,7 @@ if __name__ == '__main__':
     # IMPORTANT: multigoal-max-entropy-obstacles and multigoal-obstacles should only be used at test time using a saved agent traned on the version of the environment without an obstacle.
     parser.add_argument('--env', type=str, default='multigoal-max-entropy', choices=['Multigoal', 'multigoal-max-entropy', 'multigoal-max-entropy-obstacles', 'multigoal-obstacles', 'Hopper-v2', 'Ant-v2', 'Walker2d-v2', 'Humanoid-v2', 'HalfCheetah-v2'])
     parser.add_argument('--seed', '-s', type=int, default=0)
-    parser.add_argument('--actor', type=str, default='svgd_p0_pram', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram'])
+    parser.add_argument('--actor', type=str, default='svgd_nonparam', choices=['sac', 'svgd_sql', 'svgd_nonparam', 'svgd_p0_pram', 'svgd_p0_kernel_pram', 'diffusion', 'iaf'])
 
     ###### networks
     parser.add_argument('--hid', type=int, default=256)
@@ -54,7 +54,7 @@ if __name__ == '__main__':
     
     ###### action selection
     parser.add_argument('--train_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy'])
-    parser.add_argument('--test_action_selection', type=str, default='random', choices=['random', 'max', 'softmax', 'adaptive_softmax', 'softmax_egreedy', 'amortized'])
+    parser.add_argument('--test_action_selection', type=str, default='random', choices=['max', 'softmax', 'softmax_egreedy', 'amortized'])
     parser.add_argument('--svgd_particles', type=int, default=10)
     parser.add_argument('--svgd_steps', type=int, default=5)
     parser.add_argument('--svgd_lr', type=float, default=0.1)
